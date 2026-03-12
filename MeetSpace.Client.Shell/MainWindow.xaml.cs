@@ -1,24 +1,16 @@
-﻿using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+﻿using System.Windows;
+using MeetSpace.Client.Presentation.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace MeetSpace.Client.Shell
+namespace MeetSpace.Client.Shell;
+
+public partial class MainWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    public MainWindow()
     {
-        public MainWindow()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+
+        var shellViewModel = App.HostContainer.Services.GetRequiredService<ShellViewModel>();
+        DataContext = shellViewModel;
     }
 }

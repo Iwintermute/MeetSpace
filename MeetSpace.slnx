@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/src/" />
   <Folder Name="/src/MeetSpace.Core/">
-    <Project Path="MeetSpace.Client.Application/MeetSpace.Client.Application.csproj" />
+    <Project Path="MeetSpace.Client.Application/MeetSpace.Client.App.csproj" />
     <Project Path="MeetSpace.Client.Contracts/MeetSpace.Client.Contracts.csproj" />
     <Project Path="MeetSpace.Client.Domain/MeetSpace.Client.Domain.csproj" />
     <Project Path="MeetSpace.Client.Shared/MeetSpace.Client.Shared.csproj" />
@@ -17,7 +17,9 @@
     <Project Path="MeetSpace.Client.Bootstrap/MeetSpace.Client.Bootstrap.csproj" />
     <Project Path="MeetSpace.Client.Infrastructure/MeetSpace.Client.Infrastructure.csproj" />
     <Project Path="MeetSpace.Client.Media/MeetSpace.Client.Media.csproj" />
-    <Project Path="MeetSpace.Client.Realtime/MeetSpace.Client.Realtime.csproj" />
+    <Project Path="MeetSpace.Client.Realtime/MeetSpace.Client.Realtime.csproj">
+      <BuildDependency Project="MeetSpace.Client.Contracts/MeetSpace.Client.Contracts.csproj" />
+    </Project>
     <Project Path="MeetSpace.Client.Security/MeetSpace.Client.Security.csproj" />
   </Folder>
   <Folder Name="/src/MeetSpace.Shell/">

@@ -1,12 +1,7 @@
 ﻿using MeetSpace.Client.Domain.Session;
 using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MeetSpace.Client.Application.Session;
+namespace MeetSpace.Client.App.Session;
 
 public sealed record SessionState(
     string? UserId,

@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MeetSpace.Client.Contracts.Protocol;
 
@@ -15,5 +13,7 @@ public sealed class FeatureResponseEnvelope
     public string? Peer { get; init; }
     public bool? Ok { get; init; }
     public string? Message { get; init; }
-    public Dictionary<string, object?> Payload { get; init; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extensions { get; init; }
 }

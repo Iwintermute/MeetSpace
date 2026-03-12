@@ -1,7 +1,5 @@
 ﻿using MeetSpace.Client.Domain.Session;
-using System.Data;
-
-namespace MeetSpace.Client.Application.Abstractions.Auth;
+namespace MeetSpace.Client.App.Abstractions.Auth;
 
 public interface IAuthSessionService
 {

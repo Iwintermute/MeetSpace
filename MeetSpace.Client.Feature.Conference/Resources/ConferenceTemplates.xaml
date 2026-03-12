@@ -1,0 +1,10 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:MeetSpace.Client.Feature.Conference.ViewModels"
+    xmlns:views="clr-namespace:MeetSpace.Client.Feature.Conference.Views">
+
+    <DataTemplate DataType="{x:Type vm:ConferencePageViewModel}">
+        <views:ConferencePage />
+    </DataTemplate>
+</ResourceDictionary>

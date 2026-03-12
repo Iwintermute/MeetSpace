@@ -5,5 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
+	<ItemGroup>
+		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
+	</ItemGroup>
 </Project>

@@ -1,9 +1,8 @@
-﻿using MeetSpace.Client.Application.Abstractions.Auth;
+﻿using MeetSpace.Client.App.Abstractions.Auth;
 using MeetSpace.Client.Domain.Session;
 using MeetSpace.Client.Shared.Abstractions;
-using System.Data;
 
-namespace MeetSpace.Client.Application.Session;
+namespace MeetSpace.Client.App.Session;
 
 public sealed class AuthSessionService : IAuthSessionService
 {

@@ -1,6 +1,6 @@
 ﻿using MeetSpace.Client.Domain.Conference;
 
-namespace MeetSpace.Client.Application.Conference;
+namespace MeetSpace.Client.App.Conference;
 
 public sealed record ConferenceViewState(
     bool IsBusy,

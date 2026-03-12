@@ -1,13 +1,8 @@
 ﻿using MeetSpace.Client.Domain.Session;
 using MeetSpace.Client.Shared.Stores;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MeetSpace.Client.Application.Session;
+
+namespace MeetSpace.Client.App.Session;
 
 public sealed class SessionStore : StoreBase<SessionState>
 {

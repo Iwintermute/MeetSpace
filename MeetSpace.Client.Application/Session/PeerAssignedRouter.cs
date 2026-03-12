@@ -1,8 +1,8 @@
-﻿using MeetSpace.Client.Application.Abstractions.Auth;
+﻿using MeetSpace.Client.App.Abstractions.Auth;
 using MeetSpace.Client.Contracts.Protocol;
 using MeetSpace.Client.Realtime.Abstractions;
 
-namespace MeetSpace.Client.Realtime.Session;
+namespace MeetSpace.Client.App.Session;
 
 public sealed class PeerAssignedRouter : IDisposable
 {

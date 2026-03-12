@@ -1,7 +1,7 @@
 ﻿using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Shared.Stores;
 
-namespace MeetSpace.Client.Application.Calls;
+namespace MeetSpace.Client.App.Calls;
 
 public sealed class CallStore : StoreBase<CallSessionState>
 {

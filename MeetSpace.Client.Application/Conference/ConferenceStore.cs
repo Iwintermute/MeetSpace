@@ -1,6 +1,6 @@
 ﻿using MeetSpace.Client.Shared.Stores;
 
-namespace MeetSpace.Client.Application.Conference;
+namespace MeetSpace.Client.App.Conference;
 
 public sealed class ConferenceStore : StoreBase<ConferenceViewState>
 {

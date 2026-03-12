@@ -1,10 +1,22 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\MeetSpace.Client.Application\MeetSpace.Client.App.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+	</ItemGroup>
 
 </Project>

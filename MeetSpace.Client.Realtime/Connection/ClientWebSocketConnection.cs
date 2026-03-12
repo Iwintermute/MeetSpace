@@ -1,5 +1,7 @@
 ﻿using System.Net.WebSockets;
 using System.Text;
+using System.Threading;
+
 using MeetSpace.Client.Realtime.Abstractions;
 
 namespace MeetSpace.Client.Realtime.Connection;
@@ -7,10 +9,13 @@ namespace MeetSpace.Client.Realtime.Connection;
 public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 {
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+
     private ClientWebSocket? _socket;
     private CancellationTokenSource? _receiveCts;
     private Task? _receiveLoopTask;
+
     private bool _disposed;
+    private int _disconnectRaised;
 
     public bool IsConnected => _socket?.State == WebSocketState.Open;
 
@@ -25,9 +30,10 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         if (IsConnected)
             return;
 
-        _socket?.Dispose();
-        _socket = new ClientWebSocket();
+        await DisposeSocketAsync().ConfigureAwait(false);
 
+        _disconnectRaised = 0;
+        _socket = new ClientWebSocket();
         await _socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
         _receiveCts = new CancellationTokenSource();
@@ -35,6 +41,7 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
         Connected?.Invoke(this, EventArgs.Empty);
     }
+
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         if (_socket is null)
@@ -46,8 +53,21 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
             if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnect", cancellationToken)
-                    .ConfigureAwait(false);
+                await _socket.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "Client disconnect",
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            if (_receiveLoopTask is not null)
+            {
+                try
+                {
+                    await _receiveLoopTask.ConfigureAwait(false);
+                }
+                catch
+                {
+                }
             }
         }
         catch
@@ -55,9 +75,11 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         }
         finally
         {
-            Disconnected?.Invoke(this, EventArgs.Empty);
+            RaiseDisconnectedOnce();
+            await DisposeSocketAsync().ConfigureAwait(false);
         }
     }
+
     public async Task SendAsync(string payload, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -66,11 +88,15 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
             throw new InvalidOperationException("Realtime connection is not established.");
 
         var bytes = Encoding.UTF8.GetBytes(payload);
+
         await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken)
-                .ConfigureAwait(false);
+            await _socket.SendAsync(
+                new ArraySegment<byte>(bytes),
+                WebSocketMessageType.Text,
+                true,
+                cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -94,11 +120,13 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
                 do
                 {
-                    result = await _socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    result = await _socket.ReceiveAsync(
+                        new ArraySegment<byte>(buffer),
+                        cancellationToken).ConfigureAwait(false);
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        Disconnected?.Invoke(this, EventArgs.Empty);
+                        RaiseDisconnectedOnce();
                         return;
                     }
 
@@ -112,9 +140,49 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         }
         catch
         {
-            Disconnected?.Invoke(this, EventArgs.Empty);
+            RaiseDisconnectedOnce();
         }
     }
+
+    private void RaiseDisconnectedOnce()
+    {
+        if (Interlocked.Exchange(ref _disconnectRaised, 1) == 0)
+            Disconnected?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task DisposeSocketAsync()
+    {
+        if (_socket is not null)
+        {
+            try
+            {
+                _socket.Dispose();
+            }
+            catch
+            {
+            }
+
+            _socket = null;
+        }
+
+        if (_receiveCts is not null)
+        {
+            try
+            {
+                _receiveCts.Dispose();
+            }
+            catch
+            {
+            }
+
+            _receiveCts = null;
+        }
+
+        _receiveLoopTask = null;
+
+        await Task.CompletedTask;
+    }
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -127,9 +195,31 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
             return;
 
         _disposed = true;
-        _receiveCts?.Cancel();
-        _socket?.Dispose();
-        _receiveCts?.Dispose();
+
+        try
+        {
+            _receiveCts?.Cancel();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            _socket?.Dispose();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            _receiveCts?.Dispose();
+        }
+        catch
+        {
+        }
+
         _sendLock.Dispose();
     }
 }

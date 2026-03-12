@@ -7,6 +7,8 @@
   </PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
 		<ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
 	</ItemGroup>
 </Project>
