@@ -1,5 +1,29 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="MeetSpace.Shell/MeetSpace.Shell.csproj" />
+  <Folder Name="/src/" />
+  <Folder Name="/src/MeetSpace.Core/">
+    <Project Path="MeetSpace.Client.Application/MeetSpace.Client.Application.csproj" />
+    <Project Path="MeetSpace.Client.Contracts/MeetSpace.Client.Contracts.csproj" />
+    <Project Path="MeetSpace.Client.Domain/MeetSpace.Client.Domain.csproj" />
+    <Project Path="MeetSpace.Client.Shared/MeetSpace.Client.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/MeetSpace.Features/">
+    <Project Path="MeetSpace.Client.Feature.Calls/MeetSpace.Client.Feature.Calls.csproj" />
+    <Project Path="MeetSpace.Client.Feature.Chat/MeetSpace.Client.Feature.Chat.csproj" />
+    <Project Path="MeetSpace.Client.Feature.Conference/MeetSpace.Client.Feature.Conference.csproj" />
+    <Project Path="MeetSpace.Client.Feature.Presence/MeetSpace.Client.Feature.Presence.csproj" />
+    <Project Path="MeetSpace.Client.Feature.Settings/MeetSpace.Client.Feature.Settings.csproj" />
+  </Folder>
+  <Folder Name="/src/MeetSpace.Platform/">
+    <Project Path="MeetSpace.Client.Bootstrap/MeetSpace.Client.Bootstrap.csproj" />
+    <Project Path="MeetSpace.Client.Infrastructure/MeetSpace.Client.Infrastructure.csproj" />
+    <Project Path="MeetSpace.Client.Media/MeetSpace.Client.Media.csproj" />
+    <Project Path="MeetSpace.Client.Realtime/MeetSpace.Client.Realtime.csproj" />
+    <Project Path="MeetSpace.Client.Security/MeetSpace.Client.Security.csproj" />
+  </Folder>
+  <Folder Name="/src/MeetSpace.Shell/">
+    <Project Path="MeetSpace.Client.Shell/MeetSpace.Client.Shell.csproj" />
+  </Folder>
+  <Folder Name="/src/MeetSpace.UI/">
+    <Project Path="MeetSpace.Client.Presentation/MeetSpace.Client.Presentation.csproj" />
   </Folder>
 </Solution>
