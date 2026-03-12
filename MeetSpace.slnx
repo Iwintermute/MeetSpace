@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="MeetSpace.Shell/MeetSpace.Shell.csproj" />
+  </Folder>
+</Solution>
