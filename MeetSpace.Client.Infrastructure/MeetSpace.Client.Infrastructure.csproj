@@ -1,12 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+		<Nullable>disable</Nullable>
+		<OutputType>Library</OutputType>
+		<Platforms>x64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
+		<Compile Include="Paths\**\*.cs" />
+		<Compile Include="Storage\**\*.cs" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Compile Include="GlobalUsings.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" Version="10.0.5" />
 	</ItemGroup>
 </Project>

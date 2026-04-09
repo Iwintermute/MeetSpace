@@ -59,7 +59,9 @@ public sealed class ConferenceCoordinator : IDisposable
                 .ConfigureAwait(false);
 
             _store.Update(s => s with { ActiveConferenceId = conferenceId, IsBusy = false });
+            await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
             return Result.Success();
+
         }
         catch (Exception ex)
         {
@@ -79,12 +81,45 @@ public sealed class ConferenceCoordinator : IDisposable
         {
             await _client.JoinConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
             _store.Update(s => s with { ActiveConferenceId = conferenceId, IsBusy = false });
+            await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
             return Result.Success();
         }
         catch (Exception ex)
         {
             _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
             return Result.Failure(new Error("conference.join_failed", ex.Message));
+        }
+    }
+
+    public async Task<Result> LeaveConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(conferenceId))
+            return Result.Failure(new Error("conference.invalid_id", "Conference ID must not be empty."));
+
+        _store.Update(s => s with { IsBusy = true, LastError = null });
+
+        try
+        {
+            await _client.LeaveConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+
+            _store.Update(s => s with
+            {
+                IsBusy = false,
+                LastError = null,
+                ActiveConferenceId = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
+                    ? null
+                    : s.ActiveConferenceId,
+                ActiveConference = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
+                    ? null
+                    : s.ActiveConference
+            });
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
+            return Result.Failure(new Error("conference.leave_failed", ex.Message));
         }
     }
 

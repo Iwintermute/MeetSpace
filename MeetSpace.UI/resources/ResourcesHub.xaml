@@ -1,0 +1,35 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Brushes/ApplicationBrushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Brushes/MicaBrushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Brushes/StyleBrushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Converters/Converters.xaml" />
+
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Buttons/AnimatedButton.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Buttons/Buttons.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Buttons/FlyoutButton.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Buttons/RefreshButton.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Buttons/ToolbarButtons.xaml" />
+
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Icons/FluentIcon.xaml" />
+
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Resources/CollectionResources.xaml" />
+
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/ActionStyles.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/ComboBox.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/FlipView.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/Flyout.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/InfoBar.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/NavigationView.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/Pivot.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/Radio.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/RichEditBox.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/Slider.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/SplitView.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/Slider.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/TabView.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/TextBox.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/ToggleSwitches.xaml" />
+        <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Styles/ToolTip.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+</ResourceDictionary>

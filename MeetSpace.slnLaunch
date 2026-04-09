@@ -1,0 +1,51 @@
+[
+  {
+    "Name": "Новый профиль",
+    "Projects": [
+      {
+        "Path": "MeetSpace.Client.Contracts\\MeetSpace.Client.Contracts.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Domain\\MeetSpace.Client.Domain.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Shared\\MeetSpace.Client.Shared.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Infrastructure\\MeetSpace.Client.Infrastructure.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Media\\MeetSpace.Client.Media.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Realtime\\MeetSpace.Client.Realtime.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Security\\MeetSpace.Client.Security.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Application\\MeetSpace.Client.App.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.Client.Bootstrap\\MeetSpace.Client.Bootstrap.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace.UI\\MeetSpace.UI.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "MeetSpace\\MeetSpace.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

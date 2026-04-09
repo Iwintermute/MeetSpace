@@ -1,6 +1,9 @@
 ﻿using MeetSpace.Client.Contracts.Protocol;
 using MeetSpace.Client.Realtime.Abstractions;
 using MeetSpace.Client.Realtime.Serialization;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MeetSpace.Client.Realtime.Gateway;
 

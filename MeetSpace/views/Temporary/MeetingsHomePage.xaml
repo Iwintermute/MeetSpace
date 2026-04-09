@@ -1,0 +1,112 @@
+﻿<Page
+    x:Class="MeetSpace.Views.Temporary.MeetingsHomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:MeetSpace.Views.UserControls"
+    mc:Ignorable="d"
+    Background="{ThemeResource MicaDarkerBrush}">
+
+    <Grid x:Name="RootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Левое меню -->
+        <Border
+            Grid.Column="0"
+            Background="#14000000"
+            BorderBrush="{ThemeResource MicaBorderBrush}"
+            BorderThickness="0,0,1,0">
+
+            <StackPanel Padding="16" Spacing="12">
+                <TextBlock
+                    Text="MeetSpace Meet"
+                    FontSize="28"
+                    FontWeight="SemiBold" />
+
+                <Button
+                    x:Name="MeetingsTabButton"
+                    HorizontalAlignment="Stretch"
+                    Content="Встречи" />
+
+                <Button
+                    x:Name="CallsTabButton"
+                    HorizontalAlignment="Stretch"
+                    Content="Вызовы" />
+            </StackPanel>
+            
+        </Border>
+
+        <!-- Основной контент -->
+        <Grid Grid.Column="1" Padding="48">
+            <StackPanel
+                MaxWidth="760"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="24">
+                
+                <TextBlock
+                    Text="Видеозвонки и встречи для всех"
+                    FontSize="44"
+                    FontWeight="SemiBold"
+                    TextAlignment="Center"
+                    TextWrapping="WrapWholeWords" />
+
+                <TextBlock
+                    Text="MeetSpace обеспечивает видеосвязь для совместной работы и общения — где бы вы ни находились."
+                    FontSize="20"
+                    Opacity="0.82"
+                    TextAlignment="Center"
+                    TextWrapping="WrapWholeWords" />
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="12">
+
+                    <Button
+                        x:Name="NewMeetingButton"
+                        Content="Новая встреча"
+                        Click="NewMeetingButton_Click">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem
+                                    Text="Создать встречу"
+                                    Click="CreateMeetingMenuItem_Click" />
+                                <MenuFlyoutItem
+                                    Text="Начать встречу с мгновенным запуском"
+                                    Click="InstantMeetingMenuItem_Click" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <TextBox
+                        x:Name="MeetingCodeTextBox"
+                        Width="320"
+                        PlaceholderText="Введите код встречи или ссылку" />
+
+                    <Button
+                        x:Name="JoinMeetingButton"
+                        Content="Присоединиться"
+                        Click="JoinMeetingButton_Click" />
+                </StackPanel>
+
+                <Border
+                    Height="1"
+                    Background="#33FFFFFF"
+                    Margin="0,12,0,0" />
+            </StackPanel>
+        </Grid>
+        <controls:MeetingInviteOverlay
+    x:Name="InviteOverlay"
+    Grid.ColumnSpan="2"
+    Visibility="Collapsed"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch"
+     />
+
+    </Grid>
+</Page>

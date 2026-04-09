@@ -1,0 +1,25 @@
+﻿<Application
+    x:Class="MeetSpace.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:local="using:MeetSpace">
+    <Application.Resources>
+        <controls:XamlControlsResources>
+            <controls:XamlControlsResources.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///MeetSpace.UI/Resources/ResourcesHub.xaml" />
+                <ResourceDictionary>
+                    <LinearGradientBrush x:Key="HeartLinearGradientBrush" StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Offset="0.0" Color="Red" />
+                        <GradientStop Offset="1.0" Color="#e96e60" />
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="AccentLinearDownGradientBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0.0" Color="{ThemeResource SystemAccentColorLight1}" />
+                        <GradientStop Offset="0.5" Color="{ThemeResource SystemAccentColorLight2}" />
+                        <GradientStop Offset="1.0" Color="{ThemeResource SystemAccentColorLight3}" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+            </controls:XamlControlsResources.MergedDictionaries>
+        </controls:XamlControlsResources>
+    </Application.Resources>
+</Application>

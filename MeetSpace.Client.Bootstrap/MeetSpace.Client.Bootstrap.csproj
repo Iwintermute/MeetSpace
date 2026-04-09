@@ -1,27 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
 	<PropertyGroup>
-		<TargetFramework>net8.0-windows</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+		<Nullable>disable</Nullable>
+		<Platforms>x64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<OutputType>Library</OutputType>
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Application\MeetSpace.Client.App.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Security\MeetSpace.Client.Security.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Media\MeetSpace.Client.Media.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Infrastructure\MeetSpace.Client.Infrastructure.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Presentation\MeetSpace.Client.Presentation.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Feature.Conference\MeetSpace.Client.Feature.Conference.csproj" />
+		<Compile Include="*.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+		<ProjectReference Include="..\MeetSpace.Client.Application\MeetSpace.Client.App.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Infrastructure\MeetSpace.Client.Infrastructure.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Security\MeetSpace.Client.Security.csproj" />
+		<ProjectReference Include="..\MeetSpace.Client.Media\MeetSpace.Client.Media.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Compile Include="..\MeetSpace.Client.Shared\Compat\IsExternalInit.cs" Link="Compat\IsExternalInit.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+	</ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -16,4 +17,5 @@ public sealed class FeatureResponseEnvelope
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extensions { get; init; }
+
 }

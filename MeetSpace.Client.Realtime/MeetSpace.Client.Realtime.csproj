@@ -1,14 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+		<Nullable>disable</Nullable>
+		<Platforms>x64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<OutputType>Library</OutputType>
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
-		<ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
+		<Compile Include="Abstractions\**\*.cs" />
+		<Compile Include="Connection\**\*.cs" />
+		<Compile Include="Gateway\**\*.cs" />
+		<Compile Include="Serialization\**\*.cs" />
+
+		<Compile Include="..\MeetSpace.Client.Shared\Compat\IsExternalInit.cs" Link="Compat\IsExternalInit.cs" />
+
+		<Compile Include="GlobalUsings.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" Version="10.0.5" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
 	</ItemGroup>
 </Project>

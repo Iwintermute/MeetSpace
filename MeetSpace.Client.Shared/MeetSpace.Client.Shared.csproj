@@ -1,9 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<OutputType>Library</OutputType>
+		<Platforms>x64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<Prefer32Bit>false</Prefer32Bit>
+
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="Abstractions\**\*.cs" />
+		<Compile Include="Compat\**\*.cs" />
+		<Compile Include="Results\**\*.cs" />
+		<Compile Include="Stores\**\*.cs" />
+		<Compile Include="Utilities\**\*.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Include="GlobalUsings.cs" />
+	</ItemGroup>
 
 </Project>

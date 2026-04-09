@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MeetSpace.Client.Shared.Stores;
 
 public abstract class StoreBase<TState> : IStore<TState>
 {
-    private readonly object _sync = new();
+    private readonly object _sync = new object();
     private TState _current;
 
     protected StoreBase(TState initialState)
@@ -41,7 +37,8 @@ public abstract class StoreBase<TState> : IStore<TState>
 
     public void Update(Func<TState, TState> updater)
     {
-        ArgumentNullException.ThrowIfNull(updater);
+        if (updater == null)
+            throw new ArgumentNullException(nameof(updater));
 
         TState next;
         lock (_sync)
