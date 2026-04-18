@@ -150,6 +150,9 @@
     </Compile>
     <Compile Include="Views\Temporary\UwpWebViewAudioBridgeHost.cs" />
     <Compile Include="Views\Temporary\WebViewAudioCallEngine.cs" />
+    <Compile Include="ViewModels\Temporary\ChatPageViewModel.cs" />
+    <Compile Include="ViewModels\Temporary\ConferenceRoomPageViewModel.cs" />
+    <Compile Include="ViewModels\Temporary\MeetingsHomePageViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Views\Temporary\ConferenceRoomPage.cs" />
     <Compile Include="Views\Temporary\ChatPage.xaml.cs">

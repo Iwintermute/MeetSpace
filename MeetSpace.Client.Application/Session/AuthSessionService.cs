@@ -20,20 +20,45 @@ public sealed class AuthSessionService : IAuthSessionService
         var state = _store.Current;
         return Task.FromResult(new SessionIdentity(
             state.UserId,
-            state.TrustedPeer,
+            state.SelfPeerId,
+            state.DeviceId,
             state.ConnectionState,
             state.ConnectedAtUtc));
     }
 
-    public Task SetTrustedPeerAsync(string trustedPeer, CancellationToken cancellationToken = default)
+    public Task SetIdentityAsync(string? userId, string? selfPeerId, CancellationToken cancellationToken = default)
     {
-        _store.SetTrustedPeer(trustedPeer);
+        _store.SetBindContext(userId, selfPeerId, null);
+        return Task.CompletedTask;
+    }
+
+    public Task SetSelfPeerAsync(string selfPeerId, CancellationToken cancellationToken = default)
+    {
+        _store.SetSelfPeerId(selfPeerId);
+        return Task.CompletedTask;
+    }
+
+    public Task SetTrustedPeerAsync(string selfPeerId, CancellationToken cancellationToken = default)
+    {
+        _store.SetSelfPeerId(selfPeerId);
+        return Task.CompletedTask;
+    }
+
+    public Task SetDeviceIdAsync(string? deviceId, CancellationToken cancellationToken = default)
+    {
+        _store.SetDeviceId(deviceId);
         return Task.CompletedTask;
     }
 
     public Task SetConnectionStateAsync(ConnectionState state, CancellationToken cancellationToken = default)
     {
         _store.SetConnectionState(state, state == ConnectionState.Connected ? _clock.UtcNow : null);
+        return Task.CompletedTask;
+    }
+
+    public Task ResetAsync(CancellationToken cancellationToken = default)
+    {
+        _store.Reset();
         return Task.CompletedTask;
     }
 }

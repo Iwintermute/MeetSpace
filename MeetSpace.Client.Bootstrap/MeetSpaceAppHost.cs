@@ -5,82 +5,78 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MeetSpace.Client.Bootstrap
+namespace MeetSpace.Client.Bootstrap;
+
+public sealed class MeetSpaceAppHost : IDisposable
 {
-    public sealed class MeetSpaceAppHost : IDisposable
+    private readonly ServiceProvider _serviceProvider;
+    private bool _started;
+    private bool _disposed;
+
+    internal MeetSpaceAppHost(ServiceProvider serviceProvider)
     {
-        private readonly ServiceProvider _serviceProvider;
-        private bool _started;
-        private bool _disposed;
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
 
-        internal MeetSpaceAppHost(ServiceProvider serviceProvider)
+    public IServiceProvider Services => _serviceProvider;
+
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (_started)
+            return;
+
+        var warmup = _serviceProvider.GetRequiredService<BootstrapWarmupService>();
+        await warmup.WarmupAsync(cancellationToken).ConfigureAwait(false);
+
+        var mediaEngine = _serviceProvider.GetService<IMediaEngine>();
+        if (mediaEngine != null)
+            await mediaEngine.InitializeAsync(cancellationToken).ConfigureAwait(false);
+
+        _started = true;
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed || !_started)
+            return;
+
+        try
         {
-            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            var gateway = _serviceProvider.GetService<IRealtimeGateway>();
+            if (gateway != null && gateway.IsConnected)
+                await gateway.DisconnectAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
         }
 
-        public IServiceProvider Services
+        try
         {
-            get { return _serviceProvider; }
-        }
-
-        public async Task StartAsync(CancellationToken cancellationToken = default)
-        {
-            ThrowIfDisposed();
-
-            if (_started)
-                return;
-
-            var warmup = _serviceProvider.GetRequiredService<BootstrapWarmupService>();
-            await warmup.WarmupAsync(cancellationToken).ConfigureAwait(false);
-
             var mediaEngine = _serviceProvider.GetService<IMediaEngine>();
             if (mediaEngine != null)
-                await mediaEngine.InitializeAsync(cancellationToken).ConfigureAwait(false);
-
-            _started = true;
+                await mediaEngine.ShutdownAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        public async Task StopAsync(CancellationToken cancellationToken = default)
+        catch
         {
-            if (_disposed || !_started)
-                return;
-
-            try
-            {
-                var gateway = _serviceProvider.GetService<IRealtimeGateway>();
-                if (gateway != null && gateway.IsConnected)
-                    await gateway.DisconnectAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                var mediaEngine = _serviceProvider.GetService<IMediaEngine>();
-                if (mediaEngine != null)
-                    await mediaEngine.ShutdownAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            _started = false;
         }
 
-        private void ThrowIfDisposed()
-        {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(MeetSpaceAppHost));
-        }
+        _started = false;
+    }
 
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(MeetSpaceAppHost));
+    }
 
-            _disposed = true;
-            _serviceProvider.Dispose();
-        }
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _serviceProvider.Dispose();
     }
 }

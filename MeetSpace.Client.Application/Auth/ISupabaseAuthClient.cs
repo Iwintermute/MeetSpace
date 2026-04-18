@@ -1,7 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-namespace MeetSpace.Client.App.Auth;
+﻿namespace MeetSpace.Client.App.Auth;
 
 public interface ISupabaseAuthClient
 {

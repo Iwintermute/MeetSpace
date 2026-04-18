@@ -13,5 +13,7 @@ public static class ChatProtocol
     public static class Actions
     {
         public const string SendMessage = "send_message";
+        public const string SyncMessages = "sync_messages";
+        public const string AckMessages = "ack_messages";
     }
 }

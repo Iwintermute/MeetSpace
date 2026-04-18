@@ -21,7 +21,7 @@
   "devDependencies": {
     "browserify": "^17.0.1",
     "esbuild": "^0.28.0",
-    "mediasoup-client": "^3.18.7",
+    "mediasoup-client": "^3.18.8",
     "watchify": "^4.0.0"
   },
   "dependencies": {

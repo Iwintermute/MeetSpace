@@ -13,11 +13,16 @@
 		<Compile Include="Abstractions\**\*.cs" />
 		<Compile Include="Connection\**\*.cs" />
 		<Compile Include="Gateway\**\*.cs" />
-		<Compile Include="Serialization\**\*.cs" />
 
 		<Compile Include="..\MeetSpace.Client.Shared\Compat\IsExternalInit.cs" Link="Compat\IsExternalInit.cs" />
 
 		<Compile Include="GlobalUsings.cs" />
+
+		<Compile Include="Rpc\IRealtimeRpcClient.cs" />
+
+		<Compile Include="Rpc\RealtimeRpcClient.cs" />
+
+		<Compile Include="Rpc\RpcDispatchExtensions.cs" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="System.Text.Json" Version="10.0.5" />

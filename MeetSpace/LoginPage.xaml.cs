@@ -1,8 +1,8 @@
 ﻿using MeetSpace.Client.App.Auth;
-using MeetSpace.Client.Bootstrap;
+using MeetSpace.Client.App.Session;
+using MeetSpace.Client.Shared.Configuration;
 using MeetSpace.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Threading.Tasks;
 using Windows.System;
@@ -10,219 +10,228 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
 
-namespace MeetSpace
+namespace MeetSpace;
+
+public sealed partial class LoginPage : Page
 {
-    public sealed partial class LoginPage : Page
+    private readonly ClientRuntimeOptions _options;
+    private bool _isBusy;
+
+    public LoginPage()
     {
-        private bool _isBusy;
+        InitializeComponent();
+        WindowService.Initialize(AppTitleBar, AppTitle);
 
-        public LoginPage()
+        _options = App.Current.Services.GetRequiredService<ClientRuntimeOptions>();
+
+        Loaded += LoginPage_Loaded;
+        KeyDown += LoginPage_KeyDown;
+
+        PasswordRevealToggle.Checked += PasswordRevealToggle_Checked;
+        PasswordRevealToggle.Unchecked += PasswordRevealToggle_Unchecked;
+    }
+
+    private void LoginPage_Loaded(object sender, RoutedEventArgs e)
+    {
+        NameBox.Focus(FocusState.Programmatic);
+        SetBusy(false);
+        HideInfoBar();
+        SetStatus(string.Empty, string.Empty);
+    }
+
+    private async void LoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        await PerformAuthAsync();
+    }
+
+    private async void LoginPage_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter && !_isBusy)
         {
-            InitializeComponent();
-            WindowService.Initialize(AppTitleBar, AppTitle);
-
-            Loaded += LoginPage_Loaded;
-            KeyDown += LoginPage_KeyDown;
-
-            PasswordRevealToggle.Checked += PasswordRevealToggle_Checked;
-            PasswordRevealToggle.Unchecked += PasswordRevealToggle_Unchecked;
-        }
-
-        private void LoginPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            NameBox.Focus(FocusState.Programmatic);
-            SetBusy(false);
-            HideInfoBar();
-            SetStatus(string.Empty, string.Empty);
-        }
-
-        private async void LoginButton_Click(object sender, RoutedEventArgs e)
-        {
+            e.Handled = true;
             await PerformAuthAsync();
         }
+    }
 
-        private async void LoginPage_KeyDown(object sender, KeyRoutedEventArgs e)
+    private void PasswordRevealToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        KeyBox.PasswordRevealMode = PasswordRevealMode.Visible;
+    }
+
+    private void PasswordRevealToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        KeyBox.PasswordRevealMode = PasswordRevealMode.Hidden;
+    }
+
+    private async Task PerformAuthAsync()
+    {
+        if (_isBusy)
+            return;
+
+        HideInfoBar();
+
+        var email = (NameBox.Text ?? string.Empty).Trim();
+        var password = KeyBox.Password ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(email))
         {
-            if (e.Key == VirtualKey.Enter && !_isBusy)
-            {
-                e.Handled = true;
-                await PerformAuthAsync();
-            }
+            ShowError("Введите email.");
+            NameBox.Focus(FocusState.Programmatic);
+            return;
         }
 
-        private void PasswordRevealToggle_Checked(object sender, RoutedEventArgs e)
+        if (string.IsNullOrWhiteSpace(password))
         {
-            KeyBox.PasswordRevealMode = PasswordRevealMode.Visible;
+            ShowError("Введите пароль.");
+            KeyBox.Focus(FocusState.Programmatic);
+            return;
         }
 
-        private void PasswordRevealToggle_Unchecked(object sender, RoutedEventArgs e)
+        SetBusy(true);
+        SetStatus("Авторизация...", "Сначала пробуем вход. Если аккаунта нет — создаём.");
+
+        try
         {
-            KeyBox.PasswordRevealMode = PasswordRevealMode.Hidden;
-        }
+            var authClient = App.Current.Services.GetRequiredService<ISupabaseAuthClient>();
 
-        private async Task PerformAuthAsync()
-        {
-            if (_isBusy)
-                return;
-
-            HideInfoBar();
-
-            var email = (NameBox.Text ?? string.Empty).Trim();
-            var password = KeyBox.Password ?? string.Empty;
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                ShowError("Введите email.");
-                NameBox.Focus(FocusState.Programmatic);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(password))
-            {
-                ShowError("Введите пароль.");
-                KeyBox.Focus(FocusState.Programmatic);
-                return;
-            }
-
-            SetBusy(true);
-            SetStatus("Авторизация...", "Сначала пробуем вход. Если аккаунта нет — создаём.");
-
+            AuthResult result;
             try
             {
-                var authClient = App.Current.Services.GetRequiredService<ISupabaseAuthClient>();
-
-                AuthResult result;
-
-                try
-                {
-                    result = await authClient.SignInAsync(email, password);
-                }
-                catch (SupabaseAuthException ex) when (IsInvalidCredentials(ex.Message))
-                {
-                    SetStatus("Регистрация...", "Аккаунт не найден. Создаём нового пользователя.");
-                    result = await authClient.SignUpAsync(email, password);
-                }
-
-                if (result.RequiresEmailConfirmation)
-                {
-                    ShowInfo(
-                        "Подтвердите email",
-                        "На почту отправлена ссылка. Подтвердите регистрацию и затем нажмите Login ещё раз.");
-                    return;
-                }
-
-                if (!result.IsAuthenticated || result.Tokens is null)
-                {
-                    ShowError(result.Message ?? "Не удалось получить сессию.");
-                    return;
-                }
-
-                await CompleteSuccessfulLoginAsync(result.Tokens);
+                result = await authClient.SignInAsync(email, password).ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (SupabaseAuthException ex) when (IsInvalidCredentials(ex.Message))
             {
-                ShowError(MapLoginError(ex));
+                SetStatus("Регистрация...", "Аккаунт не найден. Создаём нового пользователя.");
+                result = await authClient.SignUpAsync(email, password).ConfigureAwait(true);
             }
-            finally
+
+            if (result.RequiresEmailConfirmation)
             {
-                SetBusy(false);
+                ShowInfo(
+                    "Подтвердите email",
+                    "На почту отправлена ссылка. Подтвердите регистрацию и затем нажмите Login ещё раз.");
+                return;
             }
-        }
 
-        private async Task CompleteSuccessfulLoginAsync(AuthTokens tokens)
-        {
-            var authStore = App.Current.Services.GetRequiredService<AuthSessionStore>();
-            var startupService = App.Current.Services.GetRequiredService<RealtimeStartupService>();
-            var authBinder = App.Current.Services.GetRequiredService<RealtimeAuthBinder>();
-
-            authStore.SetSession(tokens);
-
-            SetStatus("Вход выполнен", "Подключаем realtime...");
-
-            try
+            if (!result.IsAuthenticated || result.Tokens is null)
             {
-                var connectResult = await startupService.EnsureConnectedAsync("ws://127.0.0.1:9002");
-                if (connectResult.IsSuccess)
-                    await authBinder.BindAsync();
+                ShowError(result.Message ?? "Не удалось получить сессию.");
+                return;
             }
-            catch
+
+            await CompleteSuccessfulLoginAsync(result.Tokens).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            ShowError(MapLoginError(ex));
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task CompleteSuccessfulLoginAsync(AuthTokens tokens)
+    {
+        var authStore = App.Current.Services.GetRequiredService<AuthSessionStore>();
+        var startupService = App.Current.Services.GetRequiredService<RealtimeStartupService>();
+
+        authStore.SetSession(tokens);
+
+        SetStatus("Вход выполнен", "Подключаем realtime...");
+
+        try
+        {
+            var connectResult = await startupService
+                .EnsureConnectedAsync(_options.DefaultRealtimeEndpoint)
+                .ConfigureAwait(true);
+
+            if (connectResult.IsFailure)
             {
-                // auth успешен, realtime не должен ломать вход
+                authStore.ClearSession();
+                ShowError(connectResult.Error?.Message ?? "Не удалось подключить realtime.");
+                return;
             }
-
-            Frame?.Navigate(typeof(MainPage));
         }
-
-        private static bool IsInvalidCredentials(string message)
+        catch (Exception ex)
         {
-            if (string.IsNullOrWhiteSpace(message))
-                return false;
-
-            return message.Contains("Invalid login credentials", StringComparison.OrdinalIgnoreCase);
+            authStore.ClearSession();
+            ShowError(ex.Message);
+            return;
         }
 
-        private void SetBusy(bool isBusy)
-        {
-            _isBusy = isBusy;
+        Frame?.Navigate(typeof(MainPage));
+    }
 
-            LoginButton.IsEnabled = !isBusy;
-            NameBox.IsEnabled = !isBusy;
-            KeyBox.IsEnabled = !isBusy;
-            PasswordRevealToggle.IsEnabled = !isBusy;
+    private static bool IsInvalidCredentials(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
 
-            LoginBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
-        }
+        return message.Contains("Invalid login credentials", StringComparison.OrdinalIgnoreCase);
+    }
 
-        private void SetStatus(string title, string text)
-        {
-            StatusTitle.Text = title ?? string.Empty;
-            StatusText.Text = text ?? string.Empty;
-        }
+    private void SetBusy(bool isBusy)
+    {
+        _isBusy = isBusy;
 
-        private void ShowError(string message)
-        {
-            Errorbar.Severity = InfoBarSeverity.Error;
-            Errorbar.Title = "Ошибка входа";
-            Errorbar.Message = message;
-            Errorbar.IsOpen = true;
+        LoginButton.IsEnabled = !isBusy;
+        NameBox.IsEnabled = !isBusy;
+        KeyBox.IsEnabled = !isBusy;
+        PasswordRevealToggle.IsEnabled = !isBusy;
 
-            SetStatus("Ошибка", message);
-        }
+        LoginBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+    }
 
-        private void ShowInfo(string title, string message)
-        {
-            Errorbar.Severity = InfoBarSeverity.Informational;
-            Errorbar.Title = title;
-            Errorbar.Message = message;
-            Errorbar.IsOpen = true;
+    private void SetStatus(string title, string text)
+    {
+        StatusTitle.Text = title ?? string.Empty;
+        StatusText.Text = text ?? string.Empty;
+    }
 
-            SetStatus(title, message);
-        }
+    private void ShowError(string message)
+    {
+        Errorbar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
+        Errorbar.Title = "Ошибка входа";
+        Errorbar.Message = message;
+        Errorbar.IsOpen = true;
 
-        private void HideInfoBar()
-        {
-            Errorbar.IsOpen = false;
-        }
+        SetStatus("Ошибка", message);
+    }
 
-        private static string MapLoginError(Exception ex)
-        {
-            var message = ex.Message ?? string.Empty;
+    private void ShowInfo(string title, string message)
+    {
+        Errorbar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Informational;
+        Errorbar.Title = title;
+        Errorbar.Message = message;
+        Errorbar.IsOpen = true;
 
-            if (message.Contains("Invalid login credentials", StringComparison.OrdinalIgnoreCase))
-                return "Неверный email или пароль.";
+        SetStatus(title, message);
+    }
 
-            if (message.Contains("Email not confirmed", StringComparison.OrdinalIgnoreCase))
-                return "Подтвердите email по ссылке из письма и нажмите Login ещё раз.";
+    private void HideInfoBar()
+    {
+        Errorbar.IsOpen = false;
+    }
 
-            if (message.Contains("Email logins are disabled", StringComparison.OrdinalIgnoreCase))
-                return "В Supabase выключен вход по email/password. Включи Email provider.";
+    private static string MapLoginError(Exception ex)
+    {
+        var message = ex.Message ?? string.Empty;
 
-            if (message.Contains("User already registered", StringComparison.OrdinalIgnoreCase))
-                return "Пользователь уже зарегистрирован. Просто войдите после подтверждения почты.";
+        if (message.Contains("Invalid login credentials", StringComparison.OrdinalIgnoreCase))
+            return "Неверный email или пароль.";
 
-            return string.IsNullOrWhiteSpace(message)
-                ? "Не удалось выполнить вход."
-                : message;
-        }
+        if (message.Contains("Email not confirmed", StringComparison.OrdinalIgnoreCase))
+            return "Подтвердите email по ссылке из письма и нажмите Login ещё раз.";
+
+        if (message.Contains("Email logins are disabled", StringComparison.OrdinalIgnoreCase))
+            return "В Supabase выключен вход по email/password.";
+
+        if (message.Contains("User already registered", StringComparison.OrdinalIgnoreCase))
+            return "Пользователь уже зарегистрирован. Просто войдите после подтверждения почты.";
+
+        return string.IsNullOrWhiteSpace(message)
+            ? "Не удалось выполнить вход."
+            : message;
     }
 }

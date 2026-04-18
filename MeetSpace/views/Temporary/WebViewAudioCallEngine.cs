@@ -16,7 +16,8 @@ namespace MeetSpace.Temporary
         private readonly SemaphoreSlim _attachSync = new SemaphoreSlim(1, 1);
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
         };
 
         private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> _pendingResponses =
@@ -136,7 +137,7 @@ namespace MeetSpace.Temporary
                 ["dtlsParameters"] = JsonSerializer.Deserialize<JsonElement>(info.DtlsParametersJson)
             };
 
-            return SendRequestAsync("create_send_transport", payload, cancellationToken);
+            return SendVoidRequestAsync("create_send_transport", payload, cancellationToken);
         }
 
         public Task CreateRecvTransportAsync(WebRtcTransportInfo info, CancellationToken cancellationToken = default)
@@ -149,7 +150,7 @@ namespace MeetSpace.Temporary
                 ["dtlsParameters"] = JsonSerializer.Deserialize<JsonElement>(info.DtlsParametersJson)
             };
 
-            return SendRequestAsync("create_recv_transport", payload, cancellationToken);
+            return SendVoidRequestAsync("create_recv_transport", payload, cancellationToken);
         }
 
         public Task StartMicrophoneAsync(string serverProducerId, CancellationToken cancellationToken = default)
@@ -159,20 +160,66 @@ namespace MeetSpace.Temporary
                 ["serverProducerId"] = serverProducerId
             };
 
-            return SendRequestAsync("start_microphone", payload, cancellationToken);
+            return SendVoidRequestAsync("start_microphone", payload, cancellationToken);
+        }
+        public Task StartCameraAsync(string serverProducerId, CancellationToken cancellationToken = default)
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["serverProducerId"] = serverProducerId
+            };
+
+            return SendVoidRequestAsync("start_camera", payload, cancellationToken);
         }
 
-        public Task ConsumeRemoteAudioAsync(ConsumerInfo info, CancellationToken cancellationToken = default)
+        public Task StopCameraAsync(CancellationToken cancellationToken = default)
+        {
+            return SendVoidRequestAsync("stop_camera", new Dictionary<string, object?>(), cancellationToken);
+        }
+
+        public Task StartScreenShareAsync(string serverProducerId, CancellationToken cancellationToken = default)
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["serverProducerId"] = serverProducerId
+            };
+
+            return SendVoidRequestAsync("start_screen", payload, cancellationToken);
+        }
+
+        public Task StopScreenShareAsync(CancellationToken cancellationToken = default)
+        {
+            return SendVoidRequestAsync("stop_screen", new Dictionary<string, object?>(), cancellationToken);
+        }
+
+        public Task ConsumeRemoteTrackAsync(ConsumerInfo info, CancellationToken cancellationToken = default)
         {
             var payload = new Dictionary<string, object?>
             {
                 ["consumerId"] = info.ConsumerId,
                 ["producerId"] = info.ProducerId,
                 ["kind"] = info.Kind,
+                ["trackType"] = info.TrackType,
                 ["rtpParameters"] = JsonSerializer.Deserialize<JsonElement>(info.RtpParametersJson)
             };
+            var command = string.Equals(info.Kind, "audio", StringComparison.OrdinalIgnoreCase)
+                          && !string.Equals(info.TrackType, "camera", StringComparison.OrdinalIgnoreCase)
+                          && !string.Equals(info.TrackType, "screen", StringComparison.OrdinalIgnoreCase)
+                ? "consume_audio"
+                : "consume_video";
 
-            return SendRequestAsync("consume_audio", payload, cancellationToken);
+            return SendVoidRequestAsync(command, payload, cancellationToken);
+        }
+
+        public Task RemoveRemoteConsumerAsync(string consumerId, CancellationToken cancellationToken = default)
+        {
+            return SendVoidRequestAsync(
+                "close_consumer",
+                new Dictionary<string, object?>
+                {
+                    ["consumerId"] = consumerId
+                },
+                cancellationToken);
         }
 
         public Task SetMicrophoneEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
@@ -182,7 +229,27 @@ namespace MeetSpace.Temporary
                 ["enabled"] = enabled
             };
 
-            return SendRequestAsync("set_microphone_enabled", payload, cancellationToken);
+            return SendVoidRequestAsync("set_microphone_enabled", payload, cancellationToken);
+        }
+
+        public Task SetCameraEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["enabled"] = enabled
+            };
+
+            return SendVoidRequestAsync("set_camera_enabled", payload, cancellationToken);
+        }
+
+        public Task SetScreenShareEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["enabled"] = enabled
+            };
+
+            return SendVoidRequestAsync("set_screen_enabled", payload, cancellationToken);
         }
 
         public Task ResolveTransportConnectAsync(string pendingId, bool ok, string? error = null, CancellationToken cancellationToken = default)
@@ -194,7 +261,7 @@ namespace MeetSpace.Temporary
                 ["error"] = error
             };
 
-            return SendRequestAsync("resolve_transport_connect", payload, cancellationToken);
+            return SendVoidRequestAsync("resolve_transport_connect", payload, cancellationToken);
         }
 
         public Task ResolveProduceAsync(string pendingId, string serverProducerId, bool ok, string? error = null, CancellationToken cancellationToken = default)
@@ -207,7 +274,7 @@ namespace MeetSpace.Temporary
                 ["error"] = error
             };
 
-            return SendRequestAsync("resolve_transport_produce", payload, cancellationToken);
+            return SendVoidRequestAsync("resolve_transport_produce", payload, cancellationToken);
         }
 
         public async Task CloseAsync(CancellationToken cancellationToken = default)
@@ -217,13 +284,21 @@ namespace MeetSpace.Temporary
 
             try
             {
-                await SendRequestAsync("close_call", new Dictionary<string, object?>(), cancellationToken).ConfigureAwait(false);
+                await SendVoidRequestAsync("close_call", new Dictionary<string, object?>(), cancellationToken).ConfigureAwait(false);
             }
             catch
             {
             }
 
             RecvRtpCapabilitiesJson = null;
+        }
+
+        private async Task SendVoidRequestAsync(
+            string command,
+            Dictionary<string, object?> payload,
+            CancellationToken cancellationToken)
+        {
+            _ = await SendRequestAsync(command, payload, cancellationToken).ConfigureAwait(false);
         }
 
         private void Host_MessageReceived(object? sender, string raw)
@@ -310,44 +385,85 @@ namespace MeetSpace.Temporary
 
         private async Task HandleTransportConnectAsync(BridgeMessage message)
         {
+            var pendingId = message.Payload.TryGetProperty("pendingId", out var pendingProp)
+                ? pendingProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var transportId = message.Payload.TryGetProperty("transportId", out var transportProp)
+                ? transportProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var direction = message.Payload.TryGetProperty("direction", out var directionProp)
+                ? directionProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var dtlsParametersJson = message.Payload.TryGetProperty("dtlsParameters", out var dtlsProp)
+                ? dtlsProp.GetRawText()
+                : "{}";
+
             var handler = TransportConnectRequired;
             if (handler == null)
             {
                 await ResolveTransportConnectAsync(
-                    message.Payload.GetProperty("pendingId").GetString() ?? string.Empty,
+                    pendingId,
                     false,
                     "No connect handler registered.").ConfigureAwait(false);
                 return;
             }
 
             var request = new TransportConnectRequest(
-                message.Payload.GetProperty("pendingId").GetString() ?? string.Empty,
-                message.Payload.GetProperty("transportId").GetString() ?? string.Empty,
-                message.Payload.GetProperty("direction").GetString() ?? string.Empty,
-                message.Payload.GetProperty("dtlsParameters").GetRawText());
+                pendingId,
+                transportId,
+                direction,
+                dtlsParametersJson);
 
             await handler.Invoke(request).ConfigureAwait(false);
         }
 
         private async Task HandleTransportProduceAsync(BridgeMessage message)
         {
+            var pendingId = message.Payload.TryGetProperty("pendingId", out var pendingProp)
+                ? pendingProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var transportId = message.Payload.TryGetProperty("transportId", out var transportProp)
+                ? transportProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var kind = message.Payload.TryGetProperty("kind", out var kindProp)
+                ? kindProp.GetString() ?? "audio"
+                : "audio";
+
+            var rtpParametersJson = message.Payload.TryGetProperty("rtpParameters", out var rtpProp)
+                ? rtpProp.GetRawText()
+                : "{}";
+
+            var serverProducerId = message.Payload.TryGetProperty("serverProducerId", out var producerProp)
+                ? producerProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var trackType = message.Payload.TryGetProperty("trackType", out var trackTypeProp)
+                ? trackTypeProp.GetString()
+                : null;
+
             var handler = TransportProduceRequired;
             if (handler == null)
             {
                 await ResolveProduceAsync(
-                    message.Payload.GetProperty("pendingId").GetString() ?? string.Empty,
-                    message.Payload.GetProperty("serverProducerId").GetString() ?? string.Empty,
+                    pendingId,
+                    serverProducerId,
                     false,
                     "No produce handler registered.").ConfigureAwait(false);
                 return;
             }
 
             var request = new TransportProduceRequest(
-                message.Payload.GetProperty("pendingId").GetString() ?? string.Empty,
-                message.Payload.GetProperty("transportId").GetString() ?? string.Empty,
-                message.Payload.GetProperty("kind").GetString() ?? "audio",
-                message.Payload.GetProperty("rtpParameters").GetRawText(),
-                message.Payload.GetProperty("serverProducerId").GetString() ?? string.Empty);
+                pendingId,
+                transportId,
+                kind,
+                rtpParametersJson,
+                serverProducerId,
+                trackType);
 
             await handler.Invoke(request).ConfigureAwait(false);
         }

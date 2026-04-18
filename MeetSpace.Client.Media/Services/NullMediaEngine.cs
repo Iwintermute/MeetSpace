@@ -6,7 +6,6 @@ namespace MeetSpace.Client.Media.Services;
 public sealed class NullMediaEngine : IMediaEngine, IAudioDeviceService, IVideoDeviceService, IScreenShareService
 {
     public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
     public Task ShutdownAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<IReadOnlyList<AudioInputDeviceInfo>> GetInputDevicesAsync(CancellationToken cancellationToken = default)

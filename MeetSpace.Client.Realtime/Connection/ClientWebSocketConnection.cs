@@ -1,9 +1,6 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Net.WebSockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using MeetSpace.Client.Realtime.Abstractions;
 
 namespace MeetSpace.Client.Realtime.Connection;
@@ -29,6 +26,9 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
     {
         ThrowIfDisposed();
 
+        if (endpoint == null)
+            throw new ArgumentNullException(nameof(endpoint));
+
         if (IsConnected)
             return;
 
@@ -36,6 +36,8 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
         _disconnectRaised = 0;
         _socket = new ClientWebSocket();
+        _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
         await _socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
         _receiveCts = new CancellationTokenSource();
@@ -89,6 +91,9 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         if (_socket is null || _socket.State != WebSocketState.Open)
             throw new InvalidOperationException("Realtime connection is not established.");
 
+        if (payload == null)
+            throw new ArgumentNullException(nameof(payload));
+
         var bytes = Encoding.UTF8.GetBytes(payload);
 
         await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -108,21 +113,22 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
     {
-        if (_socket is null)
+        var socket = _socket;
+        if (socket is null)
             return;
 
-        var buffer = new byte[8192];
+        var buffer = new byte[16 * 1024];
 
         try
         {
-            while (!cancellationToken.IsCancellationRequested && _socket.State == WebSocketState.Open)
+            while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
                 using var ms = new MemoryStream();
                 WebSocketReceiveResult result;
 
                 do
                 {
-                    result = await _socket.ReceiveAsync(
+                    result = await socket.ReceiveAsync(
                         new ArraySegment<byte>(buffer),
                         cancellationToken).ConfigureAwait(false);
 
@@ -132,13 +138,20 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
                         return;
                     }
 
-                    ms.Write(buffer, 0, result.Count);
+                    if (result.Count > 0)
+                        ms.Write(buffer, 0, result.Count);
                 }
                 while (!result.EndOfMessage);
+
+                if (ms.Length == 0)
+                    continue;
 
                 var payload = Encoding.UTF8.GetString(ms.ToArray());
                 MessageReceived?.Invoke(this, payload);
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch
         {
@@ -152,8 +165,19 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
             Disconnected?.Invoke(this, EventArgs.Empty);
     }
 
-    private async Task DisposeSocketAsync()
+    private Task DisposeSocketAsync()
     {
+        if (_receiveCts is not null)
+        {
+            try
+            {
+                _receiveCts.Cancel();
+            }
+            catch
+            {
+            }
+        }
+
         if (_socket is not null)
         {
             try
@@ -181,8 +205,7 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         }
 
         _receiveLoopTask = null;
-
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     private void ThrowIfDisposed()

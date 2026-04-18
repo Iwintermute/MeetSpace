@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MeetSpace.Client.Infrastructure.Paths;
+﻿namespace MeetSpace.Client.Infrastructure.Paths;
 
 public sealed class AppPaths : IAppPaths
 {

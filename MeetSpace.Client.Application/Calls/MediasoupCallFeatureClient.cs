@@ -1,61 +1,63 @@
-﻿using System.Text.Json;
+﻿
 using MeetSpace.Client.Contracts.Calls;
 using MeetSpace.Client.Contracts.Protocol;
-using MeetSpace.Client.Realtime.Abstractions;
+using MeetSpace.Client.Realtime.Rpc;
+using MeetSpace.Client.Shared.Json;
 using MeetSpace.Client.Shared.Results;
 using MeetSpace.Client.Shared.Utilities;
 
 namespace MeetSpace.Client.App.Calls;
 
-public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
+public sealed class MediasoupCallFeatureClient : IMediasoupFeatureClient
 {
-    private readonly IRealtimeGateway _gateway;
+    private readonly IRealtimeRpcClient _rpcClient;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
 
-    public MediasoupFeatureClient(IRealtimeGateway gateway)
+    public MediasoupCallFeatureClient(IRealtimeRpcClient rpcClient)
     {
-        _gateway = gateway;
+        _rpcClient = rpcClient;
     }
 
     public async Task<Result> CreateRoomIfMissingAsync(string roomId, CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.CreateRoom,
+        var result = await DispatchOptionalAsync(
+            MediasoupProtocol.CreateRoomActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId))
             },
             cancellationToken).ConfigureAwait(false);
 
-        if (response.IsSuccess)
+        if (result.IsSuccess)
             return Result.Success();
 
-        return response.Error != null &&
-       response.Error.Message != null &&
-       response.Error.Message.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0
-    ? Result.Success()
-    : Result.Failure(response.Error!);
+        return IsAlreadyExists(result.Error)
+            ? Result.Success()
+            : Result.Failure(result.Error!);
     }
 
     public async Task<Result> JoinRoomAsync(string roomId, CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.JoinRoom,
+        var result = await DispatchOptionalAsync(
+            MediasoupProtocol.JoinRoomActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId))
             },
             cancellationToken).ConfigureAwait(false);
 
-        return response.IsSuccess
+        return result.IsSuccess
             ? Result.Success()
-            : Result.Failure(response.Error!);
+            : Result.Failure(result.Error!);
     }
 
-    public async Task<Result<WebRtcTransportInfo>> OpenTransportAsync(string roomId, string transportId, CancellationToken cancellationToken = default)
+    public async Task<Result<WebRtcTransportInfo>> OpenTransportAsync(
+        string roomId,
+        string transportId,
+        CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.OpenTransport,
+        var result = await DispatchRequiredAsync(
+            MediasoupProtocol.OpenTransportActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId)),
@@ -63,28 +65,40 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
             },
             cancellationToken).ConfigureAwait(false);
 
-        if (response.IsFailure)
-            return Result<WebRtcTransportInfo>.Failure(response.Error!);
+        if (result.IsFailure)
+            return Result<WebRtcTransportInfo>.Failure(result.Error!);
 
         try
         {
-            var (dataJson, backendJson) = ExtractPayloadJson(response.Value!);
+            var root = GetPayloadRoot(result.Value!);
 
-            using (var dataDoc = JsonDocument.Parse(dataJson))
-            using (var backendDoc = JsonDocument.Parse(backendJson))
+            string routerCaps = "{}";
+            if (root.TryGetAnyProperty(out var routerCapsElement, "routerRtpCapabilities", "router_rtp_capabilities"))
             {
-                var data = dataDoc.RootElement;
-                var backend = backendDoc.RootElement;
-
-                return Result<WebRtcTransportInfo>.Success(
-                    new WebRtcTransportInfo(
-                        data.GetProperty("roomId").GetString() ?? roomId,
-                        data.GetProperty("transportId").GetString() ?? transportId,
-                        data.GetProperty("iceParameters").GetRawText(),
-                        data.GetProperty("iceCandidates").GetRawText(),
-                        data.GetProperty("dtlsParameters").GetRawText(),
-                        backend.GetProperty("routerRtpCapabilities").GetRawText()));
+                routerCaps = routerCapsElement.GetRawText();
             }
+            else if (result.Value!.TryGetElement("backend", out var backend) &&
+                     backend.ValueKind == JsonValueKind.Object &&
+                     backend.TryGetAnyProperty(out var backendCapsElement, "routerRtpCapabilities", "router_rtp_capabilities"))
+            {
+                routerCaps = backendCapsElement.GetRawText();
+            }
+
+            var info = new WebRtcTransportInfo(
+                root.GetString("roomId", "room_id") ?? roomId,
+                root.GetString("transportId", "transport_id", "id") ?? transportId,
+                root.TryGetAnyProperty(out var iceParameters, "iceParameters", "ice_parameters")
+                    ? iceParameters.GetRawText()
+                    : "{}",
+                root.TryGetAnyProperty(out var iceCandidates, "iceCandidates", "ice_candidates")
+                    ? iceCandidates.GetRawText()
+                    : "[]",
+                root.TryGetAnyProperty(out var dtlsParameters, "dtlsParameters", "dtls_parameters")
+                    ? dtlsParameters.GetRawText()
+                    : "{}",
+                routerCaps);
+
+            return Result<WebRtcTransportInfo>.Success(info);
         }
         catch (Exception ex)
         {
@@ -93,10 +107,14 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
         }
     }
 
-    public async Task<Result> ConnectTransportAsync(string roomId, string transportId, string dtlsParametersJson, CancellationToken cancellationToken = default)
+    public async Task<Result> ConnectTransportAsync(
+        string roomId,
+        string transportId,
+        string dtlsParametersJson,
+        CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.WebRtcOffer,
+        var result = await DispatchRequiredAsync(
+            MediasoupProtocol.ConnectTransportActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId)),
@@ -105,15 +123,21 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
             },
             cancellationToken).ConfigureAwait(false);
 
-        return response.IsSuccess
+        return result.IsSuccess
             ? Result.Success()
-            : Result.Failure(response.Error!);
+            : Result.Failure(result.Error!);
     }
 
-    public async Task<Result> ProduceAsync(string roomId, string transportId, string producerId, string kind, string rtpParametersJson, CancellationToken cancellationToken = default)
+    public async Task<Result> ProduceAsync(
+        string roomId,
+        string transportId,
+        string producerId,
+        string kind,
+        string rtpParametersJson,
+        CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.Produce,
+        var result = await DispatchRequiredAsync(
+            MediasoupProtocol.ProduceActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId)),
@@ -124,15 +148,20 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
             },
             cancellationToken).ConfigureAwait(false);
 
-        return response.IsSuccess
+        return result.IsSuccess
             ? Result.Success()
-            : Result.Failure(response.Error!);
+            : Result.Failure(result.Error!);
     }
 
-    public async Task<Result<ConsumerInfo>> ConsumeAsync(string roomId, string transportId, string producerId, string recvRtpCapabilitiesJson, CancellationToken cancellationToken = default)
+    public async Task<Result<ConsumerInfo>> ConsumeAsync(
+        string roomId,
+        string transportId,
+        string producerId,
+        string recvRtpCapabilitiesJson,
+        CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.Consume,
+        var result = await DispatchRequiredAsync(
+            MediasoupProtocol.ConsumeActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId)),
@@ -142,24 +171,22 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
             },
             cancellationToken).ConfigureAwait(false);
 
-        if (response.IsFailure)
-            return Result<ConsumerInfo>.Failure(response.Error!);
+        if (result.IsFailure)
+            return Result<ConsumerInfo>.Failure(result.Error!);
 
         try
         {
-            var (dataJson, _) = ExtractPayloadJson(response.Value!);
+            var root = GetPayloadRoot(result.Value!);
 
-            using (var dataDoc = JsonDocument.Parse(dataJson))
-            {
-                var data = dataDoc.RootElement;
+            var info = new ConsumerInfo(
+                root.GetString("consumerId", "consumer_id", "id") ?? string.Empty,
+                root.GetString("producerId", "producer_id") ?? producerId,
+                root.GetString("kind") ?? "audio",
+                root.TryGetAnyProperty(out var rtpParameters, "rtpParameters", "rtp_parameters")
+                    ? rtpParameters.GetRawText()
+                    : "{}");
 
-                return Result<ConsumerInfo>.Success(
-                    new ConsumerInfo(
-                        data.GetProperty("consumerId").GetString() ?? string.Empty,
-                        data.GetProperty("producerId").GetString() ?? producerId,
-                        data.GetProperty("kind").GetString() ?? "audio",
-                        data.GetProperty("rtpParameters").GetRawText()));
-            }
+            return Result<ConsumerInfo>.Success(info);
         }
         catch (Exception ex)
         {
@@ -168,84 +195,139 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
         }
     }
 
-    public async Task<Result> CloseAsync(string roomId, CancellationToken cancellationToken = default)
+    public async Task<Result<IReadOnlyList<RemoteProducerDescriptor>>> ListProducersAsync(
+        string roomId,
+        CancellationToken cancellationToken = default)
     {
-        var response = await DispatchAsync(
-            MediasoupProtocol.Actions.WebRtcClose,
+        var result = await DispatchOptionalAsync(
+            MediasoupProtocol.ListProducersActions,
             new Dictionary<string, object?>
             {
                 ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId))
             },
             cancellationToken).ConfigureAwait(false);
 
-        return response.IsSuccess
-            ? Result.Success()
-            : Result.Failure(response.Error!);
+        if (result.IsFailure)
+            return Result<IReadOnlyList<RemoteProducerDescriptor>>.Failure(result.Error!);
+
+        if (result.Value == null)
+            return Result<IReadOnlyList<RemoteProducerDescriptor>>.Success(Array.Empty<RemoteProducerDescriptor>());
+
+        try
+        {
+            var root = GetPayloadRoot(result.Value);
+            var list = new List<RemoteProducerDescriptor>();
+
+            if (root.TryGetAnyProperty(out var producersArray, "producers", "items") &&
+                producersArray.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in producersArray.EnumerateArray())
+                {
+                    var producerId = item.GetString("producerId", "producer_id", "id");
+                    if (string.IsNullOrWhiteSpace(producerId))
+                        continue;
+
+                    list.Add(new RemoteProducerDescriptor(
+                        item.GetString("peerId", "peer_id", "peer") ?? string.Empty,
+                        producerId,
+                        item.GetString("kind") ?? "audio"));
+                }
+            }
+
+            return Result<IReadOnlyList<RemoteProducerDescriptor>>.Success(list);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<RemoteProducerDescriptor>>.Failure(
+                new Error("mediasoup.list_producers.parse_failed", ex.Message));
+        }
     }
 
-    private async Task<Result<FeatureResponseEnvelope>> DispatchAsync(string action, Dictionary<string, object?> ctx, CancellationToken cancellationToken)
+    public async Task<Result> CloseAsync(string roomId, CancellationToken cancellationToken = default)
     {
+        var result = await DispatchOptionalAsync(
+            MediasoupProtocol.CloseActions,
+            new Dictionary<string, object?>
+            {
+                ["roomId"] = Guard.NotNullOrWhiteSpace(roomId, nameof(roomId))
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return result.IsSuccess
+            ? Result.Success()
+            : Result.Failure(result.Error!);
+    }
+
+    private async Task<Result<FeatureResponseEnvelope>> DispatchRequiredAsync(
+        IReadOnlyList<string> actions,
+        Dictionary<string, object?> ctx,
+        CancellationToken cancellationToken)
+    {
+        return await DispatchCoreAsync(actions, ctx, false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<FeatureResponseEnvelope>> DispatchOptionalAsync(
+        IReadOnlyList<string> actions,
+        Dictionary<string, object?> ctx,
+        CancellationToken cancellationToken)
+    {
+        return await DispatchCoreAsync(actions, ctx, true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<FeatureResponseEnvelope>> DispatchCoreAsync(
+        IReadOnlyList<string> actions,
+        Dictionary<string, object?> ctx,
+        bool allowUnsupportedAsSuccess,
+        CancellationToken cancellationToken)
+    {
+        if (actions == null || actions.Count == 0)
+        {
+            return Result<FeatureResponseEnvelope>.Failure(
+                new Error("mediasoup.actions.empty", "No mediasoup actions configured."));
+        }
+
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var requestId = Guid.NewGuid().ToString("N");
-            ctx["clientRequestId"] = requestId;
-            ctx["correlationId"] = requestId;
+            Result<FeatureResponseEnvelope>? lastFailure = null;
 
-            var tcs = new TaskCompletionSource<FeatureResponseEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            void Handler(object? sender, FeatureResponseEnvelope envelope)
+            foreach (var action in actions.Where(static x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
             {
-                if (!string.Equals(envelope.Type, ProtocolMessageTypes.DispatchResult, StringComparison.Ordinal))
-                    return;
+                var result = await _rpcClient.DispatchAsync(
+                    MediasoupProtocol.Object,
+                    MediasoupProtocol.DefaultAgent,
+                    action,
+                    new Dictionary<string, object?>(ctx),
+                    TimeSpan.FromSeconds(15),
+                    cancellationToken).ConfigureAwait(false);
 
-                if (!string.Equals(envelope.Object, MediasoupProtocol.Object, StringComparison.Ordinal))
-                    return;
+                if (result.IsSuccess)
+                    return result;
 
-                if (!string.Equals(envelope.Action, action, StringComparison.Ordinal))
-                    return;
+                lastFailure = result;
 
-                var responseId = envelope.GetString("clientRequestId") ?? envelope.GetString("correlationId");
-                if (!string.IsNullOrWhiteSpace(responseId) &&
-                    !string.Equals(responseId, requestId, StringComparison.Ordinal))
-                    return;
+                if (IsUnsupported(result.Error))
+                    continue;
 
-                tcs.TrySetResult(envelope);
+                return result;
             }
 
-            _gateway.EnvelopeReceived += Handler;
-            try
+            if (allowUnsupportedAsSuccess && lastFailure != null && IsUnsupported(lastFailure.Error))
             {
-                await _gateway.SendAsync(new FeatureRequestEnvelope
+                return Result<FeatureResponseEnvelope>.Success(new FeatureResponseEnvelope
                 {
+                    Type = ProtocolMessageTypes.DispatchResult,
                     Object = MediasoupProtocol.Object,
                     Agent = MediasoupProtocol.DefaultAgent,
-                    Action = action,
-                    Ctx = ctx
-                }, cancellationToken).ConfigureAwait(false);
-
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-                using var _ = timeoutCts.Token.Register(() => tcs.TrySetCanceled(timeoutCts.Token));
-
-                var envelope = await tcs.Task.ConfigureAwait(false);
-                if (envelope.Ok == false)
-                {
-                    return Result<FeatureResponseEnvelope>.Failure(
-                        new Error("mediasoup.dispatch_failed", envelope.Message ?? $"{action} failed."));
-                }
-
-                return Result<FeatureResponseEnvelope>.Success(envelope);
+                    Action = actions[0],
+                    Ok = true,
+                    Message = string.Empty
+                });
             }
-            catch (OperationCanceledException)
-            {
-                return Result<FeatureResponseEnvelope>.Failure(
-                    new Error("mediasoup.timeout", $"Timed out while waiting for mediasoup action '{action}'."));
-            }
-            finally
-            {
-                _gateway.EnvelopeReceived -= Handler;
-            }
+
+            return lastFailure ??
+                   Result<FeatureResponseEnvelope>.Failure(
+                       new Error("mediasoup.dispatch_failed", "No mediasoup action succeeded."));
         }
         finally
         {
@@ -253,29 +335,52 @@ public sealed class MediasoupFeatureClient : IMediasoupFeatureClient
         }
     }
 
-    private static (string dataJson, string backendJson) ExtractPayloadJson(FeatureResponseEnvelope envelope)
+    private static bool IsUnsupported(Error? error)
     {
-        if (envelope.Extensions != null &&
-            envelope.Extensions.TryGetValue("data", out var dataElement) &&
-            envelope.Extensions.TryGetValue("backend", out var backendElement))
+        var text = error?.Message ?? string.Empty;
+
+        return text.IndexOf("unsupported", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               text.IndexOf("unknown", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               text.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               text.IndexOf("no handler", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsAlreadyExists(Error? error)
+    {
+        var text = error?.Message ?? string.Empty;
+
+        return text.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               text.IndexOf("already joined", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static JsonElement GetPayloadRoot(FeatureResponseEnvelope envelope)
+    {
+        if (envelope.TryGetPayload(out var payload) && payload.ValueKind == JsonValueKind.Object)
         {
-            return (dataElement.GetRawText(), backendElement.GetRawText());
+            if (payload.TryGetAnyProperty(out var nestedData, "data") &&
+                nestedData.ValueKind == JsonValueKind.Object)
+            {
+                return nestedData;
+            }
+
+            return payload;
         }
 
         if (!string.IsNullOrWhiteSpace(envelope.Message))
         {
-            using (var doc = JsonDocument.Parse(envelope.Message))
-            {
-                var root = doc.RootElement;
+            using var doc = JsonDocument.Parse(envelope.Message);
+            var root = doc.RootElement.Clone();
 
-                if (root.TryGetProperty("data", out var fallbackData) &&
-                    root.TryGetProperty("backend", out var fallbackBackend))
-                {
-                    return (fallbackData.GetRawText(), fallbackBackend.GetRawText());
-                }
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetAnyProperty(out var nestedData, "data") &&
+                nestedData.ValueKind == JsonValueKind.Object)
+            {
+                return nestedData.Clone();
             }
+
+            return root;
         }
 
-        throw new InvalidOperationException("Mediasoup dispatch_result has no data/backend payload.");
+        throw new InvalidOperationException("Mediasoup payload is missing.");
     }
 }

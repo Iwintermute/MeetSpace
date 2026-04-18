@@ -1,16 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MeetSpace.Client.Domain.Conference;
+using MeetSpace.Client.Shared.Results;
 
 namespace MeetSpace.Client.App.Conference;
 
 public interface IConferenceFeatureClient
 {
-    Task CreateConferenceAsync(string conferenceId, string? clientRequestId = null, CancellationToken cancellationToken = default);
-    Task GetConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
-    Task JoinConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
-    Task LeaveConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
-    Task ListMembersAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result<ConferenceDetails>> CreateConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result<ConferenceDetails>> GetConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result<ConferenceDetails>> JoinConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result> LeaveConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result> CloseConferenceAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result<ConferenceDetails>> ListMembersAsync(string conferenceId, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<ConferenceSummary>>> ListConferencesAsync(CancellationToken cancellationToken = default);
 }

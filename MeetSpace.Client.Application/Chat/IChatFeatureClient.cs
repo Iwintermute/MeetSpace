@@ -1,8 +1,10 @@
-﻿namespace MeetSpace.Client.App.Chat;
+﻿using MeetSpace.Client.Shared.Results;
+
+namespace MeetSpace.Client.App.Chat;
 
 public interface IChatFeatureClient
 {
-    Task SendMessageAsync(
+    Task<Result<ChatSendAck>> SendMessageAsync(
         string conferenceId,
         string text,
         string? targetPeerId = null,

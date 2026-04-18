@@ -14,12 +14,21 @@ public sealed class CallStore : StoreBase<CallSessionState>
         Set(CallSessionState.Empty);
     }
 
-    public void SetStage(CallConnectionStage stage, string? roomId = null, string? transportId = null)
+    public void SetStage(
+        CallConnectionStage stage,
+        string? conversationId = null,
+        string? roomId = null,
+        string? transportId = null,
+        string? sessionId = null,
+        CallKind? kind = null)
     {
         Update(state => state with
         {
+            ConversationId = conversationId ?? state.ConversationId,
             RoomId = roomId ?? state.RoomId,
             TransportId = transportId ?? state.TransportId,
+            SessionId = sessionId ?? state.SessionId,
+            Kind = kind ?? state.Kind,
             Stage = stage
         });
     }
@@ -40,6 +49,30 @@ public sealed class CallStore : StoreBase<CallSessionState>
             {
                 MicrophoneEnabled = enabled,
                 ActiveMicrophoneId = activeMicrophoneId ?? state.LocalMedia.ActiveMicrophoneId
+            }
+        });
+    }
+
+    public void SetCameraEnabled(bool enabled, string? activeCameraId = null)
+    {
+        Update(state => state with
+        {
+            LocalMedia = state.LocalMedia with
+            {
+                CameraEnabled = enabled,
+                ActiveCameraId = activeCameraId ?? state.LocalMedia.ActiveCameraId
+            }
+        });
+    }
+
+    public void SetScreenShareEnabled(bool enabled, string? activeScreenSourceId = null)
+    {
+        Update(state => state with
+        {
+            LocalMedia = state.LocalMedia with
+            {
+                ScreenShareEnabled = enabled,
+                ActiveScreenSourceId = activeScreenSourceId ?? state.LocalMedia.ActiveScreenSourceId
             }
         });
     }

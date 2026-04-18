@@ -1,17 +1,18 @@
-﻿
-using MeetSpace.Client.App.Conference;
+﻿using MeetSpace.Client.App.Conference;
 using MeetSpace.Client.App.Session;
 using MeetSpace.Client.Domain.Calls;
+using MeetSpace.Client.Domain.Conference;
 using MeetSpace.Client.Shared.Results;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace MeetSpace.Client.App.Calls;
 
 public sealed class CallCoordinator : IDisposable
 {
-    private readonly IMediasoupFeatureClient _mediasoupClient;
+    private static readonly TimeSpan ServerPhaseTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan BridgePhaseTimeout = TimeSpan.FromSeconds(12);
+
+    private readonly IConferenceMediaFeatureClient _conferenceMediaClient;
+    private readonly IDirectCallFeatureClient _directCallClient;
     private readonly IConferenceFeatureClient _conferenceClient;
     private readonly IAudioCallEngine _audioEngine;
     private readonly CallStore _callStore;
@@ -19,33 +20,33 @@ public sealed class CallCoordinator : IDisposable
     private readonly SessionStore _sessionStore;
 
     private readonly SemaphoreSlim _sync = new(1, 1);
+    private readonly HashSet<string> _localProducerIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _localProducerByTrackType = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _consumedProducerIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _consumerIdByProducerId = new(StringComparer.Ordinal);
+
     private CancellationTokenSource? _backgroundLoopCts;
     private CancellationTokenSource? _joinAttemptCts;
 
-
-    private string? _conferenceId;
+    private string? _conversationId;
+    private string? _sessionId;
     private string? _roomId;
     private string? _sendTransportId;
     private string? _recvTransportId;
-    private string? _localServerProducerId;
-    private CancellationTokenSource? _joinCts;
-    private CancellationTokenSource? _joinOperationCts;
     private string _joinPhase = "idle";
-
-    private static readonly TimeSpan ServerPhaseTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan BridgePhaseTimeout = TimeSpan.FromSeconds(12);
-    private static readonly TimeSpan RollbackTimeout = TimeSpan.FromSeconds(5);
-    private readonly HashSet<string> _consumedPeers = new(StringComparer.Ordinal);
+    private CallKind _kind = CallKind.Unknown;
 
     public CallCoordinator(
-        IMediasoupFeatureClient mediasoupClient,
+        IConferenceMediaFeatureClient conferenceMediaClient,
+        IDirectCallFeatureClient directCallClient,
         IConferenceFeatureClient conferenceClient,
         IAudioCallEngine audioEngine,
         CallStore callStore,
         ConferenceStore conferenceStore,
         SessionStore sessionStore)
     {
-        _mediasoupClient = mediasoupClient;
+        _conferenceMediaClient = conferenceMediaClient;
+        _directCallClient = directCallClient;
         _conferenceClient = conferenceClient;
         _audioEngine = audioEngine;
         _callStore = callStore;
@@ -58,230 +59,395 @@ public sealed class CallCoordinator : IDisposable
     }
 
     public Task AttachHostAsync(IAudioBridgeHost host, CancellationToken cancellationToken = default)
+        => _audioEngine.AttachAsync(host, cancellationToken);
+
+    public Task<Result> JoinAudioAsync(string conferenceId, CancellationToken cancellationToken = default)
+        => JoinSessionAsync(CallKind.Conference, conferenceId, conferenceId, cancellationToken);
+
+    public Task<Result> JoinDirectCallMediaAsync(string callId, CancellationToken cancellationToken = default)
+        => JoinSessionAsync(CallKind.Direct, callId, callId, cancellationToken);
+
+    public async Task<Result<string>> StartDirectCallAsync(
+        string targetUserId,
+        string mode = "audio",
+        CancellationToken cancellationToken = default)
     {
-        return _audioEngine.AttachAsync(host, cancellationToken);
+        var created = await _directCallClient
+            .CreateCallAsync(targetUserId, mode, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (created.IsFailure)
+            return Result<string>.Failure(created.Error!);
+
+        return Result<string>.Success(created.Value!.CallId);
     }
 
-    public async Task<Result> JoinAudioAsync(string conferenceId, CancellationToken cancellationToken = default)
+    public async Task<Result> AcceptAndJoinDirectCallAsync(string callId, CancellationToken cancellationToken = default)
+    {
+        var acceptResult = await _directCallClient.AcceptCallAsync(callId, null, cancellationToken).ConfigureAwait(false);
+        if (acceptResult.IsFailure)
+            return Result.Failure(acceptResult.Error!);
+
+        return await JoinDirectCallMediaAsync(callId, cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<Result> DeclineDirectCallAsync(
+        string callId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DeclineDirectCallCoreAsync(callId, reason, cancellationToken);
+    }
+
+    public async Task<Result> EndDirectCallAsync(
+        string callId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var endResult = await _directCallClient.HangupCallAsync(callId, reason, cancellationToken).ConfigureAwait(false);
+        if (endResult.IsFailure)
+            return Result.Failure(endResult.Error!);
+
+        if (_kind == CallKind.Direct && string.Equals(_sessionId, callId, StringComparison.Ordinal))
+            return await LeaveAudioAsync(cancellationToken).ConfigureAwait(false);
+
+        return Result.Success();
+    }
+
+    private async Task<Result> DeclineDirectCallCoreAsync(
+        string callId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        var result = await _directCallClient.DeclineCallAsync(callId, reason, cancellationToken).ConfigureAwait(false);
+        return result.IsSuccess ? Result.Success() : Result.Failure(result.Error!);
+    }
+
+    public async Task<Result> ToggleMicrophoneAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_callStore.Current.Stage != CallConnectionStage.Connected)
+                return Result.Failure(new Error("call.not_connected", "Call is not connected."));
+
+            var nextState = !_callStore.Current.LocalMedia.MicrophoneEnabled;
+            await _audioEngine.SetMicrophoneEnabledAsync(nextState, cancellationToken).ConfigureAwait(false);
+            _callStore.SetMicrophoneEnabled(nextState);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+            return Result.Failure(new Error("call.mic_toggle_failed", ex.Message));
+        }
+    }
+
+    public async Task<Result> ToggleCameraAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_callStore.Current.Stage != CallConnectionStage.Connected)
+                return Result.Failure(new Error("call.not_connected", "Call is not connected."));
+
+            var nextState = !_callStore.Current.LocalMedia.CameraEnabled;
+            if (nextState)
+            {
+                if (_localProducerByTrackType.ContainsKey("camera"))
+                {
+                    await _audioEngine.SetCameraEnabledAsync(true, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetCameraEnabled(true);
+                    return Result.Success();
+                }
+
+                return await StartTrackAsync(CallMediaTrackType.Video, cancellationToken).ConfigureAwait(false);
+            }
+
+            await _audioEngine.SetCameraEnabledAsync(false, cancellationToken).ConfigureAwait(false);
+            _callStore.SetCameraEnabled(false);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+            return Result.Failure(new Error("call.camera_toggle_failed", ex.Message));
+        }
+    }
+
+    public async Task<Result> ToggleScreenShareAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_callStore.Current.Stage != CallConnectionStage.Connected)
+                return Result.Failure(new Error("call.not_connected", "Call is not connected."));
+
+            var nextState = !_callStore.Current.LocalMedia.ScreenShareEnabled;
+            if (nextState)
+            {
+                if (_localProducerByTrackType.ContainsKey("screen"))
+                {
+                    await _audioEngine.SetScreenShareEnabledAsync(true, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetScreenShareEnabled(true);
+                    return Result.Success();
+                }
+
+                return await StartTrackAsync(CallMediaTrackType.ScreenShare, cancellationToken).ConfigureAwait(false);
+            }
+
+            await _audioEngine.SetScreenShareEnabledAsync(false, cancellationToken).ConfigureAwait(false);
+            await _audioEngine.StopScreenShareAsync(cancellationToken).ConfigureAwait(false);
+
+            if (_localProducerByTrackType.TryGetValue("screen", out var producerId))
+            {
+                _localProducerByTrackType.Remove("screen");
+                _localProducerIds.Remove(producerId);
+            }
+
+            _callStore.SetScreenShareEnabled(false);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+            return Result.Failure(new Error("call.screen_toggle_failed", ex.Message));
+        }
+    }
+
+    public async Task<Result> LeaveAudioAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _joinAttemptCts?.Cancel();
+        }
+        catch
+        {
+        }
+
+        await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ResetCurrentCallAsync().ConfigureAwait(false);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+            return Result.Failure(new Error("call.leave_failed", ex.Message));
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    private async Task<Result> JoinSessionAsync(
+        CallKind kind,
+        string sessionId,
+        string conversationId,
+        CancellationToken cancellationToken)
     {
         await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
-
         CancellationTokenSource? attemptCts = null;
 
         try
         {
-            if (string.IsNullOrWhiteSpace(conferenceId))
-                return Result.Failure(new Error("call.invalid_conference", "Conference ID is empty."));
+            if (string.IsNullOrWhiteSpace(sessionId))
+                return Result.Failure(new Error("call.invalid_session", "Session ID is empty."));
 
             if (_callStore.Current.Stage == CallConnectionStage.Connected &&
-                string.Equals(_conferenceId, conferenceId, StringComparison.Ordinal))
+                _kind == kind &&
+                string.Equals(_sessionId, sessionId, StringComparison.Ordinal))
             {
                 return Result.Success();
             }
 
-            if (_callStore.Current.Stage == CallConnectionStage.JoiningRoom ||
-                _callStore.Current.Stage == CallConnectionStage.TransportOpening ||
-                _callStore.Current.Stage == CallConnectionStage.Negotiating ||
-                _callStore.Current.Stage == CallConnectionStage.Publishing)
+            await ResetCurrentCallAsync().ConfigureAwait(false);
+
+            var selfPeerId = _sessionStore.Current.SelfPeerId;
+            if (string.IsNullOrWhiteSpace(selfPeerId))
             {
-                try
-                {
-                    _joinAttemptCts?.Cancel();
-                }
-                catch
-                {
-                }
-
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(_roomId))
-                        await _mediasoupClient.CloseAsync(_roomId, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch
-                {
-                }
-
-                try
-                {
-                    await _audioEngine.CloseAsync(CancellationToken.None).ConfigureAwait(false);
-                }
-                catch
-                {
-                }
-
-                _conferenceId = null;
-                _roomId = null;
-                _sendTransportId = null;
-                _recvTransportId = null;
-                _localServerProducerId = null;
-                _consumedPeers.Clear();
-                _callStore.Reset();
-            }
-
-            var trustedPeer = _sessionStore.Current.TrustedPeer;
-            if (string.IsNullOrWhiteSpace(trustedPeer))
-            {
-                _callStore.SetStage(CallConnectionStage.Faulted);
-                return Result.Failure(new Error("call.no_peer", "Trusted peer is not assigned yet."));
+                _callStore.SetStage(
+                    CallConnectionStage.Faulted,
+                    conversationId,
+                    sessionId,
+                    null,
+                    sessionId,
+                    kind);
+                return Result.Failure(new Error("call.self_peer_missing", "Self peer is not assigned yet."));
             }
 
             attemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
             _joinAttemptCts?.Cancel();
             _joinAttemptCts?.Dispose();
             _joinAttemptCts = attemptCts;
 
-            var attemptToken = attemptCts.Token;
+            var token = attemptCts.Token;
             var attemptId = Guid.NewGuid().ToString("N");
 
-            _conferenceId = conferenceId;
-            _roomId = "media-" + conferenceId;
-            _sendTransportId = "send-" + trustedPeer + "-" + attemptId;
-            _recvTransportId = "recv-" + trustedPeer + "-" + attemptId;
-            _localServerProducerId = "audio-" + trustedPeer;
-            _consumedPeers.Clear();
+            _kind = kind;
+            _sessionId = sessionId;
+            _conversationId = conversationId;
+            _roomId = sessionId;
+            _sendTransportId = $"send-{selfPeerId}-{attemptId}";
+            _recvTransportId = $"recv-{selfPeerId}-{attemptId}";
             _joinPhase = "starting";
 
-            _callStore.SetStage(CallConnectionStage.JoiningRoom, _roomId);
+            _localProducerIds.Clear();
+            _localProducerByTrackType.Clear();
+            _consumedProducerIds.Clear();
+            _consumerIdByProducerId.Clear();
 
-            var createRoom = await RunPhaseAsync(
-                "create_room",
-                ServerPhaseTimeout,
-                ct => _mediasoupClient.CreateRoomIfMissingAsync(_roomId!, ct),
-                attemptToken).ConfigureAwait(false);
-
-            if (createRoom.IsFailure)
-            {
-                _callStore.SetStage(CallConnectionStage.Faulted, _roomId);
-                return createRoom;
-            }
-
-            var joinRoom = await RunPhaseAsync(
-                "join_room",
-                ServerPhaseTimeout,
-                ct => _mediasoupClient.JoinRoomAsync(_roomId!, ct),
-                attemptToken).ConfigureAwait(false);
-
-            if (joinRoom.IsFailure)
-            {
-                _callStore.SetStage(CallConnectionStage.Faulted, _roomId);
-                return joinRoom;
-            }
-
-            _callStore.SetStage(CallConnectionStage.TransportOpening, _roomId, _sendTransportId);
+            _callStore.SetStage(
+                CallConnectionStage.JoiningRoom,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
 
             var sendTransport = await RunPhaseAsync(
                 "open_send_transport",
                 ServerPhaseTimeout,
-                ct => _mediasoupClient.OpenTransportAsync(_roomId!, _sendTransportId!, ct),
-                attemptToken).ConfigureAwait(false);
+                ct => OpenTransportAsync(kind, sessionId, _sendTransportId!, ct),
+                token).ConfigureAwait(false);
 
             if (sendTransport.IsFailure)
             {
-                _callStore.SetStage(CallConnectionStage.Faulted, _roomId, _sendTransportId);
+                _callStore.SetStage(
+                    CallConnectionStage.Faulted,
+                    _conversationId,
+                    _roomId,
+                    _sendTransportId,
+                    _sessionId,
+                    _kind);
                 return Result.Failure(sendTransport.Error!);
             }
 
             var recvTransport = await RunPhaseAsync(
                 "open_recv_transport",
                 ServerPhaseTimeout,
-                ct => _mediasoupClient.OpenTransportAsync(_roomId!, _recvTransportId!, ct),
-                attemptToken).ConfigureAwait(false);
+                ct => OpenTransportAsync(kind, sessionId, _recvTransportId!, ct),
+                token).ConfigureAwait(false);
 
             if (recvTransport.IsFailure)
             {
-                _callStore.SetStage(CallConnectionStage.Faulted, _roomId, _recvTransportId);
+                _callStore.SetStage(
+                    CallConnectionStage.Faulted,
+                    _conversationId,
+                    _roomId,
+                    _recvTransportId,
+                    _sessionId,
+                    _kind);
                 return Result.Failure(recvTransport.Error!);
             }
 
-            _callStore.SetStage(CallConnectionStage.Negotiating, _roomId, _sendTransportId);
+            _roomId = sendTransport.Value!.RoomId;
+
+            _callStore.SetStage(
+                CallConnectionStage.Negotiating,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
 
             await RunPhaseAsync(
                 "bridge_load_device",
                 BridgePhaseTimeout,
                 ct => _audioEngine.LoadDeviceAsync(sendTransport.Value!.RouterRtpCapabilitiesJson, ct),
-                attemptToken).ConfigureAwait(false);
+                token).ConfigureAwait(false);
 
             await RunPhaseAsync(
                 "bridge_create_send_transport",
                 BridgePhaseTimeout,
                 ct => _audioEngine.CreateSendTransportAsync(sendTransport.Value!, ct),
-                attemptToken).ConfigureAwait(false);
+                token).ConfigureAwait(false);
 
             await RunPhaseAsync(
                 "bridge_create_recv_transport",
                 BridgePhaseTimeout,
                 ct => _audioEngine.CreateRecvTransportAsync(recvTransport.Value!, ct),
-                attemptToken).ConfigureAwait(false);
+                token).ConfigureAwait(false);
 
-            _callStore.SetStage(CallConnectionStage.Publishing, _roomId, _sendTransportId);
+            _callStore.SetStage(
+                CallConnectionStage.Publishing,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
 
-            await RunPhaseAsync(
+            var startAudioResult = await RunPhaseAsync(
                 "bridge_start_microphone",
                 BridgePhaseTimeout,
-                ct => _audioEngine.StartMicrophoneAsync(_localServerProducerId!, ct),
-                attemptToken).ConfigureAwait(false);
+                ct => StartTrackAsync(CallMediaTrackType.Audio, ct),
+                token).ConfigureAwait(false);
 
-            _callStore.SetMicrophoneEnabled(true);
-            _callStore.SetStage(CallConnectionStage.Connected, _roomId, _sendTransportId);
+            if (startAudioResult.IsFailure)
+            {
+                _callStore.SetStage(
+                    CallConnectionStage.Faulted,
+                    _conversationId,
+                    _roomId,
+                    _sendTransportId,
+                    _sessionId,
+                    _kind);
+                return startAudioResult;
+            }
 
-            await _conferenceClient.ListMembersAsync(conferenceId, attemptToken).ConfigureAwait(false);
+            _callStore.SetStage(
+                CallConnectionStage.Connected,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+
+            if (_kind == CallKind.Conference && !string.IsNullOrWhiteSpace(_conversationId))
+                _ = _conferenceClient.ListMembersAsync(_conversationId, token);
+
             StartBackgroundLoop();
-
             return Result.Success();
         }
         catch (OperationCanceledException)
         {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(_roomId))
-                    await _mediasoupClient.CloseAsync(_roomId, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                await _audioEngine.CloseAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            _conferenceId = null;
-            _roomId = null;
-            _sendTransportId = null;
-            _recvTransportId = null;
-            _localServerProducerId = null;
-            _consumedPeers.Clear();
-            _callStore.Reset();
-
-            return Result.Failure(new Error("call.join_canceled", $"Audio join canceled at phase '{_joinPhase}'."));
+            await ResetCurrentCallAsync().ConfigureAwait(false);
+            return Result.Failure(new Error("call.join_canceled", $"Join canceled at phase '{_joinPhase}'."));
         }
         catch (Exception ex)
         {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(_roomId))
-                    await _mediasoupClient.CloseAsync(_roomId, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                await _audioEngine.CloseAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            _consumedPeers.Clear();
-            _callStore.SetStage(CallConnectionStage.Faulted, _roomId, _sendTransportId);
-
-            return Result.Failure(new Error("call.join_failed", $"JoinAudio failed at phase '{_joinPhase}': {ex.Message}"));
+            await ResetCurrentCallAsync().ConfigureAwait(false);
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+            return Result.Failure(new Error("call.join_failed", $"Join failed at phase '{_joinPhase}': {ex.Message}"));
         }
         finally
         {
@@ -294,32 +460,91 @@ public sealed class CallCoordinator : IDisposable
             _sync.Release();
         }
     }
-    public async Task<Result> ToggleMicrophoneAsync(CancellationToken cancellationToken = default)
+
+    private async Task<Result> StartTrackAsync(CallMediaTrackType trackType, CancellationToken cancellationToken)
     {
+        var selfPeerId = _sessionStore.Current.SelfPeerId;
+        if (string.IsNullOrWhiteSpace(selfPeerId))
+            return Result.Failure(new Error("call.self_peer_missing", "Self peer is not assigned yet."));
+
+        var normalizedTrackType = NormalizeTrackType(trackType);
+        if (_localProducerByTrackType.TryGetValue(normalizedTrackType, out _))
+        {
+            switch (trackType)
+            {
+                case CallMediaTrackType.Audio:
+                    await _audioEngine.SetMicrophoneEnabledAsync(true, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetMicrophoneEnabled(true);
+                    return Result.Success();
+                case CallMediaTrackType.Video:
+                    await _audioEngine.SetCameraEnabledAsync(true, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetCameraEnabled(true);
+                    return Result.Success();
+                case CallMediaTrackType.ScreenShare:
+                    await _audioEngine.SetScreenShareEnabledAsync(true, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetScreenShareEnabled(true);
+                    return Result.Success();
+            }
+        }
+
+        var producerPrefix = normalizedTrackType switch
+        {
+            "microphone" => "audio",
+            "camera" => "video",
+            "screen" => "screen",
+            _ => normalizedTrackType
+        };
+        var producerId = $"{producerPrefix}-{selfPeerId}-{Guid.NewGuid():N}";
+
+        _localProducerIds.Add(producerId);
+        _localProducerByTrackType[normalizedTrackType] = producerId;
+
         try
         {
-            var nextState = !_callStore.Current.LocalMedia.MicrophoneEnabled;
-            await _audioEngine.SetMicrophoneEnabledAsync(nextState, cancellationToken).ConfigureAwait(false);
-            _callStore.SetMicrophoneEnabled(nextState);
+            switch (trackType)
+            {
+                case CallMediaTrackType.Audio:
+                    await _audioEngine.StartMicrophoneAsync(producerId, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetMicrophoneEnabled(true);
+                    break;
+                case CallMediaTrackType.Video:
+                    await _audioEngine.StartCameraAsync(producerId, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetCameraEnabled(true);
+                    break;
+                case CallMediaTrackType.ScreenShare:
+                    await _audioEngine.StartScreenShareAsync(producerId, cancellationToken).ConfigureAwait(false);
+                    _callStore.SetScreenShareEnabled(true);
+                    break;
+            }
+
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _callStore.SetStage(CallConnectionStage.Faulted, _roomId, _sendTransportId);
-            return Result.Failure(new Error("call.mic_toggle_failed", ex.Message));
+            _localProducerIds.Remove(producerId);
+            _localProducerByTrackType.Remove(normalizedTrackType);
+            return Result.Failure(new Error("call.start_track_failed", ex.Message));
         }
     }
-    private void CancelJoinOperation()
+
+    private async Task ResetCurrentCallAsync()
     {
-        var cts = _joinOperationCts;
-        _joinOperationCts = null;
+        _backgroundLoopCts?.Cancel();
+        _backgroundLoopCts?.Dispose();
+        _backgroundLoopCts = null;
 
-        if (cts == null)
-            return;
+        var previousKind = _kind;
+        var previousSessionId = _sessionId;
 
         try
         {
-            cts.Cancel();
+            if (!string.IsNullOrWhiteSpace(previousSessionId))
+            {
+                if (previousKind == CallKind.Direct)
+                    await _directCallClient.CloseSessionAsync(previousSessionId, CancellationToken.None).ConfigureAwait(false);
+                else if (previousKind == CallKind.Conference)
+                    await _conferenceMediaClient.CloseSessionAsync(previousSessionId, CancellationToken.None).ConfigureAwait(false);
+            }
         }
         catch
         {
@@ -327,11 +552,35 @@ public sealed class CallCoordinator : IDisposable
 
         try
         {
-            cts.Dispose();
+            if (previousKind == CallKind.Direct && !string.IsNullOrWhiteSpace(previousSessionId))
+                await _directCallClient.HangupCallAsync(previousSessionId, "client_leave", CancellationToken.None).ConfigureAwait(false);
         }
         catch
         {
         }
+
+        try
+        {
+            await _audioEngine.CloseAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        _conversationId = null;
+        _sessionId = null;
+        _roomId = null;
+        _sendTransportId = null;
+        _recvTransportId = null;
+        _kind = CallKind.Unknown;
+        _joinPhase = "idle";
+
+        _localProducerIds.Clear();
+        _localProducerByTrackType.Clear();
+        _consumedProducerIds.Clear();
+        _consumerIdByProducerId.Clear();
+
+        _callStore.Reset();
     }
 
     private async Task RunPhaseAsync(
@@ -351,7 +600,7 @@ public sealed class CallCoordinator : IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException($"JoinAudio phase '{phase}' timed out after {timeout.TotalSeconds:0} seconds.");
+            throw new TimeoutException($"Join phase '{phase}' timed out after {timeout.TotalSeconds:0} seconds.");
         }
     }
 
@@ -372,51 +621,10 @@ public sealed class CallCoordinator : IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException($"JoinAudio phase '{phase}' timed out after {timeout.TotalSeconds:0} seconds.");
+            throw new TimeoutException($"Join phase '{phase}' timed out after {timeout.TotalSeconds:0} seconds.");
         }
     }
-    public async Task<Result> LeaveAudioAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _joinAttemptCts?.Cancel();
-        }
-        catch
-        {
-        }
 
-        await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            _backgroundLoopCts?.Cancel();
-            _backgroundLoopCts?.Dispose();
-            _backgroundLoopCts = null;
-
-            if (!string.IsNullOrWhiteSpace(_roomId))
-                await _mediasoupClient.CloseAsync(_roomId, CancellationToken.None).ConfigureAwait(false);
-
-            await _audioEngine.CloseAsync(CancellationToken.None).ConfigureAwait(false);
-
-            _conferenceId = null;
-            _roomId = null;
-            _sendTransportId = null;
-            _recvTransportId = null;
-            _localServerProducerId = null;
-            _consumedPeers.Clear();
-
-            _callStore.Reset();
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _callStore.SetStage(CallConnectionStage.Faulted, _roomId, _sendTransportId);
-            return Result.Failure(new Error("call.leave_failed", ex.Message));
-        }
-        finally
-        {
-            _sync.Release();
-        }
-    }
     private void StartBackgroundLoop()
     {
         _backgroundLoopCts?.Cancel();
@@ -431,8 +639,8 @@ public sealed class CallCoordinator : IDisposable
             {
                 try
                 {
-                    if (!string.IsNullOrWhiteSpace(_conferenceId))
-                        await _conferenceClient.ListMembersAsync(_conferenceId, token).ConfigureAwait(false);
+                    if (_kind == CallKind.Conference && !string.IsNullOrWhiteSpace(_conversationId))
+                        _ = _conferenceClient.ListMembersAsync(_conversationId, token);
 
                     await SyncRemoteConsumersAsync(token).ConfigureAwait(false);
                 }
@@ -453,12 +661,12 @@ public sealed class CallCoordinator : IDisposable
 
     private async Task AudioEngine_TransportConnectRequired(TransportConnectRequest request)
     {
-        if (string.IsNullOrWhiteSpace(_roomId))
+        if (string.IsNullOrWhiteSpace(_sessionId))
         {
             await _audioEngine.ResolveTransportConnectAsync(
                 request.PendingId,
                 false,
-                "Room is not initialized.").ConfigureAwait(false);
+                "Call session is not initialized.").ConfigureAwait(false);
             return;
         }
 
@@ -466,8 +674,9 @@ public sealed class CallCoordinator : IDisposable
         {
             var token = _joinAttemptCts?.Token ?? CancellationToken.None;
 
-            var result = await _mediasoupClient.ConnectTransportAsync(
-                _roomId,
+            var result = await ConnectTransportAsync(
+                _kind,
+                _sessionId!,
                 request.TransportId,
                 request.DtlsParametersJson,
                 token).ConfigureAwait(false);
@@ -476,13 +685,6 @@ public sealed class CallCoordinator : IDisposable
                 request.PendingId,
                 result.IsSuccess,
                 result.Error?.Message).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            await _audioEngine.ResolveTransportConnectAsync(
-                request.PendingId,
-                false,
-                "Join canceled.").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -495,41 +697,43 @@ public sealed class CallCoordinator : IDisposable
 
     private async Task AudioEngine_TransportProduceRequired(TransportProduceRequest request)
     {
-        if (string.IsNullOrWhiteSpace(_roomId))
+        if (string.IsNullOrWhiteSpace(_sessionId))
         {
             await _audioEngine.ResolveProduceAsync(
                 request.PendingId,
                 request.ServerProducerId,
                 false,
-                "Room is not initialized.").ConfigureAwait(false);
+                "Call session is not initialized.").ConfigureAwait(false);
             return;
         }
+
+        var trackType = NormalizeTrackType(request.TrackType, request.Kind);
 
         try
         {
             var token = _joinAttemptCts?.Token ?? CancellationToken.None;
 
-            var result = await _mediasoupClient.ProduceAsync(
-                _roomId,
+            var result = await PublishTrackAsync(
+                _kind,
+                _sessionId!,
                 request.TransportId,
                 request.ServerProducerId,
                 request.Kind,
+                trackType,
                 request.RtpParametersJson,
                 token).ConfigureAwait(false);
+
+            if (result.IsSuccess)
+            {
+                _localProducerIds.Add(request.ServerProducerId);
+                _localProducerByTrackType[trackType] = request.ServerProducerId;
+            }
 
             await _audioEngine.ResolveProduceAsync(
                 request.PendingId,
                 request.ServerProducerId,
                 result.IsSuccess,
                 result.Error?.Message).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            await _audioEngine.ResolveProduceAsync(
-                request.PendingId,
-                request.ServerProducerId,
-                false,
-                "Join canceled.").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -543,29 +747,45 @@ public sealed class CallCoordinator : IDisposable
 
     private async void ConferenceStore_StateChanged(object? sender, ConferenceViewState state)
     {
-        if (state.ActiveConference is null)
+        if (_kind != CallKind.Conference || string.IsNullOrWhiteSpace(_conversationId))
             return;
 
-        if (string.IsNullOrWhiteSpace(_conferenceId))
+        var active = state.ActiveConference;
+        if (active == null)
             return;
 
-        if (!string.Equals(state.ActiveConference.ConferenceId, _conferenceId, StringComparison.Ordinal))
+        if (!string.Equals(active.ConferenceId, _conversationId, StringComparison.Ordinal))
             return;
 
-        var selfPeer = _sessionStore.Current.TrustedPeer;
-        var participants = state.ActiveConference.Members
-            .Where(x => !string.Equals(x.PeerId, selfPeer, StringComparison.Ordinal))
-            .Select(x => new RemoteParticipantState(
-                x.PeerId,
-                HasAudio: true,
-                HasVideo: false,
-                HasScreenShare: false,
-                IsSpeaking: false))
+        ApplyParticipantsFromConference(active);
+        await SyncRemoteConsumersAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private void ApplyParticipantsFromConference(ConferenceDetails details)
+    {
+        var selfPeerId = _sessionStore.Current.SelfPeerId;
+        var existing = _callStore.Current.Participants.ToDictionary(x => x.PeerId, x => x, StringComparer.Ordinal);
+
+        var participants = details.Members
+            .Where(x => !string.IsNullOrWhiteSpace(x.PeerId))
+            .Where(x => !string.Equals(x.PeerId, selfPeerId, StringComparison.Ordinal))
+            .Select(member =>
+            {
+                if (existing.TryGetValue(member.PeerId, out var current))
+                    return current with { UserId = member.UserId ?? current.UserId };
+
+                return new RemoteParticipantState(
+                    member.PeerId,
+                    HasAudio: false,
+                    HasVideo: false,
+                    HasScreenShare: false,
+                    IsSpeaking: false,
+                    UserId: member.UserId);
+            })
+            .OrderBy(x => x.PeerId, StringComparer.Ordinal)
             .ToList();
 
         _callStore.SetParticipants(participants);
-
-        await SyncRemoteConsumersAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     private async Task SyncRemoteConsumersAsync(CancellationToken cancellationToken)
@@ -573,43 +793,269 @@ public sealed class CallCoordinator : IDisposable
         if (_callStore.Current.Stage != CallConnectionStage.Connected)
             return;
 
-        if (string.IsNullOrWhiteSpace(_roomId) ||
+        if (string.IsNullOrWhiteSpace(_sessionId) ||
             string.IsNullOrWhiteSpace(_recvTransportId) ||
             string.IsNullOrWhiteSpace(_audioEngine.RecvRtpCapabilitiesJson))
-            return;
-
-        var activeConference = _conferenceStore.Current.ActiveConference;
-        if (activeConference is null)
-            return;
-
-        if (!string.Equals(activeConference.ConferenceId, _conferenceId, StringComparison.Ordinal))
-            return;
-
-        var selfPeer = _sessionStore.Current.TrustedPeer;
-
-        foreach (var member in activeConference.Members)
         {
-            if (string.Equals(member.PeerId, selfPeer, StringComparison.Ordinal))
+            return;
+        }
+
+        var statsResult = await GetMediaStatsAsync(_kind, _sessionId!, cancellationToken).ConfigureAwait(false);
+        if (statsResult.IsFailure)
+            return;
+
+        var snapshot = statsResult.Value!;
+        var producers = snapshot.Producers ?? Array.Empty<RemoteProducerDescriptor>();
+        var selfPeerId = _sessionStore.Current.SelfPeerId;
+
+        ApplyParticipantsFromMediaSnapshot(snapshot, producers);
+
+        var activeRemoteProducerIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var producer in producers)
+        {
+            if (string.IsNullOrWhiteSpace(producer.ProducerId))
                 continue;
 
-            if (_consumedPeers.Contains(member.PeerId))
+            if (!string.IsNullOrWhiteSpace(selfPeerId) &&
+                string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (_localProducerIds.Contains(producer.ProducerId))
                 continue;
 
-            var remoteProducerId = "audio-" + member.PeerId;
+            activeRemoteProducerIds.Add(producer.ProducerId);
 
-            var consumeResult = await _mediasoupClient.ConsumeAsync(
-                _roomId,
-                _recvTransportId,
-                remoteProducerId,
+            if (_consumedProducerIds.Contains(producer.ProducerId))
+                continue;
+
+            var consumeResult = await ConsumeTrackAsync(
+                _kind,
+                _sessionId!,
+                _recvTransportId!,
+                producer.ProducerId,
                 _audioEngine.RecvRtpCapabilitiesJson!,
                 cancellationToken).ConfigureAwait(false);
 
             if (consumeResult.IsFailure)
                 continue;
 
-            await _audioEngine.ConsumeRemoteAudioAsync(consumeResult.Value!, cancellationToken).ConfigureAwait(false);
-            _consumedPeers.Add(member.PeerId);
+            var consumerInfo = consumeResult.Value!;
+
+            await _audioEngine.ConsumeRemoteTrackAsync(consumerInfo, cancellationToken).ConfigureAwait(false);
+
+            _consumedProducerIds.Add(producer.ProducerId);
+            _consumerIdByProducerId[producer.ProducerId] = consumerInfo.ConsumerId;
+
+            _ = ConsumerReadyAsync(_kind, _sessionId!, consumerInfo.ConsumerId, cancellationToken);
         }
+
+        var staleProducers = _consumerIdByProducerId.Keys
+            .Where(id => !activeRemoteProducerIds.Contains(id))
+            .ToList();
+
+        foreach (var producerId in staleProducers)
+        {
+            if (_consumerIdByProducerId.TryGetValue(producerId, out var consumerId))
+            {
+                try
+                {
+                    await _audioEngine.RemoveRemoteConsumerAsync(consumerId, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            }
+
+            _consumerIdByProducerId.Remove(producerId);
+            _consumedProducerIds.Remove(producerId);
+        }
+    }
+
+    private void ApplyParticipantsFromMediaSnapshot(
+        MediaStatsSnapshot snapshot,
+        IReadOnlyList<RemoteProducerDescriptor> producers)
+    {
+        var selfPeerId = _sessionStore.Current.SelfPeerId;
+        var conference = _conferenceStore.Current.ActiveConference;
+        Dictionary<string, string?>? userByPeer = null;
+
+        if (conference != null &&
+            !string.IsNullOrWhiteSpace(_conversationId) &&
+            string.Equals(conference.ConferenceId, _conversationId, StringComparison.Ordinal))
+        {
+            userByPeer = conference.Members
+                .Where(x => !string.IsNullOrWhiteSpace(x.PeerId))
+                .GroupBy(x => x.PeerId, StringComparer.Ordinal)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.Select(member => member.UserId).FirstOrDefault(static user => !string.IsNullOrWhiteSpace(user)),
+                    StringComparer.Ordinal);
+        }
+
+        var participants = new Dictionary<string, RemoteParticipantState>(StringComparer.Ordinal);
+
+        foreach (var memberPeerId in snapshot.MemberPeerIds ?? Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(memberPeerId) ||
+                string.Equals(memberPeerId, selfPeerId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            participants[memberPeerId] = new RemoteParticipantState(
+                memberPeerId,
+                HasAudio: false,
+                HasVideo: false,
+                HasScreenShare: false,
+                IsSpeaking: false,
+                UserId: userByPeer != null && userByPeer.TryGetValue(memberPeerId, out var userId) ? userId : null);
+        }
+
+        foreach (var producer in producers)
+        {
+            if (string.IsNullOrWhiteSpace(producer.PeerId) ||
+                string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!participants.TryGetValue(producer.PeerId, out var participant))
+            {
+                participants[producer.PeerId] = new RemoteParticipantState(
+                    producer.PeerId,
+                    HasAudio: false,
+                    HasVideo: false,
+                    HasScreenShare: false,
+                    IsSpeaking: false,
+                    UserId: userByPeer != null && userByPeer.TryGetValue(producer.PeerId, out var producerUserId) ? producerUserId : null);
+
+                participant = participants[producer.PeerId];
+            }
+
+            var normalizedTrackType = NormalizeTrackType(producer.TrackType, producer.Kind);
+            participants[producer.PeerId] = participant with
+            {
+                HasAudio = participant.HasAudio || normalizedTrackType == "microphone",
+                HasVideo = participant.HasVideo || normalizedTrackType == "camera",
+                HasScreenShare = participant.HasScreenShare || normalizedTrackType == "screen"
+            };
+        }
+
+        _callStore.SetParticipants(
+            participants.Values
+                .OrderBy(x => x.PeerId, StringComparer.Ordinal)
+                .ToList());
+    }
+
+    private Task<Result<WebRtcTransportInfo>> OpenTransportAsync(
+        CallKind kind,
+        string sessionId,
+        string transportId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.OpenTransportAsync(sessionId, transportId, cancellationToken)
+            : _conferenceMediaClient.OpenTransportAsync(sessionId, transportId, cancellationToken);
+    }
+
+    private Task<Result> ConnectTransportAsync(
+        CallKind kind,
+        string sessionId,
+        string transportId,
+        string dtlsParametersJson,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.ConnectTransportAsync(sessionId, transportId, dtlsParametersJson, cancellationToken)
+            : _conferenceMediaClient.ConnectTransportAsync(sessionId, transportId, dtlsParametersJson, cancellationToken);
+    }
+
+    private Task<Result> PublishTrackAsync(
+        CallKind kind,
+        string sessionId,
+        string transportId,
+        string producerId,
+        string mediaKind,
+        string trackType,
+        string rtpParametersJson,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.PublishTrackAsync(sessionId, transportId, producerId, mediaKind, trackType, rtpParametersJson, cancellationToken)
+            : _conferenceMediaClient.PublishTrackAsync(sessionId, transportId, producerId, mediaKind, trackType, rtpParametersJson, cancellationToken);
+    }
+
+    private Task<Result<ConsumerInfo>> ConsumeTrackAsync(
+        CallKind kind,
+        string sessionId,
+        string transportId,
+        string producerId,
+        string recvRtpCapabilitiesJson,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.ConsumeTrackAsync(sessionId, transportId, producerId, recvRtpCapabilitiesJson, null, cancellationToken)
+            : _conferenceMediaClient.ConsumeTrackAsync(sessionId, transportId, producerId, recvRtpCapabilitiesJson, null, cancellationToken);
+    }
+
+    private Task<Result> ConsumerReadyAsync(
+        CallKind kind,
+        string sessionId,
+        string consumerId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.ConsumerReadyAsync(sessionId, consumerId, cancellationToken)
+            : _conferenceMediaClient.ConsumerReadyAsync(sessionId, consumerId, cancellationToken);
+    }
+
+    private Task<Result<MediaStatsSnapshot>> GetMediaStatsAsync(
+        CallKind kind,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.GetMediaStatsAsync(sessionId, cancellationToken)
+            : _conferenceMediaClient.GetMediaStatsAsync(sessionId, cancellationToken);
+    }
+
+    private static string NormalizeTrackType(CallMediaTrackType trackType)
+    {
+        return trackType switch
+        {
+            CallMediaTrackType.Audio => "microphone",
+            CallMediaTrackType.Video => "camera",
+            CallMediaTrackType.ScreenShare => "screen",
+            _ => "microphone"
+        };
+    }
+
+    private static string NormalizeTrackType(string? trackType, string? mediaKind)
+    {
+        if (!string.IsNullOrWhiteSpace(trackType))
+        {
+            var normalized = trackType.Trim().ToLowerInvariant();
+            return normalized switch
+            {
+                "mic" => "microphone",
+                "audio" => "microphone",
+                "microphone" => "microphone",
+                "video" => "camera",
+                "camera" => "camera",
+                "screen_share" => "screen",
+                "screenshare" => "screen",
+                "screen" => "screen",
+                _ => normalized
+            };
+        }
+
+        if (string.Equals(mediaKind, "video", StringComparison.OrdinalIgnoreCase))
+            return "camera";
+
+        return "microphone";
     }
 
     public void Dispose()
@@ -620,5 +1066,6 @@ public sealed class CallCoordinator : IDisposable
         _conferenceStore.StateChanged -= ConferenceStore_StateChanged;
         _audioEngine.TransportConnectRequired -= AudioEngine_TransportConnectRequired;
         _audioEngine.TransportProduceRequired -= AudioEngine_TransportProduceRequired;
+        _sync.Dispose();
     }
 }

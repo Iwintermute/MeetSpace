@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MeetSpace.Client.Contracts.Protocol;
@@ -17,5 +15,4 @@ public sealed class FeatureResponseEnvelope
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extensions { get; init; }
-
 }

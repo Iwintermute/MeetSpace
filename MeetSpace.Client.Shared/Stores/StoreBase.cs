@@ -1,10 +1,7 @@
-﻿using System;
-
-namespace MeetSpace.Client.Shared.Stores;
-
+﻿
 public abstract class StoreBase<TState> : IStore<TState>
 {
-    private readonly object _sync = new object();
+    private readonly object _sync = new();
     private TState _current;
 
     protected StoreBase(TState initialState)

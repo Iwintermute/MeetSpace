@@ -1,5 +1,4 @@
 ﻿using System;
-
 namespace MeetSpace.Client.Shared.Utilities;
 
 public static class Guard

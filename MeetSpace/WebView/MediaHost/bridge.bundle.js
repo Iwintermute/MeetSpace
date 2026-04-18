@@ -3,25 +3,8 @@
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __propIsEnum = Object.prototype.propertyIsEnumerable;
-  var __typeError = (msg) => {
-    throw TypeError(msg);
-  };
-  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __spreadValues = (a, b) => {
-    for (var prop in b || (b = {}))
-      if (__hasOwnProp.call(b, prop))
-        __defNormalProp(a, prop, b[prop]);
-    if (__getOwnPropSymbols)
-      for (var prop of __getOwnPropSymbols(b)) {
-        if (__propIsEnum.call(b, prop))
-          __defNormalProp(a, prop, b[prop]);
-      }
-    return a;
-  };
   var __commonJS = (cb, mod) => function __require() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
@@ -41,15 +24,10 @@
     isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
     mod
   ));
-  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-  var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
-  var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
-  var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
-  var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 
-  // MeetSpace/WebView/MediaHost/node_modules/ms/index.js
+  // node_modules/ms/index.js
   var require_ms = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/ms/index.js"(exports, module) {
+    "node_modules/ms/index.js"(exports, module) {
       var s = 1e3;
       var m = s * 60;
       var h = m * 60;
@@ -163,9 +141,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/debug/src/common.js
+  // node_modules/debug/src/common.js
   var require_common = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/debug/src/common.js"(exports, module) {
+    "node_modules/debug/src/common.js"(exports, module) {
       function setup(env) {
         createDebug.debug = createDebug;
         createDebug.default = createDebug;
@@ -340,9 +318,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/debug/src/browser.js
+  // node_modules/debug/src/browser.js
   var require_browser = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/debug/src/browser.js"(exports, module) {
+    "node_modules/debug/src/browser.js"(exports, module) {
       exports.formatArgs = formatArgs;
       exports.save = save;
       exports.load = load;
@@ -510,27 +488,27 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/types.js
+  // node_modules/mediasoup-client/lib/types.js
   var require_types = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/types.js"(exports) {
+    "node_modules/mediasoup-client/lib/types.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Logger.js
+  // node_modules/mediasoup-client/lib/Logger.js
   var require_Logger = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Logger.js"(exports) {
+    "node_modules/mediasoup-client/lib/Logger.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Logger = void 0;
       var debug_1 = require_browser();
       var APP_NAME = "mediasoup-client";
       var Logger = class {
+        _debug;
+        _warn;
+        _error;
         constructor(prefix) {
-          __publicField(this, "_debug");
-          __publicField(this, "_warn");
-          __publicField(this, "_error");
           if (prefix) {
             this._debug = (0, debug_1.default)(`${APP_NAME}:${prefix}`);
             this._warn = (0, debug_1.default)(`${APP_NAME}:WARN:${prefix}`);
@@ -558,9 +536,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/events-alias/events.js
+  // node_modules/events-alias/events.js
   var require_events = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/events-alias/events.js"(exports, module) {
+    "node_modules/events-alias/events.js"(exports, module) {
       "use strict";
       var R = typeof Reflect === "object" ? Reflect : null;
       var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply2(target, receiver, args) {
@@ -927,9 +905,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/enhancedEvents.js
+  // node_modules/mediasoup-client/lib/enhancedEvents.js
   var require_enhancedEvents = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/enhancedEvents.js"(exports) {
+    "node_modules/mediasoup-client/lib/enhancedEvents.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.EnhancedEventEmitter = void 0;
@@ -1011,9 +989,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/errors.js
+  // node_modules/mediasoup-client/lib/errors.js
   var require_errors = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/errors.js"(exports) {
+    "node_modules/mediasoup-client/lib/errors.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.InvalidStateError = exports.UnsupportedError = void 0;
@@ -1044,9 +1022,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/utils.js
+  // node_modules/mediasoup-client/lib/utils.js
   var require_utils = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/utils.js"(exports) {
+    "node_modules/mediasoup-client/lib/utils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.clone = clone;
@@ -1079,19 +1057,19 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/h264-profile-level-id/lib/Logger.js
+  // node_modules/h264-profile-level-id/lib/Logger.js
   var require_Logger2 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/h264-profile-level-id/lib/Logger.js"(exports) {
+    "node_modules/h264-profile-level-id/lib/Logger.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Logger = void 0;
       var debug_1 = require_browser();
       var APP_NAME = "h264-profile-level-id";
       var Logger = class {
+        _debug;
+        _warn;
+        _error;
         constructor(prefix) {
-          __publicField(this, "_debug");
-          __publicField(this, "_warn");
-          __publicField(this, "_error");
           if (prefix) {
             this._debug = (0, debug_1.default)(`${APP_NAME}:${prefix}`);
             this._warn = (0, debug_1.default)(`${APP_NAME}:WARN:${prefix}`);
@@ -1119,9 +1097,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/h264-profile-level-id/lib/index.js
+  // node_modules/h264-profile-level-id/lib/index.js
   var require_lib = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/h264-profile-level-id/lib/index.js"(exports) {
+    "node_modules/h264-profile-level-id/lib/index.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ProfileLevelId = exports.Level = exports.Profile = void 0;
@@ -1166,9 +1144,9 @@
         Level2[Level2["L5_2"] = 52] = "L5_2";
       })(Level || (exports.Level = Level = {}));
       var ProfileLevelId = class {
+        profile;
+        level;
         constructor(profile, level) {
-          __publicField(this, "profile");
-          __publicField(this, "level");
           this.profile = profile;
           this.level = level;
         }
@@ -1176,9 +1154,9 @@
       exports.ProfileLevelId = ProfileLevelId;
       var DefaultProfileLevelId = new ProfileLevelId(Profile.ConstrainedBaseline, Level.L3_1);
       var BitPattern = class {
+        mask;
+        masked_value;
         constructor(str) {
-          __publicField(this, "mask");
-          __publicField(this, "masked_value");
           this.mask = ~byteMaskString("x", str);
           this.masked_value = byteMaskString("1", str);
         }
@@ -1187,10 +1165,10 @@
         }
       };
       var ProfilePattern = class {
+        profile_idc;
+        profile_iop;
+        profile;
         constructor(profile_idc, profile_iop, profile) {
-          __publicField(this, "profile_idc");
-          __publicField(this, "profile_iop");
-          __publicField(this, "profile");
           this.profile_idc = profile_idc;
           this.profile_iop = profile_iop;
           this.profile = profile;
@@ -1558,9 +1536,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/ortc.js
+  // node_modules/mediasoup-client/lib/ortc.js
   var require_ortc = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/ortc.js"(exports) {
+    "node_modules/mediasoup-client/lib/ortc.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.validateAndNormalizeRtpCapabilities = validateAndNormalizeRtpCapabilities;
@@ -1682,17 +1660,16 @@
         validateNumSctpStreams(caps.numStreams);
       }
       function getExtendedRtpCapabilities(localCaps, remoteCaps, preferLocalCodecsOrder) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _i;
         const extendedRtpCapabilities = {
           codecs: [],
           headerExtensions: []
         };
         if (preferLocalCodecsOrder) {
-          for (const localCodec of (_a = localCaps.codecs) != null ? _a : []) {
+          for (const localCodec of localCaps.codecs ?? []) {
             if (isRtxCodec(localCodec)) {
               continue;
             }
-            const matchingRemoteCodec = ((_b = remoteCaps.codecs) != null ? _b : []).find((remoteCodec) => matchCodecs(remoteCodec, localCodec, { strict: true, modify: true }));
+            const matchingRemoteCodec = (remoteCaps.codecs ?? []).find((remoteCodec) => matchCodecs(remoteCodec, localCodec, { strict: true, modify: true }));
             if (!matchingRemoteCodec) {
               continue;
             }
@@ -1705,18 +1682,18 @@
               localRtxPayloadType: void 0,
               remotePayloadType: matchingRemoteCodec.preferredPayloadType,
               remoteRtxPayloadType: void 0,
-              localParameters: (_c = localCodec.parameters) != null ? _c : {},
-              remoteParameters: (_d = matchingRemoteCodec.parameters) != null ? _d : {},
+              localParameters: localCodec.parameters ?? {},
+              remoteParameters: matchingRemoteCodec.parameters ?? {},
               rtcpFeedback: reduceRtcpFeedback(localCodec, matchingRemoteCodec)
             };
             extendedRtpCapabilities.codecs.push(extendedCodec);
           }
         } else {
-          for (const remoteCodec of (_e = remoteCaps.codecs) != null ? _e : []) {
+          for (const remoteCodec of remoteCaps.codecs ?? []) {
             if (isRtxCodec(remoteCodec)) {
               continue;
             }
-            const matchingLocalCodec = ((_f = localCaps.codecs) != null ? _f : []).find((localCodec) => matchCodecs(localCodec, remoteCodec, { strict: true, modify: true }));
+            const matchingLocalCodec = (localCaps.codecs ?? []).find((localCodec) => matchCodecs(localCodec, remoteCodec, { strict: true, modify: true }));
             if (!matchingLocalCodec) {
               continue;
             }
@@ -1729,22 +1706,16 @@
               localRtxPayloadType: void 0,
               remotePayloadType: remoteCodec.preferredPayloadType,
               remoteRtxPayloadType: void 0,
-              localParameters: (_g = matchingLocalCodec.parameters) != null ? _g : {},
-              remoteParameters: (_h = remoteCodec.parameters) != null ? _h : {},
+              localParameters: matchingLocalCodec.parameters ?? {},
+              remoteParameters: remoteCodec.parameters ?? {},
               rtcpFeedback: reduceRtcpFeedback(matchingLocalCodec, remoteCodec)
             };
             extendedRtpCapabilities.codecs.push(extendedCodec);
           }
         }
         for (const extendedCodec of extendedRtpCapabilities.codecs) {
-          const matchingLocalRtxCodec = localCaps.codecs.find((localCodec) => {
-            var _a2;
-            return isRtxCodec(localCodec) && ((_a2 = localCodec.parameters) == null ? void 0 : _a2["apt"]) === extendedCodec.localPayloadType;
-          });
-          const matchingRemoteRtxCodec = remoteCaps.codecs.find((remoteCodec) => {
-            var _a2;
-            return isRtxCodec(remoteCodec) && ((_a2 = remoteCodec.parameters) == null ? void 0 : _a2["apt"]) === extendedCodec.remotePayloadType;
-          });
+          const matchingLocalRtxCodec = localCaps.codecs.find((localCodec) => isRtxCodec(localCodec) && localCodec.parameters?.["apt"] === extendedCodec.localPayloadType);
+          const matchingRemoteRtxCodec = remoteCaps.codecs.find((remoteCodec) => isRtxCodec(remoteCodec) && remoteCodec.parameters?.["apt"] === extendedCodec.remotePayloadType);
           if (matchingLocalRtxCodec && matchingRemoteRtxCodec) {
             extendedCodec.localRtxPayloadType = matchingLocalRtxCodec.preferredPayloadType;
             extendedCodec.remoteRtxPayloadType = matchingRemoteRtxCodec.preferredPayloadType;
@@ -1760,7 +1731,7 @@
             uri: remoteExt.uri,
             sendId: matchingLocalExt.preferredId,
             recvId: remoteExt.preferredId,
-            encrypt: (_i = matchingLocalExt.preferredEncrypt) != null ? _i : false,
+            encrypt: matchingLocalExt.preferredEncrypt ?? false,
             direction: "sendrecv"
           };
           switch (remoteExt.direction) {
@@ -1840,7 +1811,6 @@
         return rtpParameters;
       }
       function getSendingRemoteRtpParameters(kind, extendedRtpCapabilities) {
-        var _a, _b, _c;
         const rtpParameters = {
           mid: void 0,
           codecs: [],
@@ -1888,15 +1858,15 @@
         }
         if (rtpParameters.headerExtensions.some((ext) => ext.uri === "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01")) {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_a = codec.rtcpFeedback) != null ? _a : []).filter((fb) => fb.type !== "goog-remb");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "goog-remb");
           }
         } else if (rtpParameters.headerExtensions.some((ext) => ext.uri === "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time")) {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_b = codec.rtcpFeedback) != null ? _b : []).filter((fb) => fb.type !== "transport-cc");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "transport-cc");
           }
         } else {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_c = codec.rtcpFeedback) != null ? _c : []).filter((fb) => fb.type !== "transport-cc" && fb.type !== "goog-remb");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "transport-cc" && fb.type !== "goog-remb");
           }
         }
         return rtpParameters;
@@ -1940,17 +1910,15 @@
         return rtpParameters;
       }
       function canSend(kind, rtpCapabilities) {
-        var _a;
-        return ((_a = rtpCapabilities.codecs) != null ? _a : []).some((codec) => codec.kind === kind);
+        return (rtpCapabilities.codecs ?? []).some((codec) => codec.kind === kind);
       }
       function canReceive(rtpParameters, rtpCapabilities) {
-        var _a;
         validateAndNormalizeRtpParameters(rtpParameters);
         if (rtpParameters.codecs.length === 0) {
           return false;
         }
         const firstMediaCodec = rtpParameters.codecs[0];
-        return ((_a = rtpCapabilities.codecs) != null ? _a : []).some((codec) => codec.preferredPayloadType === firstMediaCodec.payloadType);
+        return (rtpCapabilities.codecs ?? []).some((codec) => codec.preferredPayloadType === firstMediaCodec.payloadType);
       }
       function validateAndNormalizeRtpCodecCapability(codec) {
         const MimeTypeRegex = new RegExp("^(audio|video)/(.+)", "i");
@@ -2165,7 +2133,6 @@
         }
       }
       function getRtpCapabilities({ direction, extendedRtpCapabilities }) {
-        var _a;
         const rtpCapabilities = {
           codecs: [],
           headerExtensions: []
@@ -2204,7 +2171,7 @@
             kind: extendedExtension.kind,
             uri: extendedExtension.uri,
             preferredId: extendedExtension.recvId,
-            preferredEncrypt: (_a = extendedExtension.encrypt) != null ? _a : false,
+            preferredEncrypt: extendedExtension.encrypt ?? false,
             direction: extendedExtension.direction
           };
           rtpCapabilities.headerExtensions.push(ext);
@@ -2218,7 +2185,6 @@
         return /.+\/rtx$/i.test(codec.mimeType);
       }
       function matchCodecs(aCodec, bCodec, { strict = false, modify = false } = {}) {
-        var _a, _b, _c, _d;
         const aMimeType = aCodec.mimeType.toLowerCase();
         const bMimeType = bCodec.mimeType.toLowerCase();
         if (aMimeType !== bMimeType) {
@@ -2233,8 +2199,8 @@
         switch (aMimeType) {
           case "video/h264": {
             if (strict) {
-              const aPacketizationMode = (_a = aCodec.parameters["packetization-mode"]) != null ? _a : 0;
-              const bPacketizationMode = (_b = bCodec.parameters["packetization-mode"]) != null ? _b : 0;
+              const aPacketizationMode = aCodec.parameters["packetization-mode"] ?? 0;
+              const bPacketizationMode = bCodec.parameters["packetization-mode"] ?? 0;
               if (aPacketizationMode !== bPacketizationMode) {
                 return false;
               }
@@ -2261,8 +2227,8 @@
           }
           case "video/vp9": {
             if (strict) {
-              const aProfileId = (_c = aCodec.parameters["profile-id"]) != null ? _c : 0;
-              const bProfileId = (_d = bCodec.parameters["profile-id"]) != null ? _d : 0;
+              const aProfileId = aCodec.parameters["profile-id"] ?? 0;
+              const bProfileId = bCodec.parameters["profile-id"] ?? 0;
               if (aProfileId !== bProfileId) {
                 return false;
               }
@@ -2282,10 +2248,9 @@
         return true;
       }
       function reduceRtcpFeedback(codecA, codecB) {
-        var _a, _b;
         const reducedRtcpFeedback = [];
-        for (const aFb of (_a = codecA.rtcpFeedback) != null ? _a : []) {
-          const matchingBFb = ((_b = codecB.rtcpFeedback) != null ? _b : []).find((bFb) => bFb.type === aFb.type && (bFb.parameter === aFb.parameter || !bFb.parameter && !aFb.parameter));
+        for (const aFb of codecA.rtcpFeedback ?? []) {
+          const matchingBFb = (codecB.rtcpFeedback ?? []).find((bFb) => bFb.type === aFb.type && (bFb.parameter === aFb.parameter || !bFb.parameter && !aFb.parameter));
           if (matchingBFb) {
             reducedRtcpFeedback.push(matchingBFb);
           }
@@ -2295,19 +2260,19 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/Logger.js
+  // node_modules/awaitqueue/lib/Logger.js
   var require_Logger3 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/Logger.js"(exports) {
+    "node_modules/awaitqueue/lib/Logger.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Logger = void 0;
       var debug = require_browser();
       var LIB_NAME = "awaitqueue";
       var Logger = class {
+        _debug;
+        _warn;
+        _error;
         constructor(prefix) {
-          __publicField(this, "_debug");
-          __publicField(this, "_warn");
-          __publicField(this, "_error");
           if (prefix) {
             this._debug = debug(`${LIB_NAME}:${prefix}`);
             this._warn = debug(`${LIB_NAME}:WARN:${prefix}`);
@@ -2335,15 +2300,15 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/errors.js
+  // node_modules/awaitqueue/lib/errors.js
   var require_errors2 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/errors.js"(exports) {
+    "node_modules/awaitqueue/lib/errors.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = void 0;
       var AwaitQueueStoppedError = class _AwaitQueueStoppedError extends Error {
         constructor(message) {
-          super(message != null ? message : "queue stopped");
+          super(message ?? "queue stopped");
           this.name = "AwaitQueueStoppedError";
           if (typeof Error.captureStackTrace === "function") {
             Error.captureStackTrace(this, _AwaitQueueStoppedError);
@@ -2353,7 +2318,7 @@
       exports.AwaitQueueStoppedError = AwaitQueueStoppedError;
       var AwaitQueueRemovedTaskError = class _AwaitQueueRemovedTaskError extends Error {
         constructor(message) {
-          super(message != null ? message : "queue task removed");
+          super(message ?? "queue task removed");
           this.name = "AwaitQueueRemovedTaskError";
           if (typeof Error.captureStackTrace === "function") {
             Error.captureStackTrace(this, _AwaitQueueRemovedTaskError);
@@ -2364,9 +2329,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/AwaitQueue.js
+  // node_modules/awaitqueue/lib/AwaitQueue.js
   var require_AwaitQueue = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/AwaitQueue.js"(exports) {
+    "node_modules/awaitqueue/lib/AwaitQueue.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.AwaitQueue = void 0;
@@ -2374,18 +2339,18 @@
       var errors_1 = require_errors2();
       var logger = new Logger_1.Logger("AwaitQueue");
       var AwaitQueue = class {
+        // Queue of pending tasks (map of PendingTasks indexed by id).
+        pendingTasks = /* @__PURE__ */ new Map();
+        // Incrementing PendingTask id.
+        nextTaskId = 0;
         constructor() {
-          // Queue of pending tasks (map of PendingTasks indexed by id).
-          __publicField(this, "pendingTasks", /* @__PURE__ */ new Map());
-          // Incrementing PendingTask id.
-          __publicField(this, "nextTaskId", 0);
           logger.debug("constructor()");
         }
         get size() {
           return this.pendingTasks.size;
         }
         async push(task, name, options) {
-          name = name != null ? name : task.name;
+          name = name ?? task.name;
           logger.debug(`push() [name:${name}, options:%o]`, options);
           if (typeof task !== "function") {
             throw new TypeError("given task is not a function");
@@ -2397,7 +2362,7 @@
             }
           }
           return new Promise((resolve, reject) => {
-            if (name && (options == null ? void 0 : options.removeOngoingTasksWithSameName)) {
+            if (name && options?.removeOngoingTasksWithSameName) {
               for (const pendingTask2 of this.pendingTasks.values()) {
                 if (pendingTask2.name === name) {
                   pendingTask2.reject(new errors_1.AwaitQueueRemovedTaskError(), {
@@ -2497,9 +2462,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/index.js
+  // node_modules/awaitqueue/lib/index.js
   var require_lib2 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/awaitqueue/lib/index.js"(exports) {
+    "node_modules/awaitqueue/lib/index.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = exports.AwaitQueue = void 0;
@@ -2517,9 +2482,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Producer.js
+  // node_modules/mediasoup-client/lib/Producer.js
   var require_Producer = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Producer.js"(exports) {
+    "node_modules/mediasoup-client/lib/Producer.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Producer = void 0;
@@ -2528,36 +2493,36 @@
       var errors_1 = require_errors();
       var logger = new Logger_1.Logger("Producer");
       var Producer = class extends enhancedEvents_1.EnhancedEventEmitter {
+        // Id.
+        _id;
+        // Local id.
+        _localId;
+        // Closed flag.
+        _closed = false;
+        // Associated RTCRtpSender.
+        _rtpSender;
+        // Local track.
+        _track;
+        // Producer kind.
+        _kind;
+        // RTP parameters.
+        _rtpParameters;
+        // Paused flag.
+        _paused;
+        // Video max spatial layer.
+        _maxSpatialLayer;
+        // Whether the Producer should call stop() in given tracks.
+        _stopTracks;
+        // Whether the Producer should set track.enabled = false when paused.
+        _disableTrackOnPause;
+        // Whether we should mark the transceiver as inactive when paused.
+        _zeroRtpOnPause;
+        // App custom data.
+        _appData;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
         constructor({ id, localId, rtpSender, track, rtpParameters, stopTracks, disableTrackOnPause, zeroRtpOnPause, appData }) {
           super();
-          // Id.
-          __publicField(this, "_id");
-          // Local id.
-          __publicField(this, "_localId");
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Associated RTCRtpSender.
-          __publicField(this, "_rtpSender");
-          // Local track.
-          __publicField(this, "_track");
-          // Producer kind.
-          __publicField(this, "_kind");
-          // RTP parameters.
-          __publicField(this, "_rtpParameters");
-          // Paused flag.
-          __publicField(this, "_paused");
-          // Video max spatial layer.
-          __publicField(this, "_maxSpatialLayer");
-          // Whether the Producer should call stop() in given tracks.
-          __publicField(this, "_stopTracks");
-          // Whether the Producer should set track.enabled = false when paused.
-          __publicField(this, "_disableTrackOnPause");
-          // Whether we should mark the transceiver as inactive when paused.
-          __publicField(this, "_zeroRtpOnPause");
-          // App custom data.
-          __publicField(this, "_appData");
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor()");
           this._id = id;
           this._localId = localId;
@@ -2570,7 +2535,7 @@
           this._stopTracks = stopTracks;
           this._disableTrackOnPause = disableTrackOnPause;
           this._zeroRtpOnPause = zeroRtpOnPause;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.onTrackEnded = this.onTrackEnded.bind(this);
           this.handleTrack();
         }
@@ -2739,7 +2704,7 @@
               }
             }
             throw new errors_1.InvalidStateError("closed");
-          } else if ((track == null ? void 0 : track.readyState) === "ended") {
+          } else if (track?.readyState === "ended") {
             throw new errors_1.InvalidStateError("track ended");
           }
           if (track === this._track) {
@@ -2818,9 +2783,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Consumer.js
+  // node_modules/mediasoup-client/lib/Consumer.js
   var require_Consumer = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Consumer.js"(exports) {
+    "node_modules/mediasoup-client/lib/Consumer.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Consumer = void 0;
@@ -2829,28 +2794,28 @@
       var errors_1 = require_errors();
       var logger = new Logger_1.Logger("Consumer");
       var Consumer = class extends enhancedEvents_1.EnhancedEventEmitter {
+        // Id.
+        _id;
+        // Local id.
+        _localId;
+        // Associated Producer id.
+        _producerId;
+        // Closed flag.
+        _closed = false;
+        // Associated RTCRtpReceiver.
+        _rtpReceiver;
+        // Remote track.
+        _track;
+        // RTP parameters.
+        _rtpParameters;
+        // Paused flag.
+        _paused;
+        // App custom data.
+        _appData;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
         constructor({ id, localId, producerId, rtpReceiver, track, rtpParameters, appData }) {
           super();
-          // Id.
-          __publicField(this, "_id");
-          // Local id.
-          __publicField(this, "_localId");
-          // Associated Producer id.
-          __publicField(this, "_producerId");
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Associated RTCRtpReceiver.
-          __publicField(this, "_rtpReceiver");
-          // Remote track.
-          __publicField(this, "_track");
-          // RTP parameters.
-          __publicField(this, "_rtpParameters");
-          // Paused flag.
-          __publicField(this, "_paused");
-          // App custom data.
-          __publicField(this, "_appData");
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor()");
           this._id = id;
           this._localId = localId;
@@ -2859,7 +2824,7 @@
           this._track = track;
           this._rtpParameters = rtpParameters;
           this._paused = !track.enabled;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.onTrackEnded = this.onTrackEnded.bind(this);
           this.handleTrack();
         }
@@ -3027,9 +2992,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/DataProducer.js
+  // node_modules/mediasoup-client/lib/DataProducer.js
   var require_DataProducer = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/DataProducer.js"(exports) {
+    "node_modules/mediasoup-client/lib/DataProducer.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DataProducer = void 0;
@@ -3038,25 +3003,25 @@
       var errors_1 = require_errors();
       var logger = new Logger_1.Logger("DataProducer");
       var DataProducer = class extends enhancedEvents_1.EnhancedEventEmitter {
+        // Id.
+        _id;
+        // The underlying RTCDataChannel instance.
+        _dataChannel;
+        // Closed flag.
+        _closed = false;
+        // SCTP stream parameters.
+        _sctpStreamParameters;
+        // App custom data.
+        _appData;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
         constructor({ id, dataChannel, sctpStreamParameters, appData }) {
           super();
-          // Id.
-          __publicField(this, "_id");
-          // The underlying RTCDataChannel instance.
-          __publicField(this, "_dataChannel");
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // SCTP stream parameters.
-          __publicField(this, "_sctpStreamParameters");
-          // App custom data.
-          __publicField(this, "_appData");
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor()");
           this._id = id;
           this._dataChannel = dataChannel;
           this._sctpStreamParameters = sctpStreamParameters;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleDataChannel();
         }
         /**
@@ -3178,13 +3143,12 @@
             this.safeEmit("open");
           });
           this._dataChannel.addEventListener("error", (event) => {
-            var _a, _b, _c;
             if (this._closed) {
               return;
             }
-            const error = (_a = event.error) != null ? _a : new Error("unknown DataChannel error");
-            if (((_b = event.error) == null ? void 0 : _b.errorDetail) === "sctp-failure") {
-              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", (_c = event.error) == null ? void 0 : _c.sctpCauseCode, event.error.message);
+            const error = event.error ?? new Error("unknown DataChannel error");
+            if (event.error?.errorDetail === "sctp-failure") {
+              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", event.error?.sctpCauseCode, event.error.message);
             } else {
               logger.error('DataChannel "error" event: %o', error);
             }
@@ -3218,9 +3182,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/DataConsumer.js
+  // node_modules/mediasoup-client/lib/DataConsumer.js
   var require_DataConsumer = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/DataConsumer.js"(exports) {
+    "node_modules/mediasoup-client/lib/DataConsumer.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DataConsumer = void 0;
@@ -3228,28 +3192,28 @@
       var enhancedEvents_1 = require_enhancedEvents();
       var logger = new Logger_1.Logger("DataConsumer");
       var DataConsumer = class extends enhancedEvents_1.EnhancedEventEmitter {
+        // Id.
+        _id;
+        // Associated DataProducer Id.
+        _dataProducerId;
+        // The underlying RTCDataChannel instance.
+        _dataChannel;
+        // Closed flag.
+        _closed = false;
+        // SCTP stream parameters.
+        _sctpStreamParameters;
+        // App custom data.
+        _appData;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
         constructor({ id, dataProducerId, dataChannel, sctpStreamParameters, appData }) {
           super();
-          // Id.
-          __publicField(this, "_id");
-          // Associated DataProducer Id.
-          __publicField(this, "_dataProducerId");
-          // The underlying RTCDataChannel instance.
-          __publicField(this, "_dataChannel");
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // SCTP stream parameters.
-          __publicField(this, "_sctpStreamParameters");
-          // App custom data.
-          __publicField(this, "_appData");
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor()");
           this._id = id;
           this._dataProducerId = dataProducerId;
           this._dataChannel = dataChannel;
           this._sctpStreamParameters = sctpStreamParameters;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleDataChannel();
         }
         /**
@@ -3358,13 +3322,12 @@
             this.safeEmit("open");
           });
           this._dataChannel.addEventListener("error", (event) => {
-            var _a, _b, _c;
             if (this._closed) {
               return;
             }
-            const error = (_a = event.error) != null ? _a : new Error("unknown DataChannel error");
-            if (((_b = event.error) == null ? void 0 : _b.errorDetail) === "sctp-failure") {
-              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", (_c = event.error) == null ? void 0 : _c.sctpCauseCode, event.error.message);
+            const error = event.error ?? new Error("unknown DataChannel error");
+            if (event.error?.errorDetail === "sctp-failure") {
+              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", event.error?.sctpCauseCode, event.error.message);
             } else {
               logger.error('DataChannel "error" event: %o', error);
             }
@@ -3392,9 +3355,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Transport.js
+  // node_modules/mediasoup-client/lib/Transport.js
   var require_Transport = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Transport.js"(exports) {
+    "node_modules/mediasoup-client/lib/Transport.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Transport = void 0;
@@ -3410,11 +3373,11 @@
       var DataConsumer_1 = require_DataConsumer();
       var logger = new Logger_1.Logger("Transport");
       var ConsumerCreationTask = class {
+        consumerOptions;
+        promise;
+        resolve;
+        reject;
         constructor(consumerOptions) {
-          __publicField(this, "consumerOptions");
-          __publicField(this, "promise");
-          __publicField(this, "resolve");
-          __publicField(this, "reject");
           this.consumerOptions = consumerOptions;
           this.promise = new Promise((resolve, reject) => {
             this.resolve = resolve;
@@ -3423,63 +3386,62 @@
         }
       };
       var Transport = class extends enhancedEvents_1.EnhancedEventEmitter {
+        // Id.
+        _id;
+        // Closed flag.
+        _closed = false;
+        // Direction.
+        _direction;
+        // Callback for sending Transports to request sending extended RTP capabilities
+        // on demand.
+        _getSendExtendedRtpCapabilities;
+        // Recv RTP capabilities.
+        _recvRtpCapabilities;
+        // Whether we can produce audio/video based on computed extended RTP
+        // capabilities.
+        _canProduceByKind;
+        // SCTP max message size if enabled, null otherwise.
+        _maxSctpMessageSize;
+        // RTC handler isntance.
+        _handler;
+        // Transport ICE gathering state.
+        _iceGatheringState = "new";
+        // Transport connection state.
+        _connectionState = "new";
+        // App custom data.
+        _appData;
+        // Map of Producers indexed by id.
+        _producers = /* @__PURE__ */ new Map();
+        // Map of Consumers indexed by id.
+        _consumers = /* @__PURE__ */ new Map();
+        // Map of DataProducers indexed by id.
+        _dataProducers = /* @__PURE__ */ new Map();
+        // Map of DataConsumers indexed by id.
+        _dataConsumers = /* @__PURE__ */ new Map();
+        // Whether the Consumer for RTP probation has been created.
+        _probatorConsumerCreated = false;
+        // AwaitQueue instance to make async tasks happen sequentially.
+        _awaitQueue = new awaitqueue_1.AwaitQueue();
+        // Consumer creation tasks awaiting to be processed.
+        _pendingConsumerTasks = [];
+        // Consumer creation in progress flag.
+        _consumerCreationInProgress = false;
+        // Consumers pending to be paused.
+        _pendingPauseConsumers = /* @__PURE__ */ new Map();
+        // Consumer pause in progress flag.
+        _consumerPauseInProgress = false;
+        // Consumers pending to be resumed.
+        _pendingResumeConsumers = /* @__PURE__ */ new Map();
+        // Consumer resume in progress flag.
+        _consumerResumeInProgress = false;
+        // Consumers pending to be closed.
+        _pendingCloseConsumers = /* @__PURE__ */ new Map();
+        // Consumer close in progress flag.
+        _consumerCloseInProgress = false;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
         constructor({ direction, id, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, appData, handlerFactory, getSendExtendedRtpCapabilities, recvRtpCapabilities, canProduceByKind }) {
-          var _a;
           super();
-          // Id.
-          __publicField(this, "_id");
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Direction.
-          __publicField(this, "_direction");
-          // Callback for sending Transports to request sending extended RTP capabilities
-          // on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Recv RTP capabilities.
-          __publicField(this, "_recvRtpCapabilities");
-          // Whether we can produce audio/video based on computed extended RTP
-          // capabilities.
-          __publicField(this, "_canProduceByKind");
-          // SCTP max message size if enabled, null otherwise.
-          __publicField(this, "_maxSctpMessageSize");
-          // RTC handler isntance.
-          __publicField(this, "_handler");
-          // Transport ICE gathering state.
-          __publicField(this, "_iceGatheringState", "new");
-          // Transport connection state.
-          __publicField(this, "_connectionState", "new");
-          // App custom data.
-          __publicField(this, "_appData");
-          // Map of Producers indexed by id.
-          __publicField(this, "_producers", /* @__PURE__ */ new Map());
-          // Map of Consumers indexed by id.
-          __publicField(this, "_consumers", /* @__PURE__ */ new Map());
-          // Map of DataProducers indexed by id.
-          __publicField(this, "_dataProducers", /* @__PURE__ */ new Map());
-          // Map of DataConsumers indexed by id.
-          __publicField(this, "_dataConsumers", /* @__PURE__ */ new Map());
-          // Whether the Consumer for RTP probation has been created.
-          __publicField(this, "_probatorConsumerCreated", false);
-          // AwaitQueue instance to make async tasks happen sequentially.
-          __publicField(this, "_awaitQueue", new awaitqueue_1.AwaitQueue());
-          // Consumer creation tasks awaiting to be processed.
-          __publicField(this, "_pendingConsumerTasks", []);
-          // Consumer creation in progress flag.
-          __publicField(this, "_consumerCreationInProgress", false);
-          // Consumers pending to be paused.
-          __publicField(this, "_pendingPauseConsumers", /* @__PURE__ */ new Map());
-          // Consumer pause in progress flag.
-          __publicField(this, "_consumerPauseInProgress", false);
-          // Consumers pending to be resumed.
-          __publicField(this, "_pendingResumeConsumers", /* @__PURE__ */ new Map());
-          // Consumer resume in progress flag.
-          __publicField(this, "_consumerResumeInProgress", false);
-          // Consumers pending to be closed.
-          __publicField(this, "_pendingCloseConsumers", /* @__PURE__ */ new Map());
-          // Consumer close in progress flag.
-          __publicField(this, "_consumerCloseInProgress", false);
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor() [id:%s, direction:%s]", id, direction);
           this._id = id;
           this._direction = direction;
@@ -3487,7 +3449,7 @@
           this._recvRtpCapabilities = recvRtpCapabilities;
           this._canProduceByKind = canProduceByKind;
           this._maxSctpMessageSize = sctpParameters ? sctpParameters.maxMessageSize : null;
-          const clonedAdditionalSettings = (_a = utils.clone(additionalSettings)) != null ? _a : {};
+          const clonedAdditionalSettings = utils.clone(additionalSettings) ?? {};
           delete clonedAdditionalSettings.iceServers;
           delete clonedAdditionalSettings.iceTransportPolicy;
           delete clonedAdditionalSettings.bundlePolicy;
@@ -3503,7 +3465,7 @@
             additionalSettings: clonedAdditionalSettings,
             getSendExtendedRtpCapabilities: this._getSendExtendedRtpCapabilities
           });
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleHandler();
         }
         /**
@@ -3650,7 +3612,7 @@
             let normalizedEncodings;
             if (encodings && !Array.isArray(encodings)) {
               throw TypeError("encodings must be an array");
-            } else if ((encodings == null ? void 0 : encodings.length) === 0) {
+            } else if (encodings?.length === 0) {
               normalizedEncodings = void 0;
             } else if (encodings) {
               normalizedEncodings = encodings.map((encoding) => {
@@ -4141,9 +4103,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/grammar.js
+  // node_modules/sdp-transform/lib/grammar.js
   var require_grammar = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/grammar.js"(exports, module) {
+    "node_modules/sdp-transform/lib/grammar.js"(exports, module) {
       var grammar = module.exports = {
         v: [{
           name: "version",
@@ -4610,9 +4572,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/parser.js
+  // node_modules/sdp-transform/lib/parser.js
   var require_parser = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/parser.js"(exports) {
+    "node_modules/sdp-transform/lib/parser.js"(exports) {
       var toIntIfInt = function(v) {
         return String(Number(v)) === v ? Number(v) : v;
       };
@@ -4717,9 +4679,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/writer.js
+  // node_modules/sdp-transform/lib/writer.js
   var require_writer = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/writer.js"(exports, module) {
+    "node_modules/sdp-transform/lib/writer.js"(exports, module) {
       var grammar = require_grammar();
       var formatRegExp = /%[sdv%]/g;
       var format = function(formatStr) {
@@ -4823,9 +4785,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/index.js
+  // node_modules/sdp-transform/lib/index.js
   var require_lib3 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/sdp-transform/lib/index.js"(exports) {
+    "node_modules/sdp-transform/lib/index.js"(exports) {
       var parser = require_parser();
       var writer = require_writer();
       var grammar = require_grammar();
@@ -4841,15 +4803,15 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/scalabilityModes.js
+  // node_modules/mediasoup-client/lib/scalabilityModes.js
   var require_scalabilityModes = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/scalabilityModes.js"(exports) {
+    "node_modules/mediasoup-client/lib/scalabilityModes.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.parse = parse;
       var ScalabilityModeRegex = new RegExp("^[LS]([1-9]\\d{0,1})T([1-9]\\d{0,1})");
       function parse(scalabilityMode) {
-        const match = ScalabilityModeRegex.exec(scalabilityMode != null ? scalabilityMode : "");
+        const match = ScalabilityModeRegex.exec(scalabilityMode ?? "");
         if (match) {
           return {
             spatialLayers: Number(match[1]),
@@ -4865,19 +4827,18 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
+  // node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
   var require_MediaSection = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.OfferMediaSection = exports.AnswerMediaSection = exports.MediaSection = void 0;
       var sdpTransform = require_lib3();
       var utils = require_utils();
       var MediaSection = class {
+        // SDP media object.
+        _mediaObject;
         constructor({ iceParameters, iceCandidates, dtlsParameters }) {
-          // SDP media object.
-          __publicField(this, "_mediaObject");
-          var _a;
           this._mediaObject = {
             type: "",
             port: 0,
@@ -4899,7 +4860,7 @@
                 component: 1,
                 // Be ready for new candidate.address field in mediasoup server side
                 // field and keep backward compatibility with deprecated candidate.ip.
-                ip: (_a = candidate.address) != null ? _a : candidate.ip,
+                ip: candidate.address ?? candidate.ip,
                 port: candidate.port,
                 priority: candidate.priority,
                 transport: candidate.protocol,
@@ -4959,7 +4920,6 @@
       exports.MediaSection = MediaSection;
       var AnswerMediaSection = class extends MediaSection {
         constructor({ iceParameters, iceCandidates, dtlsParameters, sctpParameters, plainRtpParameters, offerMediaObject, offerRtpParameters, answerRtpParameters, codecOptions }) {
-          var _a, _b, _c, _d, _e;
           super({ iceParameters, iceCandidates, dtlsParameters });
           this._mediaObject.mid = String(offerMediaObject.mid);
           this._mediaObject.type = offerMediaObject.type;
@@ -4991,8 +4951,8 @@
                   rtp.encoding = codec.channels;
                 }
                 this._mediaObject.rtp.push(rtp);
-                const codecParameters = (_a = utils.clone(codec.parameters)) != null ? _a : {};
-                let codecRtcpFeedback = (_b = utils.clone(codec.rtcpFeedback)) != null ? _b : [];
+                const codecParameters = utils.clone(codec.parameters) ?? {};
+                let codecRtcpFeedback = utils.clone(codec.rtcpFeedback) ?? [];
                 if (codecOptions) {
                   const { opusStereo, opusFec, opusDtx, opusMaxPlaybackRate, opusMaxAverageBitrate, opusPtime, opusNack, videoGoogleStartBitrate, videoGoogleMaxBitrate, videoGoogleMinBitrate } = codecOptions;
                   const offerCodec = offerRtpParameters.codecs.find((c) => c.payloadType === codec.payloadType);
@@ -5069,7 +5029,7 @@
               this._mediaObject.payloads = answerRtpParameters.codecs.map((codec) => codec.payloadType).join(" ");
               this._mediaObject.ext = [];
               for (const ext of answerRtpParameters.headerExtensions) {
-                const found = ((_c = offerMediaObject.ext) != null ? _c : []).some((localExt) => localExt.uri === ext.uri);
+                const found = (offerMediaObject.ext ?? []).some((localExt) => localExt.uri === ext.uri);
                 if (!found) {
                   continue;
                 }
@@ -5087,7 +5047,7 @@
                   list1: offerMediaObject.simulcast.list1
                 };
                 this._mediaObject.rids = [];
-                for (const rid of (_d = offerMediaObject.rids) != null ? _d : []) {
+                for (const rid of offerMediaObject.rids ?? []) {
                   if (rid.direction !== "send") {
                     continue;
                   }
@@ -5101,7 +5061,7 @@
                   value: offerMediaObject.simulcast_03.value.replace(/send/g, "recv")
                 };
                 this._mediaObject.rids = [];
-                for (const rid of (_e = offerMediaObject.rids) != null ? _e : []) {
+                for (const rid of offerMediaObject.rids ?? []) {
                   if (rid.direction !== "send") {
                     continue;
                   }
@@ -5152,8 +5112,7 @@
           this._mediaObject.direction = "recvonly";
         }
         muxSimulcastStreams(encodings) {
-          var _a, _b;
-          if (!((_a = this._mediaObject.simulcast) == null ? void 0 : _a.list1)) {
+          if (!this._mediaObject.simulcast?.list1) {
             return;
           }
           const layers = {};
@@ -5166,7 +5125,7 @@
           const simulcastStreams = sdpTransform.parseSimulcastStreamList(raw);
           for (const simulcastStream of simulcastStreams) {
             for (const simulcastFormat of simulcastStream) {
-              simulcastFormat.paused = !((_b = layers[simulcastFormat.scid]) == null ? void 0 : _b.active);
+              simulcastFormat.paused = !layers[simulcastFormat.scid]?.active;
             }
           }
           this._mediaObject.simulcast.list1 = simulcastStreams.map((simulcastFormats) => simulcastFormats.map((f) => `${f.paused ? "~" : ""}${f.scid}`).join(",")).join(";");
@@ -5175,7 +5134,6 @@
       exports.AnswerMediaSection = AnswerMediaSection;
       var OfferMediaSection = class extends MediaSection {
         constructor({ iceParameters, iceCandidates, dtlsParameters, sctpParameters, plainRtpParameters, mid, kind, offerRtpParameters, streamId, trackId }) {
-          var _a, _b;
           super({ iceParameters, iceCandidates, dtlsParameters });
           this._mediaObject.mid = String(mid);
           this._mediaObject.type = kind;
@@ -5218,7 +5176,7 @@
                   payload: codec.payloadType,
                   config: ""
                 };
-                for (const key of Object.keys((_a = codec.parameters) != null ? _a : {})) {
+                for (const key of Object.keys(codec.parameters ?? {})) {
                   if (fmtp.config) {
                     fmtp.config += ";";
                   }
@@ -5247,7 +5205,7 @@
               this._mediaObject.rtcpRsize = "rtcp-rsize";
               const encoding = offerRtpParameters.encodings[0];
               const ssrc = encoding.ssrc;
-              const rtxSsrc = (_b = encoding.rtx) == null ? void 0 : _b.ssrc;
+              const rtxSsrc = encoding.rtx?.ssrc;
               this._mediaObject.ssrcs = [];
               this._mediaObject.ssrcGroups = [];
               if (ssrc && offerRtpParameters.rtcp.cname) {
@@ -5302,9 +5260,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
+  // node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
   var require_RemoteSdp = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.RemoteSdp = void 0;
@@ -5315,25 +5273,25 @@
       var DependencyDescriptorCodecs = ["av1", "h264"];
       var logger = new Logger_1.Logger("RemoteSdp");
       var RemoteSdp = class {
+        // Remote ICE parameters.
+        _iceParameters;
+        // Remote ICE candidates.
+        _iceCandidates;
+        // Remote DTLS parameters.
+        _dtlsParameters;
+        // Remote SCTP parameters.
+        _sctpParameters;
+        // Parameters for plain RTP (no SRTP nor DTLS no BUNDLE).
+        _plainRtpParameters;
+        // MediaSection instances with same order as in the SDP.
+        _mediaSections = [];
+        // MediaSection indices indexed by MID.
+        _midToIndex = /* @__PURE__ */ new Map();
+        // First MID.
+        _firstMid;
+        // SDP object.
+        _sdpObject;
         constructor({ iceParameters, iceCandidates, dtlsParameters, sctpParameters, plainRtpParameters }) {
-          // Remote ICE parameters.
-          __publicField(this, "_iceParameters");
-          // Remote ICE candidates.
-          __publicField(this, "_iceCandidates");
-          // Remote DTLS parameters.
-          __publicField(this, "_dtlsParameters");
-          // Remote SCTP parameters.
-          __publicField(this, "_sctpParameters");
-          // Parameters for plain RTP (no SRTP nor DTLS no BUNDLE).
-          __publicField(this, "_plainRtpParameters");
-          // MediaSection instances with same order as in the SDP.
-          __publicField(this, "_mediaSections", []);
-          // MediaSection indices indexed by MID.
-          __publicField(this, "_midToIndex", /* @__PURE__ */ new Map());
-          // First MID.
-          __publicField(this, "_firstMid");
-          // SDP object.
-          __publicField(this, "_sdpObject");
           this._iceParameters = iceParameters;
           this._iceCandidates = iceCandidates;
           this._dtlsParameters = dtlsParameters;
@@ -5354,7 +5312,7 @@
             media: []
           };
           this._sdpObject.iceOptions = "ice2";
-          if (iceParameters == null ? void 0 : iceParameters.iceLite) {
+          if (iceParameters?.iceLite) {
             this._sdpObject.icelite = "ice-lite";
           }
           if (dtlsParameters) {
@@ -5403,7 +5361,6 @@
           return { idx: this._mediaSections.length };
         }
         send({ offerMediaObject, reuseMid, offerRtpParameters, answerRtpParameters, codecOptions }) {
-          var _a;
           const mediaSection = new MediaSection_1.AnswerMediaSection({
             iceParameters: this._iceParameters,
             iceCandidates: this._iceCandidates,
@@ -5417,7 +5374,7 @@
           const mediaObject = mediaSection.getObject();
           const ddCodec = mediaObject.rtp.find((rtp) => DependencyDescriptorCodecs.includes(rtp.codec.toLowerCase()));
           if (!ddCodec) {
-            mediaObject.ext = (_a = mediaObject.ext) == null ? void 0 : _a.filter((extmap) => extmap.uri !== "https://aomediacodec.github.io/av1-rtp-spec/#dependency-descriptor-rtp-header-extension");
+            mediaObject.ext = mediaObject.ext?.filter((extmap) => extmap.uri !== "https://aomediacodec.github.io/av1-rtp-spec/#dependency-descriptor-rtp-header-extension");
           }
           if (reuseMid) {
             this.replaceMediaSection(mediaSection, reuseMid);
@@ -5440,7 +5397,7 @@
             streamId,
             trackId
           });
-          const oldMediaSection = this._mediaSections.find((m) => m.closed);
+          const oldMediaSection = this._mediaSections.find((m) => m.closed && m.getObject().type === kind);
           if (oldMediaSection) {
             this.replaceMediaSection(mediaSection, oldMediaSection.mid);
           } else {
@@ -5561,9 +5518,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
+  // node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
   var require_commonUtils = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.extractRtpCapabilities = extractRtpCapabilities;
@@ -5573,7 +5530,6 @@
       exports.addHeaderExtension = addHeaderExtension;
       var sdpTransform = require_lib3();
       function extractRtpCapabilities({ sdpObject }) {
-        var _a, _b, _c;
         const codecsMap = /* @__PURE__ */ new Map();
         const headerExtensionMap = /* @__PURE__ */ new Map();
         for (const m of sdpObject.media) {
@@ -5599,18 +5555,18 @@
             };
             codecsMap.set(codec.preferredPayloadType, codec);
           }
-          for (const fmtp of (_a = m.fmtp) != null ? _a : []) {
+          for (const fmtp of m.fmtp ?? []) {
             const parameters = sdpTransform.parseParams(fmtp.config);
             const codec = codecsMap.get(fmtp.payload);
             if (!codec) {
               continue;
             }
-            if (parameters == null ? void 0 : parameters.hasOwnProperty("profile-level-id")) {
+            if (parameters?.hasOwnProperty("profile-level-id")) {
               parameters["profile-level-id"] = String(parameters["profile-level-id"]);
             }
             codec.parameters = parameters;
           }
-          for (const fb of (_b = m.rtcpFb) != null ? _b : []) {
+          for (const fb of m.rtcpFb ?? []) {
             const feedback = {
               type: fb.type,
               parameter: fb.subtype
@@ -5632,7 +5588,7 @@
               }
             }
           }
-          for (const ext of (_c = m.ext) != null ? _c : []) {
+          for (const ext of m.ext ?? []) {
             if (ext["encrypt-uri"]) {
               continue;
             }
@@ -5651,14 +5607,13 @@
         return rtpCapabilities;
       }
       function extractDtlsParameters({ sdpObject }) {
-        var _a;
         let setup = sdpObject.setup;
         let fingerprint = sdpObject.fingerprint;
         if (!setup || !fingerprint) {
-          const mediaObject = ((_a = sdpObject.media) != null ? _a : []).find((m) => m.port !== 0);
+          const mediaObject = (sdpObject.media ?? []).find((m) => m.port !== 0);
           if (mediaObject) {
-            setup = setup != null ? setup : mediaObject.setup;
-            fingerprint = fingerprint != null ? fingerprint : mediaObject.fingerprint;
+            setup = setup ?? mediaObject.setup;
+            fingerprint = fingerprint ?? mediaObject.fingerprint;
           }
         }
         if (!setup) {
@@ -5693,25 +5648,23 @@
         return dtlsParameters;
       }
       function getCname({ offerMediaObject }) {
-        var _a;
-        const ssrcCnameLine = ((_a = offerMediaObject.ssrcs) != null ? _a : []).find((line) => line.attribute === "cname");
+        const ssrcCnameLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "cname");
         if (!ssrcCnameLine) {
           return "";
         }
         return ssrcCnameLine.value;
       }
       function applyCodecParameters({ offerRtpParameters, answerMediaObject }) {
-        var _a, _b, _c;
         for (const codec of offerRtpParameters.codecs) {
           const mimeType = codec.mimeType.toLowerCase();
           if (mimeType !== "audio/opus") {
             continue;
           }
-          const rtp = ((_a = answerMediaObject.rtp) != null ? _a : []).find((r) => r.payload === codec.payloadType);
+          const rtp = (answerMediaObject.rtp ?? []).find((r) => r.payload === codec.payloadType);
           if (!rtp) {
             continue;
           }
-          answerMediaObject.fmtp = (_b = answerMediaObject.fmtp) != null ? _b : [];
+          answerMediaObject.fmtp = answerMediaObject.fmtp ?? [];
           let fmtp = answerMediaObject.fmtp.find((f) => f.payload === codec.payloadType);
           if (!fmtp) {
             fmtp = { payload: codec.payloadType, config: "" };
@@ -5720,7 +5673,7 @@
           const parameters = sdpTransform.parseParams(fmtp.config);
           switch (mimeType) {
             case "audio/opus": {
-              const spropStereo = (_c = codec.parameters) == null ? void 0 : _c["sprop-stereo"];
+              const spropStereo = codec.parameters?.["sprop-stereo"];
               if (spropStereo !== void 0) {
                 parameters["stereo"] = Number(spropStereo) ? 1 : 0;
               }
@@ -5748,17 +5701,16 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
+  // node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
   var require_unifiedPlanUtils = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.getRtpEncodings = getRtpEncodings;
       exports.addLegacySimulcast = addLegacySimulcast;
       function getRtpEncodings({ offerMediaObject, codecs }) {
-        var _a, _b;
         const ssrcs = /* @__PURE__ */ new Set();
-        for (const line of (_a = offerMediaObject.ssrcs) != null ? _a : []) {
+        for (const line of offerMediaObject.ssrcs ?? []) {
           const ssrc = line.id;
           if (ssrc) {
             ssrcs.add(ssrc);
@@ -5768,7 +5720,7 @@
           throw new Error("no a=ssrc lines found");
         }
         const ssrcToRtxSsrc = /* @__PURE__ */ new Map();
-        for (const line of (_b = offerMediaObject.ssrcGroups) != null ? _b : []) {
+        for (const line of offerMediaObject.ssrcGroups ?? []) {
           if (line.semantics !== "FID") {
             continue;
           }
@@ -5795,18 +5747,17 @@
         return encodings;
       }
       function addLegacySimulcast({ offerMediaObject, numStreams }) {
-        var _a, _b, _c;
         if (numStreams <= 1) {
           throw new TypeError("numStreams must be greater than 1");
         }
-        const ssrcMsidLine = ((_a = offerMediaObject.ssrcs) != null ? _a : []).find((line) => line.attribute === "msid");
+        const ssrcMsidLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "msid");
         if (!ssrcMsidLine) {
           throw new Error("a=ssrc line with msid information not found");
         }
         const [streamId, trackId] = ssrcMsidLine.value.split(" ");
         const firstSsrc = Number(ssrcMsidLine.id);
         let firstRtxSsrc;
-        ((_b = offerMediaObject.ssrcGroups) != null ? _b : []).some((line) => {
+        (offerMediaObject.ssrcGroups ?? []).some((line) => {
           if (line.semantics !== "FID") {
             return false;
           }
@@ -5818,7 +5769,7 @@
             return false;
           }
         });
-        const ssrcCnameLine = ((_c = offerMediaObject.ssrcs) != null ? _c : []).find((line) => line.attribute === "cname");
+        const ssrcCnameLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "cname");
         if (!ssrcCnameLine) {
           throw new Error("a=ssrc line with cname information not found");
         }
@@ -5871,18 +5822,17 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/ortc/utils.js
+  // node_modules/mediasoup-client/lib/handlers/ortc/utils.js
   var require_utils2 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/ortc/utils.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/ortc/utils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.addNackSupportForOpus = addNackSupportForOpus;
       exports.addHeaderExtensionSupport = addHeaderExtensionSupport;
       exports.getMsidStreamIdAndTrackId = getMsidStreamIdAndTrackId;
       function addNackSupportForOpus(rtpCapabilities) {
-        var _a, _b;
-        for (const codec of (_a = rtpCapabilities.codecs) != null ? _a : []) {
-          if ((codec.mimeType.toLowerCase() === "audio/opus" || codec.mimeType.toLowerCase() === "audio/multiopus") && !((_b = codec.rtcpFeedback) == null ? void 0 : _b.some((fb) => fb.type === "nack" && !fb.parameter))) {
+        for (const codec of rtpCapabilities.codecs ?? []) {
+          if ((codec.mimeType.toLowerCase() === "audio/opus" || codec.mimeType.toLowerCase() === "audio/multiopus") && !codec.rtcpFeedback?.some((fb) => fb.type === "nack" && !fb.parameter)) {
             if (!codec.rtcpFeedback) {
               codec.rtcpFeedback = [];
             }
@@ -5891,9 +5841,8 @@
         }
       }
       function addHeaderExtensionSupport(rtpCapabilities, headerExtension) {
-        var _a;
         let preferredId;
-        const existingHeaderExtension = (_a = rtpCapabilities.headerExtensions) == null ? void 0 : _a.find((exten) => exten.uri === headerExtension.uri);
+        const existingHeaderExtension = rtpCapabilities.headerExtensions?.find((exten) => exten.uri === headerExtension.uri);
         if (existingHeaderExtension) {
           if (existingHeaderExtension.kind === headerExtension.kind) {
             return;
@@ -5933,9 +5882,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Chrome111.js
+  // node_modules/mediasoup-client/lib/handlers/Chrome111.js
   var require_Chrome111 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Chrome111.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/Chrome111.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Chrome111 = void 0;
@@ -5951,94 +5900,31 @@
       var ortcUtils = require_utils2();
       var logger = new Logger_1.Logger("Chrome111");
       var NAME = "Chrome111";
-      var SCTP_NUM_STREAMS = { OS: 1024, MIS: 1024 };
+      var SCTP_NUM_STREAMS = { OS: 65535, MIS: 65535 };
       var Chrome111 = class _Chrome111 extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Handler direction.
-          __publicField(this, "_direction");
-          // Remote SDP handler.
-          __publicField(this, "_remoteSdp");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Initial server side DTLS role. If not 'auto', it will force the opposite
-          // value in client side.
-          __publicField(this, "_forcedLocalDtlsRole");
-          // RTCPeerConnection instance.
-          __publicField(this, "_pc");
-          // Map of RTCTransceivers indexed by MID.
-          __publicField(this, "_mapMidTransceiver", /* @__PURE__ */ new Map());
-          // Default local stream for sending if no `streamId` is given in send().
-          __publicField(this, "_sendStream", new MediaStream());
-          // Whether a DataChannel m=application section has been created.
-          __publicField(this, "_hasDataChannelMediaSection", false);
-          // Sending DataChannel id value counter. Incremented for each new DataChannel.
-          __publicField(this, "_nextSendSctpStreamId", 0);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          __publicField(this, "onIceGatheringStateChange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          __publicField(this, "onIceCandidateError", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          __publicField(this, "onConnectionStateChange", () => {
-            this.emit("@connectionstatechange", this._pc.connectionState);
-          });
-          __publicField(this, "onIceConnectionStateChange", () => {
-            switch (this._pc.iceConnectionState) {
-              case "checking": {
-                this.emit("@connectionstatechange", "connecting");
-                break;
-              }
-              case "connected":
-              case "completed": {
-                this.emit("@connectionstatechange", "connected");
-                break;
-              }
-              case "failed": {
-                this.emit("@connectionstatechange", "failed");
-                break;
-              }
-              case "disconnected": {
-                this.emit("@connectionstatechange", "disconnected");
-                break;
-              }
-              case "closed": {
-                this.emit("@connectionstatechange", "closed");
-                break;
-              }
-            }
-          });
-          logger.debug("constructor()");
-          this._direction = direction;
-          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
-            iceParameters,
-            iceCandidates,
-            dtlsParameters,
-            sctpParameters
-          });
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
-            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
-          }
-          this._pc = new RTCPeerConnection(__spreadValues({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
-            bundlePolicy: "max-bundle",
-            rtcpMuxPolicy: "require"
-          }, additionalSettings));
-          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
-          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
-          if (this._pc.connectionState) {
-            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
-          } else {
-            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
-            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
-          }
-        }
+        // Closed flag.
+        _closed = false;
+        // Handler direction.
+        _direction;
+        // Remote SDP handler.
+        _remoteSdp;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // Initial server side DTLS role. If not 'auto', it will force the opposite
+        // value in client side.
+        _forcedLocalDtlsRole;
+        // RTCPeerConnection instance.
+        _pc;
+        // Map of RTCTransceivers indexed by MID.
+        _mapMidTransceiver = /* @__PURE__ */ new Map();
+        // Default local stream for sending if no `streamId` is given in send().
+        _sendStream = new MediaStream();
+        // Whether a DataChannel m=application section has been created.
+        _hasDataChannelMediaSection = false;
+        // Sending DataChannel id value counter. Incremented for each new DataChannel.
+        _nextSendSctpStreamId = 0;
+        // Got transport local and remote parameters.
+        _transportReady = false;
         /**
          * Creates a factory function.
          */
@@ -6071,7 +5957,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -6096,6 +5982,36 @@
             ortcUtils.addHeaderExtensionSupport(nativeRtpCapabilities, headerExtension);
           }
           return nativeRtpCapabilities;
+        }
+        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
+          super();
+          logger.debug("constructor()");
+          this._direction = direction;
+          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters
+          });
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
+            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
+          }
+          this._pc = new RTCPeerConnection({
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+            ...additionalSettings
+          });
+          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
+          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
+          if (this._pc.connectionState) {
+            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
+          } else {
+            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
+            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+          }
         }
         get name() {
           return NAME;
@@ -6158,7 +6074,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -6203,11 +6118,11 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             const offerMediaObject2 = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject: offerMediaObject2,
@@ -6228,7 +6143,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -6386,7 +6301,7 @@
           }
           const parameters = transceiver.sender.getParameters();
           parameters.encodings.forEach((encoding, idx) => {
-            parameters.encodings[idx] = __spreadValues(__spreadValues({}, encoding), params);
+            parameters.encodings[idx] = { ...encoding, ...params };
           });
           await transceiver.sender.setParameters(parameters);
           this._remoteSdp.muxMediaSectionSimulcast(localId, parameters.encodings);
@@ -6410,7 +6325,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -6430,7 +6344,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -6454,7 +6368,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -6462,14 +6375,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -6507,7 +6420,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -6610,7 +6523,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -6636,7 +6548,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -6660,6 +6572,40 @@
           });
           this._transportReady = true;
         }
+        onIceGatheringStateChange = () => {
+          this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+        };
+        onIceCandidateError = (event) => {
+          this.emit("@icecandidateerror", event);
+        };
+        onConnectionStateChange = () => {
+          this.emit("@connectionstatechange", this._pc.connectionState);
+        };
+        onIceConnectionStateChange = () => {
+          switch (this._pc.iceConnectionState) {
+            case "checking": {
+              this.emit("@connectionstatechange", "connecting");
+              break;
+            }
+            case "connected":
+            case "completed": {
+              this.emit("@connectionstatechange", "connected");
+              break;
+            }
+            case "failed": {
+              this.emit("@connectionstatechange", "failed");
+              break;
+            }
+            case "disconnected": {
+              this.emit("@connectionstatechange", "disconnected");
+              break;
+            }
+            case "closed": {
+              this.emit("@connectionstatechange", "closed");
+              break;
+            }
+          }
+        };
         assertNotClosed() {
           if (this._closed) {
             throw new errors_1.InvalidStateError("method called in a closed handler");
@@ -6680,9 +6626,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Chrome74.js
+  // node_modules/mediasoup-client/lib/handlers/Chrome74.js
   var require_Chrome74 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Chrome74.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/Chrome74.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Chrome74 = void 0;
@@ -6700,92 +6646,29 @@
       var NAME = "Chrome74";
       var SCTP_NUM_STREAMS = { OS: 1024, MIS: 1024 };
       var Chrome74 = class _Chrome74 extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Handler direction.
-          __publicField(this, "_direction");
-          // Remote SDP handler.
-          __publicField(this, "_remoteSdp");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Initial server side DTLS role. If not 'auto', it will force the opposite
-          // value in client side.
-          __publicField(this, "_forcedLocalDtlsRole");
-          // RTCPeerConnection instance.
-          __publicField(this, "_pc");
-          // Map of RTCTransceivers indexed by MID.
-          __publicField(this, "_mapMidTransceiver", /* @__PURE__ */ new Map());
-          // Default local stream for sending if no `streamId` is given in send().
-          __publicField(this, "_sendStream", new MediaStream());
-          // Whether a DataChannel m=application section has been created.
-          __publicField(this, "_hasDataChannelMediaSection", false);
-          // Sending DataChannel id value counter. Incremented for each new DataChannel.
-          __publicField(this, "_nextSendSctpStreamId", 0);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          __publicField(this, "onIceGatheringStateChange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          __publicField(this, "onIceCandidateError", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          __publicField(this, "onConnectionStateChange", () => {
-            this.emit("@connectionstatechange", this._pc.connectionState);
-          });
-          __publicField(this, "onIceConnectionStateChange", () => {
-            switch (this._pc.iceConnectionState) {
-              case "checking": {
-                this.emit("@connectionstatechange", "connecting");
-                break;
-              }
-              case "connected":
-              case "completed": {
-                this.emit("@connectionstatechange", "connected");
-                break;
-              }
-              case "failed": {
-                this.emit("@connectionstatechange", "failed");
-                break;
-              }
-              case "disconnected": {
-                this.emit("@connectionstatechange", "disconnected");
-                break;
-              }
-              case "closed": {
-                this.emit("@connectionstatechange", "closed");
-                break;
-              }
-            }
-          });
-          logger.debug("constructor()");
-          this._direction = direction;
-          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
-            iceParameters,
-            iceCandidates,
-            dtlsParameters,
-            sctpParameters
-          });
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
-            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
-          }
-          this._pc = new RTCPeerConnection(__spreadValues({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
-            bundlePolicy: "max-bundle",
-            rtcpMuxPolicy: "require"
-          }, additionalSettings));
-          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
-          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
-          if (this._pc.connectionState) {
-            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
-          } else {
-            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
-            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
-          }
-        }
+        // Closed flag.
+        _closed = false;
+        // Handler direction.
+        _direction;
+        // Remote SDP handler.
+        _remoteSdp;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // Initial server side DTLS role. If not 'auto', it will force the opposite
+        // value in client side.
+        _forcedLocalDtlsRole;
+        // RTCPeerConnection instance.
+        _pc;
+        // Map of RTCTransceivers indexed by MID.
+        _mapMidTransceiver = /* @__PURE__ */ new Map();
+        // Default local stream for sending if no `streamId` is given in send().
+        _sendStream = new MediaStream();
+        // Whether a DataChannel m=application section has been created.
+        _hasDataChannelMediaSection = false;
+        // Sending DataChannel id value counter. Incremented for each new DataChannel.
+        _nextSendSctpStreamId = 0;
+        // Got transport local and remote parameters.
+        _transportReady = false;
         /**
          * Creates a factory function.
          */
@@ -6815,7 +6698,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -6840,6 +6723,36 @@
             ortcUtils.addHeaderExtensionSupport(nativeRtpCapabilities, headerExtension);
           }
           return nativeRtpCapabilities;
+        }
+        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
+          super();
+          logger.debug("constructor()");
+          this._direction = direction;
+          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters
+          });
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
+            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
+          }
+          this._pc = new RTCPeerConnection({
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+            ...additionalSettings
+          });
+          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
+          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
+          if (this._pc.connectionState) {
+            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
+          } else {
+            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
+            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+          }
         }
         get name() {
           return NAME;
@@ -6902,7 +6815,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -6936,14 +6848,14 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
           let hackVp9Svc = false;
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           let offerMediaObject;
-          if ((encodings == null ? void 0 : encodings.length) === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
+          if (encodings?.length === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
             logger.debug("send() | enabling legacy simulcast for VP9 SVC");
             hackVp9Svc = true;
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -6958,7 +6870,7 @@
             };
           }
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -6978,7 +6890,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -7148,7 +7060,7 @@
           }
           const parameters = transceiver.sender.getParameters();
           parameters.encodings.forEach((encoding, idx) => {
-            parameters.encodings[idx] = __spreadValues(__spreadValues({}, encoding), params);
+            parameters.encodings[idx] = { ...encoding, ...params };
           });
           await transceiver.sender.setParameters(parameters);
           this._remoteSdp.muxMediaSectionSimulcast(localId, parameters.encodings);
@@ -7172,7 +7084,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -7192,7 +7103,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -7216,7 +7127,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -7224,14 +7134,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -7258,7 +7168,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -7361,7 +7271,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -7387,7 +7296,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -7411,6 +7320,40 @@
           });
           this._transportReady = true;
         }
+        onIceGatheringStateChange = () => {
+          this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+        };
+        onIceCandidateError = (event) => {
+          this.emit("@icecandidateerror", event);
+        };
+        onConnectionStateChange = () => {
+          this.emit("@connectionstatechange", this._pc.connectionState);
+        };
+        onIceConnectionStateChange = () => {
+          switch (this._pc.iceConnectionState) {
+            case "checking": {
+              this.emit("@connectionstatechange", "connecting");
+              break;
+            }
+            case "connected":
+            case "completed": {
+              this.emit("@connectionstatechange", "connected");
+              break;
+            }
+            case "failed": {
+              this.emit("@connectionstatechange", "failed");
+              break;
+            }
+            case "disconnected": {
+              this.emit("@connectionstatechange", "disconnected");
+              break;
+            }
+            case "closed": {
+              this.emit("@connectionstatechange", "closed");
+              break;
+            }
+          }
+        };
         assertNotClosed() {
           if (this._closed) {
             throw new errors_1.InvalidStateError("method called in a closed handler");
@@ -7431,9 +7374,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Firefox120.js
+  // node_modules/mediasoup-client/lib/handlers/Firefox120.js
   var require_Firefox120 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Firefox120.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/Firefox120.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Firefox120 = void 0;
@@ -7451,86 +7394,26 @@
       var NAME = "Firefox120";
       var SCTP_NUM_STREAMS = { OS: 16, MIS: 2048 };
       var Firefox120 = class _Firefox120 extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Handler direction.
-          __publicField(this, "_direction");
-          // Remote SDP handler.
-          __publicField(this, "_remoteSdp");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // RTCPeerConnection instance.
-          __publicField(this, "_pc");
-          // Map of RTCTransceivers indexed by MID.
-          __publicField(this, "_mapMidTransceiver", /* @__PURE__ */ new Map());
-          // Default local stream for sending if no `streamId` is given in send().
-          __publicField(this, "_sendStream", new MediaStream());
-          // Whether a DataChannel m=application section has been created.
-          __publicField(this, "_hasDataChannelMediaSection", false);
-          // Sending DataChannel id value counter. Incremented for each new DataChannel.
-          __publicField(this, "_nextSendSctpStreamId", 0);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          __publicField(this, "onIceGatheringStateChange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          __publicField(this, "onIceCandidateError", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          __publicField(this, "onConnectionStateChange", () => {
-            this.emit("@connectionstatechange", this._pc.connectionState);
-          });
-          __publicField(this, "onIceConnectionStateChange", () => {
-            switch (this._pc.iceConnectionState) {
-              case "checking": {
-                this.emit("@connectionstatechange", "connecting");
-                break;
-              }
-              case "connected":
-              case "completed": {
-                this.emit("@connectionstatechange", "connected");
-                break;
-              }
-              case "failed": {
-                this.emit("@connectionstatechange", "failed");
-                break;
-              }
-              case "disconnected": {
-                this.emit("@connectionstatechange", "disconnected");
-                break;
-              }
-              case "closed": {
-                this.emit("@connectionstatechange", "closed");
-                break;
-              }
-            }
-          });
-          logger.debug("constructor()");
-          this._direction = direction;
-          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
-            iceParameters,
-            iceCandidates,
-            dtlsParameters,
-            sctpParameters
-          });
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          this._pc = new RTCPeerConnection(__spreadValues({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
-            bundlePolicy: "max-bundle",
-            rtcpMuxPolicy: "require"
-          }, additionalSettings));
-          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
-          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
-          if (this._pc.connectionState) {
-            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
-          } else {
-            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
-            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
-          }
-        }
+        // Closed flag.
+        _closed = false;
+        // Handler direction.
+        _direction;
+        // Remote SDP handler.
+        _remoteSdp;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // RTCPeerConnection instance.
+        _pc;
+        // Map of RTCTransceivers indexed by MID.
+        _mapMidTransceiver = /* @__PURE__ */ new Map();
+        // Default local stream for sending if no `streamId` is given in send().
+        _sendStream = new MediaStream();
+        // Whether a DataChannel m=application section has been created.
+        _hasDataChannelMediaSection = false;
+        // Sending DataChannel id value counter. Incremented for each new DataChannel.
+        _nextSendSctpStreamId = 0;
+        // Got transport local and remote parameters.
+        _transportReady = false;
         /**
          * Creates a factory function.
          */
@@ -7586,7 +7469,7 @@
                 } catch (error2) {
                 }
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -7607,6 +7490,33 @@
           });
           ortc.validateAndNormalizeRtpCapabilities(nativeRtpCapabilities);
           return nativeRtpCapabilities;
+        }
+        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
+          super();
+          logger.debug("constructor()");
+          this._direction = direction;
+          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters
+          });
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          this._pc = new RTCPeerConnection({
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+            ...additionalSettings
+          });
+          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
+          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
+          if (this._pc.connectionState) {
+            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
+          } else {
+            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
+            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+          }
         }
         get name() {
           return NAME;
@@ -7697,7 +7607,7 @@
           if (!this._transportReady) {
             await this.setupTransport({ localDtlsRole: "client", localSdpObject });
           }
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
           await this._pc.setLocalDescription(offer);
           const localId = transceiver.mid;
@@ -7707,7 +7617,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -7867,7 +7777,7 @@
           }
           const parameters = transceiver.sender.getParameters();
           parameters.encodings.forEach((encoding, idx) => {
-            parameters.encodings[idx] = __spreadValues(__spreadValues({}, encoding), params);
+            parameters.encodings[idx] = { ...encoding, ...params };
           });
           await transceiver.sender.setParameters(parameters);
           this._remoteSdp.muxMediaSectionSimulcast(localId, parameters.encodings);
@@ -7931,7 +7841,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -7939,14 +7848,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -8128,6 +8037,40 @@
           });
           this._transportReady = true;
         }
+        onIceGatheringStateChange = () => {
+          this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+        };
+        onIceCandidateError = (event) => {
+          this.emit("@icecandidateerror", event);
+        };
+        onConnectionStateChange = () => {
+          this.emit("@connectionstatechange", this._pc.connectionState);
+        };
+        onIceConnectionStateChange = () => {
+          switch (this._pc.iceConnectionState) {
+            case "checking": {
+              this.emit("@connectionstatechange", "connecting");
+              break;
+            }
+            case "connected":
+            case "completed": {
+              this.emit("@connectionstatechange", "connected");
+              break;
+            }
+            case "failed": {
+              this.emit("@connectionstatechange", "failed");
+              break;
+            }
+            case "disconnected": {
+              this.emit("@connectionstatechange", "disconnected");
+              break;
+            }
+            case "closed": {
+              this.emit("@connectionstatechange", "closed");
+              break;
+            }
+          }
+        };
         assertNotClosed() {
           if (this._closed) {
             throw new errors_1.InvalidStateError("method called in a closed handler");
@@ -8148,9 +8091,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Safari12.js
+  // node_modules/mediasoup-client/lib/handlers/Safari12.js
   var require_Safari12 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/Safari12.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/Safari12.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Safari12 = void 0;
@@ -8166,100 +8109,31 @@
       var ortcUtils = require_utils2();
       var logger = new Logger_1.Logger("Safari12");
       var NAME = "Safari12";
-      var SCTP_NUM_STREAMS = { OS: 1024, MIS: 1024 };
+      var SCTP_NUM_STREAMS = { OS: 65535, MIS: 65535 };
       var Safari12 = class _Safari12 extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Handler direction.
-          __publicField(this, "_direction");
-          // Remote SDP handler.
-          __publicField(this, "_remoteSdp");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Initial server side DTLS role. If not 'auto', it will force the opposite
-          // value in client side.
-          __publicField(this, "_forcedLocalDtlsRole");
-          // RTCPeerConnection instance.
-          __publicField(this, "_pc");
-          // Map of RTCTransceivers indexed by MID.
-          __publicField(this, "_mapMidTransceiver", /* @__PURE__ */ new Map());
-          // Default local stream for sending if no `streamId` is given in send().
-          __publicField(this, "_sendStream", new MediaStream());
-          // Whether a DataChannel m=application section has been created.
-          __publicField(this, "_hasDataChannelMediaSection", false);
-          // Sending DataChannel id value counter. Incremented for each new DataChannel.
-          __publicField(this, "_nextSendSctpStreamId", 0);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          __publicField(this, "onIceGatheringStateChange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          __publicField(this, "onIceCandidateError", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          __publicField(this, "onConnectionStateChange", () => {
-            this.emit("@connectionstatechange", this._pc.connectionState);
-          });
-          __publicField(this, "onIceConnectionStateChange", () => {
-            switch (this._pc.iceConnectionState) {
-              case "checking": {
-                this.emit("@connectionstatechange", "connecting");
-                break;
-              }
-              case "connected":
-              case "completed": {
-                this.emit("@connectionstatechange", "connected");
-                break;
-              }
-              case "failed": {
-                this.emit("@connectionstatechange", "failed");
-                break;
-              }
-              case "disconnected": {
-                this.emit("@connectionstatechange", "disconnected");
-                break;
-              }
-              case "closed": {
-                this.emit("@connectionstatechange", "closed");
-                break;
-              }
-            }
-          });
-          logger.debug("constructor()");
-          this._direction = direction;
-          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
-            iceParameters,
-            iceCandidates,
-            dtlsParameters,
-            sctpParameters
-          });
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
-            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
-          }
-          this._pc = new RTCPeerConnection(__spreadValues({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
-            bundlePolicy: "max-bundle",
-            rtcpMuxPolicy: "require"
-          }, additionalSettings));
-          this._pc.addEventListener("icegatheringstatechange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          this._pc.addEventListener("icecandidateerror", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
-          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
-          if (this._pc.connectionState) {
-            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
-          } else {
-            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
-            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
-          }
-        }
+        // Closed flag.
+        _closed = false;
+        // Handler direction.
+        _direction;
+        // Remote SDP handler.
+        _remoteSdp;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // Initial server side DTLS role. If not 'auto', it will force the opposite
+        // value in client side.
+        _forcedLocalDtlsRole;
+        // RTCPeerConnection instance.
+        _pc;
+        // Map of RTCTransceivers indexed by MID.
+        _mapMidTransceiver = /* @__PURE__ */ new Map();
+        // Default local stream for sending if no `streamId` is given in send().
+        _sendStream = new MediaStream();
+        // Whether a DataChannel m=application section has been created.
+        _hasDataChannelMediaSection = false;
+        // Sending DataChannel id value counter. Incremented for each new DataChannel.
+        _nextSendSctpStreamId = 0;
+        // Got transport local and remote parameters.
+        _transportReady = false;
         /**
          * Creates a factory function.
          */
@@ -8289,7 +8163,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -8314,6 +8188,42 @@
             ortcUtils.addHeaderExtensionSupport(nativeRtpCapabilities, headerExtension);
           }
           return nativeRtpCapabilities;
+        }
+        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
+          super();
+          logger.debug("constructor()");
+          this._direction = direction;
+          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters
+          });
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
+            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
+          }
+          this._pc = new RTCPeerConnection({
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+            ...additionalSettings
+          });
+          this._pc.addEventListener("icegatheringstatechange", () => {
+            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+          });
+          this._pc.addEventListener("icecandidateerror", (event) => {
+            this.emit("@icecandidateerror", event);
+          });
+          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
+          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
+          if (this._pc.connectionState) {
+            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
+          } else {
+            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
+            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+          }
         }
         get name() {
           return NAME;
@@ -8376,7 +8286,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -8408,11 +8317,11 @@
           let offerMediaObject;
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           if (encodings && encodings.length > 1) {
             logger.debug("send() | enabling legacy simulcast");
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -8426,7 +8335,7 @@
               sdp: sdpTransform.write(localSdpObject)
             };
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -8447,7 +8356,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
             offerMediaObject,
             codecs: sendingRtpParameters.codecs
@@ -8610,7 +8519,7 @@
           }
           const parameters = transceiver.sender.getParameters();
           parameters.encodings.forEach((encoding, idx) => {
-            parameters.encodings[idx] = __spreadValues(__spreadValues({}, encoding), params);
+            parameters.encodings[idx] = { ...encoding, ...params };
           });
           await transceiver.sender.setParameters(parameters);
           this._remoteSdp.muxMediaSectionSimulcast(localId, parameters.encodings);
@@ -8634,7 +8543,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -8654,7 +8562,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -8678,7 +8586,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -8686,14 +8593,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -8731,7 +8638,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -8833,7 +8740,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -8859,7 +8765,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -8883,6 +8789,40 @@
           });
           this._transportReady = true;
         }
+        onIceGatheringStateChange = () => {
+          this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+        };
+        onIceCandidateError = (event) => {
+          this.emit("@icecandidateerror", event);
+        };
+        onConnectionStateChange = () => {
+          this.emit("@connectionstatechange", this._pc.connectionState);
+        };
+        onIceConnectionStateChange = () => {
+          switch (this._pc.iceConnectionState) {
+            case "checking": {
+              this.emit("@connectionstatechange", "connecting");
+              break;
+            }
+            case "connected":
+            case "completed": {
+              this.emit("@connectionstatechange", "connected");
+              break;
+            }
+            case "failed": {
+              this.emit("@connectionstatechange", "failed");
+              break;
+            }
+            case "disconnected": {
+              this.emit("@connectionstatechange", "disconnected");
+              break;
+            }
+            case "closed": {
+              this.emit("@connectionstatechange", "closed");
+              break;
+            }
+          }
+        };
         assertNotClosed() {
           if (this._closed) {
             throw new errors_1.InvalidStateError("method called in a closed handler");
@@ -8903,9 +8843,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/ReactNative106.js
+  // node_modules/mediasoup-client/lib/handlers/ReactNative106.js
   var require_ReactNative106 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/ReactNative106.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/ReactNative106.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ReactNative106 = void 0;
@@ -8921,94 +8861,31 @@
       var ortcUtils = require_utils2();
       var logger = new Logger_1.Logger("ReactNative106");
       var NAME = "ReactNative106";
-      var SCTP_NUM_STREAMS = { OS: 1024, MIS: 1024 };
+      var SCTP_NUM_STREAMS = { OS: 65535, MIS: 65535 };
       var ReactNative106 = class _ReactNative106 extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Handler direction.
-          __publicField(this, "_direction");
-          // Remote SDP handler.
-          __publicField(this, "_remoteSdp");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Initial server side DTLS role. If not 'auto', it will force the opposite
-          // value in client side.
-          __publicField(this, "_forcedLocalDtlsRole");
-          // RTCPeerConnection instance.
-          __publicField(this, "_pc");
-          // Map of RTCTransceivers indexed by MID.
-          __publicField(this, "_mapMidTransceiver", /* @__PURE__ */ new Map());
-          // Default local stream for sending if no `streamId` is given in send().
-          __publicField(this, "_sendStream", new MediaStream());
-          // Whether a DataChannel m=application section has been created.
-          __publicField(this, "_hasDataChannelMediaSection", false);
-          // Sending DataChannel id value counter. Incremented for each new DataChannel.
-          __publicField(this, "_nextSendSctpStreamId", 0);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          __publicField(this, "onIceGatheringStateChange", () => {
-            this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
-          });
-          __publicField(this, "onIceCandidateError", (event) => {
-            this.emit("@icecandidateerror", event);
-          });
-          __publicField(this, "onConnectionStateChange", () => {
-            this.emit("@connectionstatechange", this._pc.connectionState);
-          });
-          __publicField(this, "onIceConnectionStateChange", () => {
-            switch (this._pc.iceConnectionState) {
-              case "checking": {
-                this.emit("@connectionstatechange", "connecting");
-                break;
-              }
-              case "connected":
-              case "completed": {
-                this.emit("@connectionstatechange", "connected");
-                break;
-              }
-              case "failed": {
-                this.emit("@connectionstatechange", "failed");
-                break;
-              }
-              case "disconnected": {
-                this.emit("@connectionstatechange", "disconnected");
-                break;
-              }
-              case "closed": {
-                this.emit("@connectionstatechange", "closed");
-                break;
-              }
-            }
-          });
-          logger.debug("constructor()");
-          this._direction = direction;
-          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
-            iceParameters,
-            iceCandidates,
-            dtlsParameters,
-            sctpParameters
-          });
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
-            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
-          }
-          this._pc = new RTCPeerConnection(__spreadValues({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
-            bundlePolicy: "max-bundle",
-            rtcpMuxPolicy: "require"
-          }, additionalSettings));
-          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
-          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
-          if (this._pc.connectionState) {
-            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
-          } else {
-            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
-            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
-          }
-        }
+        // Closed flag.
+        _closed = false;
+        // Handler direction.
+        _direction;
+        // Remote SDP handler.
+        _remoteSdp;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // Initial server side DTLS role. If not 'auto', it will force the opposite
+        // value in client side.
+        _forcedLocalDtlsRole;
+        // RTCPeerConnection instance.
+        _pc;
+        // Map of RTCTransceivers indexed by MID.
+        _mapMidTransceiver = /* @__PURE__ */ new Map();
+        // Default local stream for sending if no `streamId` is given in send().
+        _sendStream = new MediaStream();
+        // Whether a DataChannel m=application section has been created.
+        _hasDataChannelMediaSection = false;
+        // Sending DataChannel id value counter. Incremented for each new DataChannel.
+        _nextSendSctpStreamId = 0;
+        // Got transport local and remote parameters.
+        _transportReady = false;
         /**
          * Creates a factory function.
          */
@@ -9038,7 +8915,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -9063,6 +8940,36 @@
             ortcUtils.addHeaderExtensionSupport(nativeRtpCapabilities, headerExtension);
           }
           return nativeRtpCapabilities;
+        }
+        constructor({ direction, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, getSendExtendedRtpCapabilities }) {
+          super();
+          logger.debug("constructor()");
+          this._direction = direction;
+          this._remoteSdp = new RemoteSdp_1.RemoteSdp({
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters
+          });
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          if (dtlsParameters.role && dtlsParameters.role !== "auto") {
+            this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
+          }
+          this._pc = new RTCPeerConnection({
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+            ...additionalSettings
+          });
+          this._pc.addEventListener("icegatheringstatechange", this.onIceGatheringStateChange);
+          this._pc.addEventListener("icecandidateerror", this.onIceCandidateError);
+          if (this._pc.connectionState) {
+            this._pc.addEventListener("connectionstatechange", this.onConnectionStateChange);
+          } else {
+            logger.warn("run() | pc.connectionState not supported, using pc.iceConnectionState");
+            this._pc.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+          }
         }
         get name() {
           return NAME;
@@ -9129,7 +9036,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a, _b;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -9166,14 +9072,14 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
           let hackVp9Svc = false;
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           let offerMediaObject;
-          if ((encodings == null ? void 0 : encodings.length) === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
+          if (encodings?.length === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
             logger.debug("send() | enabling legacy simulcast for VP9 SVC");
             hackVp9Svc = true;
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -9187,7 +9093,7 @@
               sdp: sdpTransform.write(localSdpObject)
             };
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -9201,7 +9107,7 @@
           }
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
           await this._pc.setLocalDescription(offer);
-          let localId = (_b = transceiver.mid) != null ? _b : void 0;
+          let localId = transceiver.mid ?? void 0;
           if (!localId) {
             logger.warn("send() | missing transceiver.mid (bug in react-native-webrtc, using a workaround");
           }
@@ -9211,7 +9117,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -9385,7 +9291,7 @@
           }
           const parameters = transceiver.sender.getParameters();
           parameters.encodings.forEach((encoding, idx) => {
-            parameters.encodings[idx] = __spreadValues(__spreadValues({}, encoding), params);
+            parameters.encodings[idx] = { ...encoding, ...params };
           });
           await transceiver.sender.setParameters(parameters);
           this._remoteSdp.muxMediaSectionSimulcast(localId, parameters.encodings);
@@ -9409,7 +9315,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -9429,7 +9334,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -9453,7 +9358,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -9461,14 +9365,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -9506,7 +9410,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -9609,7 +9513,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -9635,7 +9538,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -9659,6 +9562,40 @@
           });
           this._transportReady = true;
         }
+        onIceGatheringStateChange = () => {
+          this.emit("@icegatheringstatechange", this._pc.iceGatheringState);
+        };
+        onIceCandidateError = (event) => {
+          this.emit("@icecandidateerror", event);
+        };
+        onConnectionStateChange = () => {
+          this.emit("@connectionstatechange", this._pc.connectionState);
+        };
+        onIceConnectionStateChange = () => {
+          switch (this._pc.iceConnectionState) {
+            case "checking": {
+              this.emit("@connectionstatechange", "connecting");
+              break;
+            }
+            case "connected":
+            case "completed": {
+              this.emit("@connectionstatechange", "connected");
+              break;
+            }
+            case "failed": {
+              this.emit("@connectionstatechange", "failed");
+              break;
+            }
+            case "disconnected": {
+              this.emit("@connectionstatechange", "disconnected");
+              break;
+            }
+            case "closed": {
+              this.emit("@connectionstatechange", "closed");
+              break;
+            }
+          }
+        };
         assertNotClosed() {
           if (this._closed) {
             throw new errors_1.InvalidStateError("method called in a closed handler");
@@ -9679,9 +9616,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Device.js
+  // node_modules/mediasoup-client/lib/Device.js
   var require_Device = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/Device.js"(exports) {
+    "node_modules/mediasoup-client/lib/Device.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Device = void 0;
@@ -9720,34 +9657,53 @@
         return detectDeviceImpl(userAgent, userAgentData);
       }
       var Device = class _Device {
+        // RTC handler factory.
+        _handlerFactory;
+        // Handler name.
+        _handlerName;
+        // Loaded flag.
+        _loaded = false;
+        // Callback for sending Transports to request sending extended RTP capabilities
+        // on demand.
+        _getSendExtendedRtpCapabilities;
+        // Local RTP capabilities for receiving media.
+        _recvRtpCapabilities;
+        // Local RTP capabilities for sending media.
+        _sendRtpCapabilities;
+        // Whether we can produce audio/video based on remote RTP capabilities.
+        _canProduceByKind = {
+          audio: false,
+          video: false
+        };
+        // Local SCTP capabilities.
+        _sctpCapabilities;
+        // Observer instance.
+        _observer = new enhancedEvents_1.EnhancedEventEmitter();
+        /**
+         * Create a new Device to connect to mediasoup server. It uses a more advanced
+         * device detection.
+         *
+         * @throws {UnsupportedError} if device is not supported.
+         */
+        static async factory({ handlerName, handlerFactory } = {}) {
+          logger.debug("factory()");
+          if (handlerName && handlerFactory) {
+            throw new TypeError("just one of handlerName or handlerInterface can be given");
+          }
+          if (!handlerName && !handlerFactory) {
+            handlerName = await detectDeviceAsync();
+            if (!handlerName) {
+              throw new errors_1.UnsupportedError("device not supported");
+            }
+          }
+          return new _Device({ handlerName, handlerFactory });
+        }
         /**
          * Create a new Device to connect to mediasoup server.
          *
          * @throws {UnsupportedError} if device is not supported.
          */
         constructor({ handlerName, handlerFactory } = {}) {
-          // RTC handler factory.
-          __publicField(this, "_handlerFactory");
-          // Handler name.
-          __publicField(this, "_handlerName");
-          // Loaded flag.
-          __publicField(this, "_loaded", false);
-          // Callback for sending Transports to request sending extended RTP capabilities
-          // on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Local RTP capabilities for receiving media.
-          __publicField(this, "_recvRtpCapabilities");
-          // Local RTP capabilities for sending media.
-          __publicField(this, "_sendRtpCapabilities");
-          // Whether we can produce audio/video based on remote RTP capabilities.
-          __publicField(this, "_canProduceByKind", {
-            audio: false,
-            video: false
-          });
-          // Local SCTP capabilities.
-          __publicField(this, "_sctpCapabilities");
-          // Observer instance.
-          __publicField(this, "_observer", new enhancedEvents_1.EnhancedEventEmitter());
           logger.debug("constructor()");
           if (handlerName && handlerFactory) {
             throw new TypeError("just one of handlerName or handlerInterface can be given");
@@ -9792,25 +9748,6 @@
             }
           }
           this._handlerName = this._handlerFactory.name;
-        }
-        /**
-         * Create a new Device to connect to mediasoup server. It uses a more advanced
-         * device detection.
-         *
-         * @throws {UnsupportedError} if device is not supported.
-         */
-        static async factory({ handlerName, handlerFactory } = {}) {
-          logger.debug("factory()");
-          if (handlerName && handlerFactory) {
-            throw new TypeError("just one of handlerName or handlerInterface can be given");
-          }
-          if (!handlerName && !handlerFactory) {
-            handlerName = await detectDeviceAsync();
-            if (!handlerName) {
-              throw new errors_1.UnsupportedError("device not supported");
-            }
-          }
-          return new _Device({ handlerName, handlerFactory });
         }
         /**
          * The RTC handler name.
@@ -10062,7 +9999,6 @@
         return void 0;
       }
       function getChromiumMajorVersion(userAgent, userAgentData) {
-        var _a;
         logger.debug("getChromiumMajorVersion()");
         if (isIOS(userAgent, userAgentData)) {
           logger.debug("getChromiumMajorVersion() | this is iOS => undefined");
@@ -10073,15 +10009,16 @@
           return void 0;
         }
         if (userAgentData) {
-          const chromiumBrand = ((_a = userAgentData.brands) != null ? _a : []).find((b) => b.brand === "Chromium");
+          const brands = Array.isArray(userAgentData.brands) ? userAgentData.brands : [];
+          const chromiumBrand = brands.find((b) => b.brand === "Chromium");
           if (chromiumBrand) {
             const majorVersion = Number(chromiumBrand.version);
             logger.debug(`getChromiumMajorVersion() | Chromium major version based on NavigatorUAData => ${majorVersion}`);
             return majorVersion;
           }
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/\b(?:Chrome|Chromium)\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/\b(?:Chrome|Chromium)\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getChromiumMajorVersion() | Chromium major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10099,8 +10036,8 @@
           logger.debug("getFirefoxMajorVersion() | this is React-Native => undefined");
           return void 0;
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/\bFirefox\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/\bFirefox\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getFirefoxMajorVersion() | Firefox major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10124,7 +10061,7 @@
           return void 0;
         }
         const match = userAgent.match(/AppleWebKit\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getMacOSWebKitMajorVersion() | WebKit major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10142,8 +10079,8 @@
           logger.debug("getIOSWebKitMajorVersion() | this is React-Native => undefined");
           return void 0;
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/AppleWebKit\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/AppleWebKit\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getIOSWebKitMajorVersion() | WebKit major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10153,11 +10090,11 @@
       }
       function isIOS(userAgent, userAgentData) {
         logger.debug("isIOS()");
-        if ((userAgentData == null ? void 0 : userAgentData.platform) === "iOS") {
+        if (userAgentData?.platform === "iOS") {
           logger.debug("isIOS() | this is iOS based on NavigatorUAData.platform => true");
           return true;
         }
-        if (userAgentData == null ? void 0 : userAgentData.platform) {
+        if (userAgentData?.platform) {
           logger.debug("isIOS() | this is not iOS based on NavigatorUAData.platform => false");
           return false;
         }
@@ -10184,9 +10121,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/@lukeed/uuid/dist/index.js
+  // node_modules/@lukeed/uuid/dist/index.js
   var require_dist = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/@lukeed/uuid/dist/index.js"(exports) {
+    "node_modules/@lukeed/uuid/dist/index.js"(exports) {
       var IDX = 256;
       var HEX = [];
       var BUFFER;
@@ -10212,22 +10149,19 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
+  // node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
   var require_FakeEventTarget = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js"(exports) {
+    "node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.FakeEventTarget = void 0;
       var FakeEventTarget = class {
-        constructor() {
-          __publicField(this, "listeners", {});
-        }
+        listeners = {};
         addEventListener(type, callback, options) {
-          var _a;
           if (!callback) {
             return;
           }
-          this.listeners[type] = (_a = this.listeners[type]) != null ? _a : [];
+          this.listeners[type] = this.listeners[type] ?? [];
           this.listeners[type].push({
             callback: (
               // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -10273,43 +10207,42 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
+  // node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
   var require_FakeEvent = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js"(exports) {
+    "node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.FakeEvent = void 0;
       var FakeEvent = class {
+        /**
+         * Constants.
+         */
+        NONE = 0;
+        CAPTURING_PHASE = 1;
+        AT_TARGET = 2;
+        BUBBLING_PHASE = 3;
+        /**
+         * Members.
+         */
+        type;
+        bubbles;
+        cancelable;
+        defaultPrevented = false;
+        composed = false;
+        currentTarget = null;
+        // Not implemented.
+        eventPhase = this.NONE;
+        isTrusted = true;
+        target = null;
+        timeStamp = 0;
+        // Deprecated.
+        cancelBubble = false;
+        returnValue = true;
+        srcElement = null;
         constructor(type, options = {}) {
-          /**
-           * Constants.
-           */
-          __publicField(this, "NONE", 0);
-          __publicField(this, "CAPTURING_PHASE", 1);
-          __publicField(this, "AT_TARGET", 2);
-          __publicField(this, "BUBBLING_PHASE", 3);
-          /**
-           * Members.
-           */
-          __publicField(this, "type");
-          __publicField(this, "bubbles");
-          __publicField(this, "cancelable");
-          __publicField(this, "defaultPrevented", false);
-          __publicField(this, "composed", false);
-          __publicField(this, "currentTarget", null);
-          // Not implemented.
-          __publicField(this, "eventPhase", this.NONE);
-          __publicField(this, "isTrusted", true);
-          __publicField(this, "target", null);
-          __publicField(this, "timeStamp", 0);
-          // Deprecated.
-          __publicField(this, "cancelBubble", false);
-          __publicField(this, "returnValue", true);
-          __publicField(this, "srcElement", null);
-          var _a, _b;
           this.type = type;
-          this.bubbles = (_a = options.bubbles) != null ? _a : false;
-          this.cancelable = (_b = options.cancelable) != null ? _b : false;
+          this.bubbles = options.bubbles ?? false;
+          this.cancelable = options.cancelable ?? false;
         }
         preventDefault() {
           if (this.cancelable) {
@@ -10344,9 +10277,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/utils.js
+  // node_modules/fake-mediastreamtrack/lib/utils.js
   var require_utils3 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/utils.js"(exports) {
+    "node_modules/fake-mediastreamtrack/lib/utils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.clone = clone;
@@ -10364,9 +10297,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/index.js
+  // node_modules/fake-mediastreamtrack/lib/index.js
   var require_lib4 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/fake-mediastreamtrack/lib/index.js"(exports) {
+    "node_modules/fake-mediastreamtrack/lib/index.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.FakeMediaStreamTrack = void 0;
@@ -10374,142 +10307,141 @@
       var FakeEventTarget_1 = require_FakeEventTarget();
       var FakeEvent_1 = require_FakeEvent();
       var utils_1 = require_utils3();
-      var _id, _kind, _label, _readyState, _enabled, _muted, _contentHint, _capabilities, _constraints, _settings, _data, _onmute, _onunmute, _onended, _onenabledchange, _onstopped;
-      var _FakeMediaStreamTrack = class _FakeMediaStreamTrack extends FakeEventTarget_1.FakeEventTarget {
+      var FakeMediaStreamTrack = class _FakeMediaStreamTrack extends FakeEventTarget_1.FakeEventTarget {
+        #id;
+        #kind;
+        #label;
+        #readyState;
+        #enabled;
+        #muted;
+        #contentHint;
+        #capabilities;
+        #constraints;
+        #settings;
+        #data;
+        // Events.
+        #onmute = null;
+        #onunmute = null;
+        #onended = null;
+        // Custom events.
+        #onenabledchange = null;
+        #onstopped = null;
         constructor({ kind, id, label, contentHint, enabled, muted, readyState, capabilities, constraints, settings, data }) {
           super();
-          __privateAdd(this, _id);
-          __privateAdd(this, _kind);
-          __privateAdd(this, _label);
-          __privateAdd(this, _readyState);
-          __privateAdd(this, _enabled);
-          __privateAdd(this, _muted);
-          __privateAdd(this, _contentHint);
-          __privateAdd(this, _capabilities);
-          __privateAdd(this, _constraints);
-          __privateAdd(this, _settings);
-          __privateAdd(this, _data);
-          // Events.
-          __privateAdd(this, _onmute, null);
-          __privateAdd(this, _onunmute, null);
-          __privateAdd(this, _onended, null);
-          // Custom events.
-          __privateAdd(this, _onenabledchange, null);
-          __privateAdd(this, _onstopped, null);
-          __privateSet(this, _id, id != null ? id : (0, uuid_1.v4)());
-          __privateSet(this, _kind, kind);
-          __privateSet(this, _label, label != null ? label : "");
-          __privateSet(this, _contentHint, contentHint != null ? contentHint : "");
-          __privateSet(this, _enabled, enabled != null ? enabled : true);
-          __privateSet(this, _muted, muted != null ? muted : false);
-          __privateSet(this, _readyState, readyState != null ? readyState : "live");
-          __privateSet(this, _capabilities, capabilities != null ? capabilities : {});
-          __privateSet(this, _constraints, constraints != null ? constraints : {});
-          __privateSet(this, _settings, settings != null ? settings : {});
-          __privateSet(this, _data, data != null ? data : {});
+          this.#id = id ?? (0, uuid_1.v4)();
+          this.#kind = kind;
+          this.#label = label ?? "";
+          this.#contentHint = contentHint ?? "";
+          this.#enabled = enabled ?? true;
+          this.#muted = muted ?? false;
+          this.#readyState = readyState ?? "live";
+          this.#capabilities = capabilities ?? {};
+          this.#constraints = constraints ?? {};
+          this.#settings = settings ?? {};
+          this.#data = data ?? {};
         }
         get id() {
-          return __privateGet(this, _id);
+          return this.#id;
         }
         get kind() {
-          return __privateGet(this, _kind);
+          return this.#kind;
         }
         get label() {
-          return __privateGet(this, _label);
+          return this.#label;
         }
         get contentHint() {
-          return __privateGet(this, _contentHint);
+          return this.#contentHint;
         }
         set contentHint(contentHint) {
-          __privateSet(this, _contentHint, contentHint);
+          this.#contentHint = contentHint;
         }
         get enabled() {
-          return __privateGet(this, _enabled);
+          return this.#enabled;
         }
         /**
          * Changes `enabled` member value and fires a custom "enabledchange" event.
          */
         set enabled(enabled) {
-          const changed = __privateGet(this, _enabled) !== enabled;
-          __privateSet(this, _enabled, enabled);
+          const changed = this.#enabled !== enabled;
+          this.#enabled = enabled;
           if (changed) {
             this.dispatchEvent(new FakeEvent_1.FakeEvent("enabledchange"));
           }
         }
         get muted() {
-          return __privateGet(this, _muted);
+          return this.#muted;
         }
         get readyState() {
-          return __privateGet(this, _readyState);
+          return this.#readyState;
         }
         /**
          * Application custom data getter.
          */
         get data() {
-          return __privateGet(this, _data);
+          return this.#data;
         }
         /**
          * Application custom data setter.
          */
         set data(data) {
-          __privateSet(this, _data, data);
+          this.#data = data;
         }
         get onmute() {
-          return __privateGet(this, _onmute);
+          return this.#onmute;
         }
         set onmute(handler) {
-          if (__privateGet(this, _onmute)) {
-            this.removeEventListener("mute", __privateGet(this, _onmute));
+          if (this.#onmute) {
+            this.removeEventListener("mute", this.#onmute);
           }
-          __privateSet(this, _onmute, handler);
+          this.#onmute = handler;
           if (handler) {
             this.addEventListener("mute", handler);
           }
         }
         get onunmute() {
-          return __privateGet(this, _onunmute);
+          return this.#onunmute;
         }
         set onunmute(handler) {
-          if (__privateGet(this, _onunmute)) {
-            this.removeEventListener("unmute", __privateGet(this, _onunmute));
+          if (this.#onunmute) {
+            this.removeEventListener("unmute", this.#onunmute);
           }
-          __privateSet(this, _onunmute, handler);
+          this.#onunmute = handler;
           if (handler) {
             this.addEventListener("unmute", handler);
           }
         }
         get onended() {
-          return __privateGet(this, _onended);
+          return this.#onended;
         }
         set onended(handler) {
-          if (__privateGet(this, _onended)) {
-            this.removeEventListener("ended", __privateGet(this, _onended));
+          if (this.#onended) {
+            this.removeEventListener("ended", this.#onended);
           }
-          __privateSet(this, _onended, handler);
+          this.#onended = handler;
           if (handler) {
             this.addEventListener("ended", handler);
           }
         }
         get onenabledchange() {
-          return __privateGet(this, _onenabledchange);
+          return this.#onenabledchange;
         }
         set onenabledchange(handler) {
-          if (__privateGet(this, _onenabledchange)) {
-            this.removeEventListener("enabledchange", __privateGet(this, _onenabledchange));
+          if (this.#onenabledchange) {
+            this.removeEventListener("enabledchange", this.#onenabledchange);
           }
-          __privateSet(this, _onenabledchange, handler);
+          this.#onenabledchange = handler;
           if (handler) {
             this.addEventListener("enabledchange", handler);
           }
         }
         get onstopped() {
-          return __privateGet(this, _onstopped);
+          return this.#onstopped;
         }
         set onstopped(handler) {
-          if (__privateGet(this, _onstopped)) {
-            this.removeEventListener("stopped", __privateGet(this, _onstopped));
+          if (this.#onstopped) {
+            this.removeEventListener("stopped", this.#onstopped);
           }
-          __privateSet(this, _onstopped, handler);
+          this.#onstopped = handler;
           if (handler) {
             this.addEventListener("stopped", handler);
           }
@@ -10525,10 +10457,10 @@
          * (if not already stopped).
          */
         stop() {
-          if (__privateGet(this, _readyState) === "ended") {
+          if (this.#readyState === "ended") {
             return;
           }
-          __privateSet(this, _readyState, "ended");
+          this.#readyState = "ended";
           this.dispatchEvent(new FakeEvent_1.FakeEvent("stopped"));
         }
         /**
@@ -10537,41 +10469,41 @@
          */
         clone({ id, data } = {}) {
           return new _FakeMediaStreamTrack({
-            id: id != null ? id : (0, uuid_1.v4)(),
-            kind: __privateGet(this, _kind),
-            label: __privateGet(this, _label),
-            contentHint: __privateGet(this, _contentHint),
-            enabled: __privateGet(this, _enabled),
-            muted: __privateGet(this, _muted),
-            readyState: __privateGet(this, _readyState),
-            capabilities: (0, utils_1.clone)(__privateGet(this, _capabilities)),
-            constraints: (0, utils_1.clone)(__privateGet(this, _constraints)),
-            settings: (0, utils_1.clone)(__privateGet(this, _settings)),
-            data: data != null ? data : (0, utils_1.clone)(__privateGet(this, _data))
+            id: id ?? (0, uuid_1.v4)(),
+            kind: this.#kind,
+            label: this.#label,
+            contentHint: this.#contentHint,
+            enabled: this.#enabled,
+            muted: this.#muted,
+            readyState: this.#readyState,
+            capabilities: (0, utils_1.clone)(this.#capabilities),
+            constraints: (0, utils_1.clone)(this.#constraints),
+            settings: (0, utils_1.clone)(this.#settings),
+            data: data ?? (0, utils_1.clone)(this.#data)
           });
         }
         getCapabilities() {
-          return __privateGet(this, _capabilities);
+          return this.#capabilities;
         }
         getConstraints() {
-          return __privateGet(this, _constraints);
+          return this.#constraints;
         }
         async applyConstraints(constraints = {}) {
-          __privateSet(this, _constraints, constraints);
+          this.#constraints = constraints;
           return Promise.resolve();
         }
         getSettings() {
-          return __privateGet(this, _settings);
+          return this.#settings;
         }
         /**
          * Simulates a remotely triggered stop. It fires a custom "stopped" event and
          * the standard "ended" event (if the track was not already stopped).
          */
         remoteStop() {
-          if (__privateGet(this, _readyState) === "ended") {
+          if (this.#readyState === "ended") {
             return;
           }
-          __privateSet(this, _readyState, "ended");
+          this.#readyState = "ended";
           this.dispatchEvent(new FakeEvent_1.FakeEvent("stopped"));
           this.dispatchEvent(new FakeEvent_1.FakeEvent("ended"));
         }
@@ -10580,10 +10512,10 @@
          * was not already muted).
          */
         remoteMute() {
-          if (__privateGet(this, _muted)) {
+          if (this.#muted) {
             return;
           }
-          __privateSet(this, _muted, true);
+          this.#muted = true;
           this.dispatchEvent(new FakeEvent_1.FakeEvent("mute"));
         }
         /**
@@ -10591,50 +10523,30 @@
          * track was muted).
          */
         remoteUnmute() {
-          if (!__privateGet(this, _muted)) {
+          if (!this.#muted) {
             return;
           }
-          __privateSet(this, _muted, false);
+          this.#muted = false;
           this.dispatchEvent(new FakeEvent_1.FakeEvent("unmute"));
         }
       };
-      _id = new WeakMap();
-      _kind = new WeakMap();
-      _label = new WeakMap();
-      _readyState = new WeakMap();
-      _enabled = new WeakMap();
-      _muted = new WeakMap();
-      _contentHint = new WeakMap();
-      _capabilities = new WeakMap();
-      _constraints = new WeakMap();
-      _settings = new WeakMap();
-      _data = new WeakMap();
-      _onmute = new WeakMap();
-      _onunmute = new WeakMap();
-      _onended = new WeakMap();
-      _onenabledchange = new WeakMap();
-      _onstopped = new WeakMap();
-      var FakeMediaStreamTrack = _FakeMediaStreamTrack;
       exports.FakeMediaStreamTrack = FakeMediaStreamTrack;
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
+  // node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
   var require_FakeEventTarget2 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.FakeEventTarget = void 0;
       var FakeEventTarget = class {
-        constructor() {
-          __publicField(this, "listeners", {});
-        }
+        listeners = {};
         addEventListener(type, callback, options) {
-          var _a;
           if (!callback) {
             return;
           }
-          this.listeners[type] = (_a = this.listeners[type]) != null ? _a : [];
+          this.listeners[type] = this.listeners[type] ?? [];
           this.listeners[type].push({
             callback: typeof callback === "function" ? callback : callback.handleEvent,
             once: typeof options === "object" && options.once === true
@@ -10676,9 +10588,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/FakeHandler.js
+  // node_modules/mediasoup-client/lib/handlers/FakeHandler.js
   var require_FakeHandler = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/handlers/FakeHandler.js"(exports) {
+    "node_modules/mediasoup-client/lib/handlers/FakeHandler.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.FakeHandler = void 0;
@@ -10692,40 +10604,24 @@
       var logger = new Logger_1.Logger("FakeHandler");
       var NAME = "FakeHandler";
       var FakeHandler = class _FakeHandler extends enhancedEvents_1.EnhancedEventEmitter {
-        constructor({
-          // direction,
-          // iceParameters,
-          // iceCandidates,
-          // dtlsParameters,
-          // sctpParameters,
-          // iceServers,
-          // iceTransportPolicy,
-          // additionalSettings,
-          getSendExtendedRtpCapabilities
-        }, fakeParameters) {
-          super();
-          // Closed flag.
-          __publicField(this, "_closed", false);
-          // Fake parameters source of RTP and SCTP parameters and capabilities.
-          __publicField(this, "_fakeParameters");
-          // Callback to request sending extended RTP capabilities on demand.
-          __publicField(this, "_getSendExtendedRtpCapabilities");
-          // Local RTCP CNAME.
-          __publicField(this, "_cname", `CNAME-${utils.generateRandomNumber()}`);
-          // Default sending MediaStream id.
-          __publicField(this, "_defaultSendStreamId", `${utils.generateRandomNumber()}`);
-          // Got transport local and remote parameters.
-          __publicField(this, "_transportReady", false);
-          // Next localId.
-          __publicField(this, "_nextLocalId", 1);
-          // Sending and receiving tracks indexed by localId.
-          __publicField(this, "_tracks", /* @__PURE__ */ new Map());
-          // DataChannel id value counter. It must be incremented for each new DataChannel.
-          __publicField(this, "_nextSctpStreamId", 0);
-          logger.debug("constructor()");
-          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
-          this._fakeParameters = fakeParameters;
-        }
+        // Closed flag.
+        _closed = false;
+        // Fake parameters source of RTP and SCTP parameters and capabilities.
+        _fakeParameters;
+        // Callback to request sending extended RTP capabilities on demand.
+        _getSendExtendedRtpCapabilities;
+        // Local RTCP CNAME.
+        _cname = `CNAME-${utils.generateRandomNumber()}`;
+        // Default sending MediaStream id.
+        _defaultSendStreamId = `${utils.generateRandomNumber()}`;
+        // Got transport local and remote parameters.
+        _transportReady = false;
+        // Next localId.
+        _nextLocalId = 1;
+        // Sending and receiving tracks indexed by localId.
+        _tracks = /* @__PURE__ */ new Map();
+        // DataChannel id value counter. It must be incremented for each new DataChannel.
+        _nextSctpStreamId = 0;
         /**
          * Creates a factory function.
          */
@@ -10747,6 +10643,22 @@
           const nativeRtpCapabilities = fakeParameters.generateNativeRtpCapabilities();
           ortc.validateAndNormalizeRtpCapabilities(nativeRtpCapabilities);
           return nativeRtpCapabilities;
+        }
+        constructor({
+          // direction,
+          // iceParameters,
+          // iceCandidates,
+          // dtlsParameters,
+          // sctpParameters,
+          // iceServers,
+          // iceTransportPolicy,
+          // additionalSettings,
+          getSendExtendedRtpCapabilities
+        }, fakeParameters) {
+          super();
+          logger.debug("constructor()");
+          this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
+          this._fakeParameters = fakeParameters;
         }
         get name() {
           return NAME;
@@ -10793,7 +10705,7 @@
           sendingRtpParameters.codecs = ortc.reduceCodecs(sendingRtpParameters.codecs, codec);
           const useRtx = sendingRtpParameters.codecs.some((_codec) => /.+\/rtx$/i.test(_codec.mimeType));
           sendingRtpParameters.mid = `mid-${utils.generateRandomNumber()}`;
-          sendingRtpParameters.msid = `${streamId != null ? streamId : "-"} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? "-"} ${track.id}`;
           if (!encodings) {
             encodings = [{}];
           }
@@ -10809,7 +10721,7 @@
             reducedSize: true,
             mux: true
           };
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._defaultSendStreamId} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._defaultSendStreamId} ${track.id}`;
           const localId = this._nextLocalId++;
           this._tracks.set(localId, track);
           return { localId: String(localId), rtpParameters: sendingRtpParameters };
@@ -10950,28 +10862,28 @@
       };
       exports.FakeHandler = FakeHandler;
       var FakeRTCDataChannel = class extends FakeEventTarget_1.FakeEventTarget {
+        // Members for RTCDataChannel standard public getters/setters.
+        _id;
+        _negotiated = true;
+        // mediasoup just uses negotiated DataChannels.
+        _ordered;
+        _maxPacketLifeTime;
+        _maxRetransmits;
+        _label;
+        _protocol;
+        _readyState = "connecting";
+        _bufferedAmount = 0;
+        _bufferedAmountLowThreshold = 0;
+        _binaryType = "arraybuffer";
+        // Events.
+        _onopen = null;
+        _onclosing = null;
+        _onclose = null;
+        _onmessage = null;
+        _onbufferedamountlow = null;
+        _onerror = null;
         constructor({ id, ordered = true, maxPacketLifeTime = null, maxRetransmits = null, label = "", protocol = "" }) {
           super();
-          // Members for RTCDataChannel standard public getters/setters.
-          __publicField(this, "_id");
-          __publicField(this, "_negotiated", true);
-          // mediasoup just uses negotiated DataChannels.
-          __publicField(this, "_ordered");
-          __publicField(this, "_maxPacketLifeTime");
-          __publicField(this, "_maxRetransmits");
-          __publicField(this, "_label");
-          __publicField(this, "_protocol");
-          __publicField(this, "_readyState", "connecting");
-          __publicField(this, "_bufferedAmount", 0);
-          __publicField(this, "_bufferedAmountLowThreshold", 0);
-          __publicField(this, "_binaryType", "arraybuffer");
-          // Events.
-          __publicField(this, "_onopen", null);
-          __publicField(this, "_onclosing", null);
-          __publicField(this, "_onclose", null);
-          __publicField(this, "_onmessage", null);
-          __publicField(this, "_onbufferedamountlow", null);
-          __publicField(this, "_onerror", null);
           logger.debug(`constructor() [id:${id}, ordered:${ordered}, maxPacketLifeTime:${maxPacketLifeTime}, maxRetransmits:${maxRetransmits}, label:${label}, protocol:${protocol}`);
           this._id = id;
           this._ordered = ordered;
@@ -11117,9 +11029,9 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/test/fakeParameters.js
+  // node_modules/mediasoup-client/lib/test/fakeParameters.js
   var require_fakeParameters = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/test/fakeParameters.js"(exports) {
+    "node_modules/mediasoup-client/lib/test/fakeParameters.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.generateRouterRtpCapabilities = generateRouterRtpCapabilities;
@@ -11572,7 +11484,7 @@
         switch (codecMimeType) {
           case "audio/opus": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "audio",
               rtpParameters: utils.deepFreeze({
@@ -11618,7 +11530,7 @@
           }
           case "audio/ISAC": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "audio",
               rtpParameters: utils.deepFreeze({
@@ -11657,7 +11569,7 @@
           }
           case "video/VP8": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "video",
               rtpParameters: utils.deepFreeze({
@@ -11727,7 +11639,7 @@
           }
           case "video/H264": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "video",
               rtpParameters: utils.deepFreeze({
@@ -11809,7 +11721,7 @@
       }
       function generateDataConsumerRemoteParameters({ id } = {}) {
         return {
-          id: id != null ? id : generateFakeUuid(),
+          id: id ?? generateFakeUuid(),
           dataProducerId: generateFakeUuid(),
           sctpStreamParameters: utils.deepFreeze({
             streamId: 666,
@@ -11821,16 +11733,16 @@
     }
   });
 
-  // MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/index.js
+  // node_modules/mediasoup-client/lib/index.js
   var require_lib5 = __commonJS({
-    "MeetSpace/WebView/MediaHost/node_modules/mediasoup-client/lib/index.js"(exports) {
+    "node_modules/mediasoup-client/lib/index.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.debug = exports.testFakeParameters = exports.FakeHandler = exports.enhancedEvents = exports.ortc = exports.parseScalabilityMode = exports.detectDeviceAsync = exports.detectDevice = exports.Device = exports.version = exports.types = void 0;
       var debug_1 = require_browser();
       exports.debug = debug_1.default;
       exports.types = require_types();
-      exports.version = "3.18.7";
+      exports.version = "3.18.8";
       var Device_1 = require_Device();
       Object.defineProperty(exports, "Device", { enumerable: true, get: function() {
         return Device_1.Device;
@@ -11866,8 +11778,15 @@
         micStream: null,
         micTrack: null,
         micProducer: null,
+        cameraStream: null,
+        cameraTrack: null,
+        cameraProducer: null,
+        screenStream: null,
+        screenTrack: null,
+        screenProducer: null,
         consumers: /* @__PURE__ */ new Map(),
         audioElements: /* @__PURE__ */ new Map(),
+        videoElements: /* @__PURE__ */ new Map(),
         pendingConnect: /* @__PURE__ */ new Map(),
         pendingProduce: /* @__PURE__ */ new Map()
       };
@@ -11887,7 +11806,7 @@
           window.external.notify(raw);
           return;
         }
-        throw new Error("No supported host bridge found. Expected chrome.webview or window.external.notify.");
+        throw new Error("No supported host bridge found.");
       }
       function sendResponse(requestId, ok, payload = {}, error = null) {
         post({
@@ -11963,9 +11882,9 @@
         } catch (_) {
         }
         try {
-          if (item.audio) {
-            item.audio.pause();
-            item.audio.srcObject = null;
+          if (item.element) {
+            item.element.pause();
+            item.element.srcObject = null;
           }
         } catch (_) {
         }
@@ -11977,26 +11896,39 @@
         }
         state.consumers.delete(consumerId);
         state.audioElements.delete(consumerId);
+        state.videoElements.delete(consumerId);
+      }
+      function stopProducer(name) {
+        const producer = state[name];
+        if (producer) {
+          try {
+            producer.close();
+          } catch (_) {
+          }
+        }
+        state[name] = null;
+      }
+      function stopStream(streamName, trackName) {
+        const stream = state[streamName];
+        if (stream) {
+          try {
+            stream.getTracks().forEach((track) => track.stop());
+          } catch (_) {
+          }
+        }
+        state[streamName] = null;
+        state[trackName] = null;
       }
       async function closeAll() {
         for (const consumerId of Array.from(state.consumers.keys())) {
           cleanupConsumer(consumerId);
         }
-        try {
-          if (state.micProducer) {
-            state.micProducer.close();
-          }
-        } catch (_) {
-        }
-        state.micProducer = null;
-        try {
-          if (state.micStream) {
-            state.micStream.getTracks().forEach((track) => track.stop());
-          }
-        } catch (_) {
-        }
-        state.micStream = null;
-        state.micTrack = null;
+        stopProducer("micProducer");
+        stopProducer("cameraProducer");
+        stopProducer("screenProducer");
+        stopStream("micStream", "micTrack");
+        stopStream("cameraStream", "cameraTrack");
+        stopStream("screenStream", "screenTrack");
         try {
           if (state.sendTransport) {
             state.sendTransport.close();
@@ -12038,6 +11970,7 @@
               transportId: transport.id,
               kind,
               rtpParameters,
+              trackType: appData && appData.trackType ? appData.trackType : kind === "audio" ? "microphone" : "camera",
               serverProducerId: appData && appData.serverProducerId ? appData.serverProducerId : ""
             }
           });
@@ -12089,9 +12022,6 @@
                 }
               }
               state.sendTransport = state.device.createSendTransport(buildTransportOptions(payload));
-              if (!state.sendTransport) {
-                throw new Error("createSendTransport returned null");
-              }
               wireSendTransport(state.sendTransport);
               sendDiag("create_send_transport.ok", {
                 transportId: state.sendTransport.id
@@ -12111,9 +12041,6 @@
                 }
               }
               state.recvTransport = state.device.createRecvTransport(buildTransportOptions(payload));
-              if (!state.recvTransport) {
-                throw new Error("createRecvTransport returned null");
-              }
               wireRecvTransport(state.recvTransport);
               sendDiag("create_recv_transport.ok", {
                 transportId: state.recvTransport.id
@@ -12164,20 +12091,8 @@
               if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 throw new Error("mediaDevices.getUserMedia is unavailable");
               }
-              if (state.micProducer) {
-                try {
-                  state.micProducer.close();
-                } catch (_) {
-                }
-                state.micProducer = null;
-              }
-              if (state.micStream) {
-                try {
-                  state.micStream.getTracks().forEach((track) => track.stop());
-                } catch (_) {
-                }
-                state.micStream = null;
-              }
+              stopProducer("micProducer");
+              stopStream("micStream", "micTrack");
               state.micStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                   echoCancellation: true,
@@ -12194,7 +12109,8 @@
               const producer = await state.sendTransport.produce({
                 track: state.micTrack,
                 appData: {
-                  serverProducerId: payload.serverProducerId
+                  serverProducerId: payload.serverProducerId,
+                  trackType: "microphone"
                 }
               });
               state.micProducer = producer;
@@ -12209,6 +12125,100 @@
               });
               return;
             }
+            case "start_camera": {
+              sendDiag("start_camera.begin");
+              ensureDeviceLoaded();
+              if (!state.sendTransport) {
+                throw new Error("send transport is not initialized");
+              }
+              if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("mediaDevices.getUserMedia is unavailable");
+              }
+              stopProducer("cameraProducer");
+              stopStream("cameraStream", "cameraTrack");
+              state.cameraStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: true
+              });
+              const videoTracks = state.cameraStream.getVideoTracks();
+              if (!videoTracks || videoTracks.length === 0) {
+                throw new Error("camera stream has no video track");
+              }
+              state.cameraTrack = videoTracks[0];
+              const producer = await state.sendTransport.produce({
+                track: state.cameraTrack,
+                appData: {
+                  serverProducerId: payload.serverProducerId,
+                  trackType: "camera"
+                }
+              });
+              state.cameraProducer = producer;
+              producer.on("transportclose", () => {
+                state.cameraProducer = null;
+              });
+              sendDiag("start_camera.ok", {
+                producerId: producer.id
+              });
+              sendResponse(requestId, true, {
+                producerId: producer.id
+              });
+              return;
+            }
+            case "stop_camera": {
+              stopProducer("cameraProducer");
+              stopStream("cameraStream", "cameraTrack");
+              sendResponse(requestId, true, {});
+              return;
+            }
+            case "start_screen": {
+              sendDiag("start_screen.begin");
+              ensureDeviceLoaded();
+              if (!state.sendTransport) {
+                throw new Error("send transport is not initialized");
+              }
+              if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                throw new Error("mediaDevices.getDisplayMedia is unavailable");
+              }
+              stopProducer("screenProducer");
+              stopStream("screenStream", "screenTrack");
+              state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false
+              });
+              const videoTracks = state.screenStream.getVideoTracks();
+              if (!videoTracks || videoTracks.length === 0) {
+                throw new Error("screen stream has no video track");
+              }
+              state.screenTrack = videoTracks[0];
+              state.screenTrack.onended = () => {
+                stopProducer("screenProducer");
+                stopStream("screenStream", "screenTrack");
+              };
+              const producer = await state.sendTransport.produce({
+                track: state.screenTrack,
+                appData: {
+                  serverProducerId: payload.serverProducerId,
+                  trackType: "screen"
+                }
+              });
+              state.screenProducer = producer;
+              producer.on("transportclose", () => {
+                state.screenProducer = null;
+              });
+              sendDiag("start_screen.ok", {
+                producerId: producer.id
+              });
+              sendResponse(requestId, true, {
+                producerId: producer.id
+              });
+              return;
+            }
+            case "stop_screen": {
+              stopProducer("screenProducer");
+              stopStream("screenStream", "screenTrack");
+              sendResponse(requestId, true, {});
+              return;
+            }
             case "set_microphone_enabled": {
               const enabled = !!payload.enabled;
               if (state.micTrack) {
@@ -12221,9 +12231,37 @@
                   await state.micProducer.pause();
                 }
               }
-              sendResponse(requestId, true, {
-                enabled
-              });
+              sendResponse(requestId, true, { enabled });
+              return;
+            }
+            case "set_camera_enabled": {
+              const enabled = !!payload.enabled;
+              if (state.cameraTrack) {
+                state.cameraTrack.enabled = enabled;
+              }
+              if (state.cameraProducer) {
+                if (enabled) {
+                  await state.cameraProducer.resume();
+                } else {
+                  await state.cameraProducer.pause();
+                }
+              }
+              sendResponse(requestId, true, { enabled });
+              return;
+            }
+            case "set_screen_enabled": {
+              const enabled = !!payload.enabled;
+              if (state.screenTrack) {
+                state.screenTrack.enabled = enabled;
+              }
+              if (state.screenProducer) {
+                if (enabled) {
+                  await state.screenProducer.resume();
+                } else {
+                  await state.screenProducer.pause();
+                }
+              }
+              sendResponse(requestId, true, { enabled });
               return;
             }
             case "consume_audio": {
@@ -12261,7 +12299,7 @@
               state.consumers.set(consumer.id, {
                 consumer,
                 stream,
-                audio
+                element: audio
               });
               consumer.on("transportclose", () => cleanupConsumer(consumer.id));
               consumer.on("trackended", () => cleanupConsumer(consumer.id));
@@ -12271,6 +12309,61 @@
               sendResponse(requestId, true, {
                 consumerId: consumer.id
               });
+              return;
+            }
+            case "consume_video": {
+              sendDiag("consume_video.begin", {
+                producerId: payload.producerId
+              });
+              ensureDeviceLoaded();
+              if (!state.recvTransport) {
+                throw new Error("receive transport is not initialized");
+              }
+              const consumer = await state.recvTransport.consume({
+                id: payload.consumerId,
+                producerId: payload.producerId,
+                kind: payload.kind || "video",
+                rtpParameters: payload.rtpParameters,
+                appData: {
+                  producerId: payload.producerId,
+                  trackType: payload.trackType || "camera"
+                }
+              });
+              const stream = new MediaStream();
+              stream.addTrack(consumer.track);
+              let video = state.videoElements.get(consumer.id);
+              if (!video) {
+                video = document.createElement("video");
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                state.videoElements.set(consumer.id, video);
+              }
+              video.srcObject = stream;
+              try {
+                await video.play();
+              } catch (_) {
+              }
+              state.consumers.set(consumer.id, {
+                consumer,
+                stream,
+                element: video
+              });
+              consumer.on("transportclose", () => cleanupConsumer(consumer.id));
+              consumer.on("trackended", () => cleanupConsumer(consumer.id));
+              sendDiag("consume_video.ok", {
+                consumerId: consumer.id
+              });
+              sendResponse(requestId, true, {
+                consumerId: consumer.id
+              });
+              return;
+            }
+            case "close_consumer": {
+              if (payload && payload.consumerId) {
+                cleanupConsumer(payload.consumerId);
+              }
+              sendResponse(requestId, true, {});
               return;
             }
             case "close_call": {
@@ -12328,7 +12421,11 @@
           post({
             kind: "host_ready",
             payload: {
-              transport: hasWebView2Host() ? "webview2" : hasLegacyHost() ? "legacy" : "unknown"
+              transport: hasWebView2Host() ? "webview2" : hasLegacyHost() ? "legacy" : "unknown",
+              href: window.location.href,
+              isSecureContext: window.isSecureContext,
+              hasMediaDevices: !!navigator.mediaDevices,
+              hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
             }
           });
         } catch (error) {

@@ -7,8 +7,15 @@ const state = {
     micStream: null,
     micTrack: null,
     micProducer: null,
+    cameraStream: null,
+    cameraTrack: null,
+    cameraProducer: null,
+    screenStream: null,
+    screenTrack: null,
+    screenProducer: null,
     consumers: new Map(),
     audioElements: new Map(),
+    videoElements: new Map(),
     pendingConnect: new Map(),
     pendingProduce: new Map()
 };
@@ -41,7 +48,7 @@ function post(message) {
         return;
     }
 
-    throw new Error('No supported host bridge found. Expected chrome.webview or window.external.notify.');
+    throw new Error('No supported host bridge found.');
 }
 
 function sendResponse(requestId, ok, payload = {}, error = null) {
@@ -138,9 +145,9 @@ function cleanupConsumer(consumerId) {
     }
 
     try {
-        if (item.audio) {
-            item.audio.pause();
-            item.audio.srcObject = null;
+        if (item.element) {
+            item.element.pause();
+            item.element.srcObject = null;
         }
     } catch (_) {
     }
@@ -154,6 +161,30 @@ function cleanupConsumer(consumerId) {
 
     state.consumers.delete(consumerId);
     state.audioElements.delete(consumerId);
+    state.videoElements.delete(consumerId);
+}
+
+function stopProducer(name) {
+    const producer = state[name];
+    if (producer) {
+        try {
+            producer.close();
+        } catch (_) {
+        }
+    }
+    state[name] = null;
+}
+
+function stopStream(streamName, trackName) {
+    const stream = state[streamName];
+    if (stream) {
+        try {
+            stream.getTracks().forEach(track => track.stop());
+        } catch (_) {
+        }
+    }
+    state[streamName] = null;
+    state[trackName] = null;
 }
 
 async function closeAll() {
@@ -161,22 +192,12 @@ async function closeAll() {
         cleanupConsumer(consumerId);
     }
 
-    try {
-        if (state.micProducer) {
-            state.micProducer.close();
-        }
-    } catch (_) {
-    }
-    state.micProducer = null;
-
-    try {
-        if (state.micStream) {
-            state.micStream.getTracks().forEach(track => track.stop());
-        }
-    } catch (_) {
-    }
-    state.micStream = null;
-    state.micTrack = null;
+    stopProducer('micProducer');
+    stopProducer('cameraProducer');
+    stopProducer('screenProducer');
+    stopStream('micStream', 'micTrack');
+    stopStream('cameraStream', 'cameraTrack');
+    stopStream('screenStream', 'screenTrack');
 
     try {
         if (state.sendTransport) {
@@ -225,6 +246,7 @@ function wireSendTransport(transport) {
                 transportId: transport.id,
                 kind,
                 rtpParameters,
+                trackType: appData && appData.trackType ? appData.trackType : (kind === 'audio' ? 'microphone' : 'camera'),
                 serverProducerId: appData && appData.serverProducerId ? appData.serverProducerId : ''
             }
         });
@@ -289,11 +311,6 @@ async function handleCommand(message) {
                 }
 
                 state.sendTransport = state.device.createSendTransport(buildTransportOptions(payload));
-
-                if (!state.sendTransport) {
-                    throw new Error('createSendTransport returned null');
-                }
-
                 wireSendTransport(state.sendTransport);
 
                 sendDiag('create_send_transport.ok', {
@@ -319,11 +336,6 @@ async function handleCommand(message) {
                 }
 
                 state.recvTransport = state.device.createRecvTransport(buildTransportOptions(payload));
-
-                if (!state.recvTransport) {
-                    throw new Error('createRecvTransport returned null');
-                }
-
                 wireRecvTransport(state.recvTransport);
 
                 sendDiag('create_recv_transport.ok', {
@@ -390,22 +402,8 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('mediaDevices.getUserMedia is unavailable');
                 }
-
-                if (state.micProducer) {
-                    try {
-                        state.micProducer.close();
-                    } catch (_) {
-                    }
-                    state.micProducer = null;
-                }
-
-                if (state.micStream) {
-                    try {
-                        state.micStream.getTracks().forEach(track => track.stop());
-                    } catch (_) {
-                    }
-                    state.micStream = null;
-                }
+                stopProducer('micProducer');
+                stopStream('micStream', 'micTrack');
 
                 state.micStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
@@ -426,7 +424,8 @@ async function handleCommand(message) {
                 const producer = await state.sendTransport.produce({
                     track: state.micTrack,
                     appData: {
-                        serverProducerId: payload.serverProducerId
+                        serverProducerId: payload.serverProducerId,
+                        trackType: 'microphone'
                     }
                 });
 
@@ -446,6 +445,126 @@ async function handleCommand(message) {
                 return;
             }
 
+            case 'start_camera': {
+                sendDiag('start_camera.begin');
+
+                ensureDeviceLoaded();
+
+                if (!state.sendTransport) {
+                    throw new Error('send transport is not initialized');
+                }
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('mediaDevices.getUserMedia is unavailable');
+                }
+
+                stopProducer('cameraProducer');
+                stopStream('cameraStream', 'cameraTrack');
+
+                state.cameraStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: true
+                });
+
+                const videoTracks = state.cameraStream.getVideoTracks();
+                if (!videoTracks || videoTracks.length === 0) {
+                    throw new Error('camera stream has no video track');
+                }
+
+                state.cameraTrack = videoTracks[0];
+
+                const producer = await state.sendTransport.produce({
+                    track: state.cameraTrack,
+                    appData: {
+                        serverProducerId: payload.serverProducerId,
+                        trackType: 'camera'
+                    }
+                });
+
+                state.cameraProducer = producer;
+                producer.on('transportclose', () => {
+                    state.cameraProducer = null;
+                });
+
+                sendDiag('start_camera.ok', {
+                    producerId: producer.id
+                });
+
+                sendResponse(requestId, true, {
+                    producerId: producer.id
+                });
+                return;
+            }
+
+            case 'stop_camera': {
+                stopProducer('cameraProducer');
+                stopStream('cameraStream', 'cameraTrack');
+                sendResponse(requestId, true, {});
+                return;
+            }
+
+            case 'start_screen': {
+                sendDiag('start_screen.begin');
+
+                ensureDeviceLoaded();
+
+                if (!state.sendTransport) {
+                    throw new Error('send transport is not initialized');
+                }
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    throw new Error('mediaDevices.getDisplayMedia is unavailable');
+                }
+
+                stopProducer('screenProducer');
+                stopStream('screenStream', 'screenTrack');
+
+                state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: false
+                });
+
+                const videoTracks = state.screenStream.getVideoTracks();
+                if (!videoTracks || videoTracks.length === 0) {
+                    throw new Error('screen stream has no video track');
+                }
+
+                state.screenTrack = videoTracks[0];
+                state.screenTrack.onended = () => {
+                    stopProducer('screenProducer');
+                    stopStream('screenStream', 'screenTrack');
+                };
+
+                const producer = await state.sendTransport.produce({
+                    track: state.screenTrack,
+                    appData: {
+                        serverProducerId: payload.serverProducerId,
+                        trackType: 'screen'
+                    }
+                });
+
+                state.screenProducer = producer;
+                producer.on('transportclose', () => {
+                    state.screenProducer = null;
+                });
+
+                sendDiag('start_screen.ok', {
+                    producerId: producer.id
+                });
+
+                sendResponse(requestId, true, {
+                    producerId: producer.id
+                });
+                return;
+            }
+
+            case 'stop_screen': {
+                stopProducer('screenProducer');
+                stopStream('screenStream', 'screenTrack');
+                sendResponse(requestId, true, {});
+                return;
+            }
+
             case 'set_microphone_enabled': {
                 const enabled = !!payload.enabled;
 
@@ -461,9 +580,45 @@ async function handleCommand(message) {
                     }
                 }
 
-                sendResponse(requestId, true, {
-                    enabled
-                });
+                sendResponse(requestId, true, { enabled });
+                return;
+            }
+
+            case 'set_camera_enabled': {
+                const enabled = !!payload.enabled;
+
+                if (state.cameraTrack) {
+                    state.cameraTrack.enabled = enabled;
+                }
+
+                if (state.cameraProducer) {
+                    if (enabled) {
+                        await state.cameraProducer.resume();
+                    } else {
+                        await state.cameraProducer.pause();
+                    }
+                }
+
+                sendResponse(requestId, true, { enabled });
+                return;
+            }
+
+            case 'set_screen_enabled': {
+                const enabled = !!payload.enabled;
+
+                if (state.screenTrack) {
+                    state.screenTrack.enabled = enabled;
+                }
+
+                if (state.screenProducer) {
+                    if (enabled) {
+                        await state.screenProducer.resume();
+                    } else {
+                        await state.screenProducer.pause();
+                    }
+                }
+
+                sendResponse(requestId, true, { enabled });
                 return;
             }
 
@@ -510,7 +665,7 @@ async function handleCommand(message) {
                 state.consumers.set(consumer.id, {
                     consumer,
                     stream,
-                    audio
+                    element: audio
                 });
 
                 consumer.on('transportclose', () => cleanupConsumer(consumer.id));
@@ -523,6 +678,74 @@ async function handleCommand(message) {
                 sendResponse(requestId, true, {
                     consumerId: consumer.id
                 });
+                return;
+            }
+
+            case 'consume_video': {
+                sendDiag('consume_video.begin', {
+                    producerId: payload.producerId
+                });
+
+                ensureDeviceLoaded();
+
+                if (!state.recvTransport) {
+                    throw new Error('receive transport is not initialized');
+                }
+
+                const consumer = await state.recvTransport.consume({
+                    id: payload.consumerId,
+                    producerId: payload.producerId,
+                    kind: payload.kind || 'video',
+                    rtpParameters: payload.rtpParameters,
+                    appData: {
+                        producerId: payload.producerId,
+                        trackType: payload.trackType || 'camera'
+                    }
+                });
+
+                const stream = new MediaStream();
+                stream.addTrack(consumer.track);
+
+                let video = state.videoElements.get(consumer.id);
+                if (!video) {
+                    video = document.createElement('video');
+                    video.autoplay = true;
+                    video.muted = true;
+                    video.playsInline = true;
+                    state.videoElements.set(consumer.id, video);
+                }
+
+                video.srcObject = stream;
+
+                try {
+                    await video.play();
+                } catch (_) {
+                }
+
+                state.consumers.set(consumer.id, {
+                    consumer,
+                    stream,
+                    element: video
+                });
+
+                consumer.on('transportclose', () => cleanupConsumer(consumer.id));
+                consumer.on('trackended', () => cleanupConsumer(consumer.id));
+
+                sendDiag('consume_video.ok', {
+                    consumerId: consumer.id
+                });
+
+                sendResponse(requestId, true, {
+                    consumerId: consumer.id
+                });
+                return;
+            }
+
+            case 'close_consumer': {
+                if (payload && payload.consumerId) {
+                    cleanupConsumer(payload.consumerId);
+                }
+                sendResponse(requestId, true, {});
                 return;
             }
 
@@ -547,24 +770,7 @@ async function handleCommand(message) {
             error && error.message ? error.message : String(error));
     }
 }
-function notifyHostReady() {
-    try {
-        post({
-            kind: 'host_ready',
-            payload: {
-                transport: hasWebView2Host()
-                    ? 'webview2'
-                    : (hasLegacyHost() ? 'legacy' : 'unknown'),
-                href: window.location.href,
-                isSecureContext: window.isSecureContext,
-                hasMediaDevices: !!(navigator.mediaDevices),
-                hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
-            }
-        });
-    } catch (error) {
-        sendBridgeError(null, 'notifyHostReady', error);
-    }
-}
+
 function handleIncomingHostRaw(rawJson) {
     let requestId = null;
 
@@ -617,7 +823,11 @@ function notifyHostReady() {
             payload: {
                 transport: hasWebView2Host()
                     ? 'webview2'
-                    : (hasLegacyHost() ? 'legacy' : 'unknown')
+                    : (hasLegacyHost() ? 'legacy' : 'unknown'),
+                href: window.location.href,
+                isSecureContext: window.isSecureContext,
+                hasMediaDevices: !!navigator.mediaDevices,
+                hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
             }
         });
     } catch (error) {

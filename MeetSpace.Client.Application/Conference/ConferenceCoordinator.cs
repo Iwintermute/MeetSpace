@@ -1,50 +1,43 @@
-﻿using MeetSpace.Client.Contracts.Conference;
-using MeetSpace.Client.Contracts.Protocol;
-using MeetSpace.Client.Realtime.Abstractions;
+﻿using MeetSpace.Client.App.Session;
 using MeetSpace.Client.Shared.Results;
 
 namespace MeetSpace.Client.App.Conference;
 
-public sealed class ConferenceCoordinator : IDisposable
+public sealed class ConferenceCoordinator
 {
-    private readonly IRealtimeGateway _gateway;
+    private readonly RealtimeStartupService _startupService;
     private readonly IConferenceFeatureClient _client;
     private readonly ConferenceStore _store;
 
     public ConferenceCoordinator(
-        IRealtimeGateway gateway,
+        RealtimeStartupService startupService,
         IConferenceFeatureClient client,
         ConferenceStore store)
     {
-        _gateway = gateway;
+        _startupService = startupService;
         _client = client;
         _store = store;
-
-        _gateway.EnvelopeReceived += OnEnvelopeReceived;
     }
 
-    public async Task<Result> ConnectAsync(string endpoint, CancellationToken cancellationToken = default)
+    public async Task<Result> ConnectAsync(string? endpoint = null, CancellationToken cancellationToken = default)
     {
-        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
-            return Result.Failure(new Error("endpoint.invalid", "Endpoint URI is invalid."));
-
         _store.Update(s => s with { IsBusy = true, LastError = null });
 
-        try
+        var result = await _startupService.EnsureConnectedAsync(endpoint, cancellationToken).ConfigureAwait(false);
+
+        _store.Update(s => s with
         {
-            await _gateway.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
-            _store.Update(s => s with { IsBusy = false });
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
-            return Result.Failure(new Error("connection.failed", ex.Message));
-        }
+            IsBusy = false,
+            LastError = result.IsFailure ? result.Error?.Message : null
+        });
+
+        return result;
     }
 
     public Task DisconnectAsync(CancellationToken cancellationToken = default)
-        => _gateway.DisconnectAsync(cancellationToken);
+    {
+        return _startupService.DisconnectAsync(cancellationToken);
+    }
 
     public async Task<Result> CreateConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
     {
@@ -53,21 +46,29 @@ public sealed class ConferenceCoordinator : IDisposable
 
         _store.Update(s => s with { IsBusy = true, LastError = null });
 
-        try
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
         {
-            await _client.CreateConferenceAsync(conferenceId, Guid.NewGuid().ToString("N"), cancellationToken)
-                .ConfigureAwait(false);
-
-            _store.Update(s => s with { ActiveConferenceId = conferenceId, IsBusy = false });
-            await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
-            return Result.Success();
-
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
         }
-        catch (Exception ex)
+
+        var result = await _client.CreateConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
         {
-            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
-            return Result.Failure(new Error("conference.create_failed", ex.Message));
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
         }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null,
+            ActiveConferenceId = result.Value!.ConferenceId,
+            ActiveConference = result.Value
+        });
+
+        return Result.Success();
     }
 
     public async Task<Result> JoinConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
@@ -77,18 +78,29 @@ public sealed class ConferenceCoordinator : IDisposable
 
         _store.Update(s => s with { IsBusy = true, LastError = null });
 
-        try
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
         {
-            await _client.JoinConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
-            _store.Update(s => s with { ActiveConferenceId = conferenceId, IsBusy = false });
-            await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
-            return Result.Success();
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
         }
-        catch (Exception ex)
+
+        var result = await _client.JoinConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
         {
-            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
-            return Result.Failure(new Error("conference.join_failed", ex.Message));
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
         }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null,
+            ActiveConferenceId = result.Value!.ConferenceId,
+            ActiveConference = result.Value
+        });
+
+        return Result.Success();
     }
 
     public async Task<Result> LeaveConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
@@ -98,29 +110,95 @@ public sealed class ConferenceCoordinator : IDisposable
 
         _store.Update(s => s with { IsBusy = true, LastError = null });
 
-        try
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
         {
-            await _client.LeaveConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
-
-            _store.Update(s => s with
-            {
-                IsBusy = false,
-                LastError = null,
-                ActiveConferenceId = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
-                    ? null
-                    : s.ActiveConferenceId,
-                ActiveConference = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
-                    ? null
-                    : s.ActiveConference
-            });
-
-            return Result.Success();
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
         }
-        catch (Exception ex)
+
+        var result = await _client.LeaveConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
         {
-            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
-            return Result.Failure(new Error("conference.leave_failed", ex.Message));
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
         }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null,
+            ActiveConferenceId = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
+                ? null
+                : s.ActiveConferenceId,
+            ActiveConference = string.Equals(s.ActiveConferenceId, conferenceId, StringComparison.Ordinal)
+                ? null
+                : s.ActiveConference
+        });
+
+        return Result.Success();
+    }
+
+    public async Task<Result> CloseConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(conferenceId))
+            return Result.Failure(new Error("conference.invalid_id", "Conference ID must not be empty."));
+
+        _store.Update(s => s with { IsBusy = true, LastError = null });
+
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
+        }
+
+        var result = await _client.CloseConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
+        }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null
+        });
+
+        return Result.Success();
+    }
+
+    public async Task<Result> GetConferenceAsync(string conferenceId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(conferenceId))
+            return Result.Failure(new Error("conference.invalid_id", "Conference ID must not be empty."));
+
+        _store.Update(s => s with { IsBusy = true, LastError = null });
+
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
+        }
+
+        var result = await _client.GetConferenceAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
+        }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null,
+            ActiveConferenceId = result.Value!.ConferenceId,
+            ActiveConference = result.Value
+        });
+
+        return Result.Success();
     }
 
     public async Task<Result> ListMembersAsync(string conferenceId, CancellationToken cancellationToken = default)
@@ -128,38 +206,56 @@ public sealed class ConferenceCoordinator : IDisposable
         if (string.IsNullOrWhiteSpace(conferenceId))
             return Result.Failure(new Error("conference.invalid_id", "Conference ID must not be empty."));
 
-        _store.Update(s => s with { IsBusy = true, LastError = null });
-
-        try
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
         {
-            await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
-            _store.Update(s => s with { ActiveConferenceId = conferenceId, IsBusy = false });
-            return Result.Success();
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
         }
-        catch (Exception ex)
+
+        var result = await _client.ListMembersAsync(conferenceId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
         {
-            _store.Update(s => s with { IsBusy = false, LastError = ex.Message });
-            return Result.Failure(new Error("conference.list_members_failed", ex.Message));
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
         }
-    }
-
-    private void OnEnvelopeReceived(object? sender, FeatureResponseEnvelope envelope)
-    {
-        if (!string.Equals(envelope.Type, ProtocolMessageTypes.DispatchResult, StringComparison.Ordinal))
-            return;
-
-        if (!string.Equals(envelope.Object, ConferenceProtocol.Object, StringComparison.Ordinal))
-            return;
 
         _store.Update(s => s with
         {
             IsBusy = false,
-            LastError = envelope.Ok == false ? envelope.Message : null
+            LastError = null,
+            ActiveConferenceId = result.Value!.ConferenceId,
+            ActiveConference = result.Value
         });
+
+        return Result.Success();
     }
 
-    public void Dispose()
+    public async Task<Result> ListConferencesAsync(CancellationToken cancellationToken = default)
     {
-        _gateway.EnvelopeReceived -= OnEnvelopeReceived;
+        _store.Update(s => s with { IsBusy = true, LastError = null });
+
+        var ready = await _startupService.EnsureConnectedAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (ready.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = ready.Error!.Message });
+            return Result.Failure(ready.Error!);
+        }
+
+        var result = await _client.ListConferencesAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            _store.Update(s => s with { IsBusy = false, LastError = result.Error!.Message });
+            return Result.Failure(result.Error!);
+        }
+
+        _store.Update(s => s with
+        {
+            IsBusy = false,
+            LastError = null,
+            Conferences = result.Value!
+        });
+
+        return Result.Success();
     }
 }

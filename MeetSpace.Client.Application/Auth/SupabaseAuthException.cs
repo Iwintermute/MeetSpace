@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace MeetSpace.Client.App.Auth;
+﻿namespace MeetSpace.Client.App.Auth;
 
 public sealed class SupabaseAuthException : Exception
 {

@@ -1,11 +1,14 @@
 ﻿using MeetSpace.Client.Domain.Session;
-using System.Threading;
-using System.Threading.Tasks;
+
 namespace MeetSpace.Client.App.Abstractions.Auth;
 
 public interface IAuthSessionService
 {
     Task<SessionIdentity> GetCurrentAsync(CancellationToken cancellationToken = default);
-    Task SetTrustedPeerAsync(string trustedPeer, CancellationToken cancellationToken = default);
+    Task SetIdentityAsync(string? userId, string? selfPeerId, CancellationToken cancellationToken = default);
+    Task SetSelfPeerAsync(string selfPeerId, CancellationToken cancellationToken = default);
+    Task SetTrustedPeerAsync(string selfPeerId, CancellationToken cancellationToken = default);
+    Task SetDeviceIdAsync(string? deviceId, CancellationToken cancellationToken = default);
     Task SetConnectionStateAsync(ConnectionState state, CancellationToken cancellationToken = default);
+    Task ResetAsync(CancellationToken cancellationToken = default);
 }

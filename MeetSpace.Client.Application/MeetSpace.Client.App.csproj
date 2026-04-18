@@ -16,7 +16,8 @@
 		<Compile Include="Chat\**\*.cs" />
 		<Compile Include="Conference\**\*.cs" />
 		<Compile Include="Session\**\*.cs" />
-		<Compile Remove="Calls\CallInboundRouter.cs" />
+		<Compile Remove="Calls\TransportConnectRequest.cs" />
+		<Compile Remove="Calls\TransportProduceRequest.cs" />
 
 		<Compile Include="..\MeetSpace.Client.Shared\Compat\IsExternalInit.cs" Link="Compat\IsExternalInit.cs" />
 
@@ -29,6 +30,7 @@
 	  <ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
+	
   </ItemGroup>
 
 	<ItemGroup>

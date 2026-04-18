@@ -86,6 +86,7 @@
                     <TextBox
                         x:Name="MeetingCodeTextBox"
                         Width="320"
+                        Text="{x:Bind ViewModel.MeetingCode, Mode=TwoWay}"
                         PlaceholderText="Введите код встречи или ссылку" />
 
                     <Button

@@ -3,49 +3,58 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace MeetSpace.Client.App.Auth;
 
 public sealed class SupabaseAuthClient : ISupabaseAuthClient
 {
     private readonly HttpClient _httpClient;
-    private readonly string _projectUrl;
+    private readonly Uri _baseUri;
     private readonly string _anonKey;
 
     public SupabaseAuthClient(HttpClient httpClient, string projectUrl, string anonKey)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _projectUrl = (projectUrl ?? string.Empty).Trim().TrimEnd('/');
         _anonKey = anonKey ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(_projectUrl))
+        if (string.IsNullOrWhiteSpace(projectUrl))
             throw new ArgumentException("Supabase project URL is not configured.", nameof(projectUrl));
 
         if (string.IsNullOrWhiteSpace(_anonKey))
             throw new ArgumentException("Supabase anon key is not configured.", nameof(anonKey));
+
+        var normalized = projectUrl.Trim();
+
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var parsed))
+            throw new ArgumentException("Supabase project URL must be an absolute URI.", nameof(projectUrl));
+
+        if (!string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parsed.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Supabase project URL must use http or https.", nameof(projectUrl));
+        }
+
+        var root = parsed.GetLeftPart(UriPartial.Authority);
+        if (!root.EndsWith("/", StringComparison.Ordinal))
+            root += "/";
+
+        _baseUri = new Uri(root, UriKind.Absolute);
+
+        if (_httpClient.BaseAddress == null)
+            _httpClient.BaseAddress = _baseUri;
     }
 
     public Task<AuthResult> SignUpAsync(string email, string password, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync(
-            "/auth/v1/signup",
-            new
-            {
-                email,
-                password
-            },
+            "auth/v1/signup",
+            new { email, password },
             isSignUp: true,
             cancellationToken);
 
     public Task<AuthResult> SignInAsync(string email, string password, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync(
-            "/auth/v1/token?grant_type=password",
-            new
-            {
-                email,
-                password
-            },
+            "auth/v1/token?grant_type=password",
+            new { email, password },
             isSignUp: false,
             cancellationToken);
 
@@ -56,7 +65,7 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
 
         using var request = CreateJsonRequest(
             HttpMethod.Post,
-            "/auth/v1/token?grant_type=refresh_token",
+            "auth/v1/token?grant_type=refresh_token",
             new { refresh_token = refreshToken });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -73,7 +82,7 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
         if (string.IsNullOrWhiteSpace(accessToken))
             return;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _projectUrl + "/auth/v1/logout");
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri("auth/v1/logout"));
         request.Headers.TryAddWithoutValidation("apikey", _anonKey);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
@@ -103,7 +112,7 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
 
     private HttpRequestMessage CreateJsonRequest(HttpMethod method, string path, object payload)
     {
-        var request = new HttpRequestMessage(method, _projectUrl + path);
+        var request = new HttpRequestMessage(method, BuildUri(path));
         request.Headers.TryAddWithoutValidation("apikey", _anonKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Content = new StringContent(
@@ -114,6 +123,12 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
         return request;
     }
 
+    private Uri BuildUri(string path)
+    {
+        var relative = (path ?? string.Empty).TrimStart('/');
+        return new Uri(_baseUri, relative);
+    }
+
     private static AuthResult ParseAuthResult(string json, bool isSignUp)
     {
         using var doc = JsonDocument.Parse(json);
@@ -122,13 +137,15 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
         if (TryParseTokens(root, out var tokens))
             return new AuthResult(true, false, tokens, null);
 
-        if (isSignUp && root.TryGetProperty("user", out var userProp) && userProp.ValueKind == JsonValueKind.Object)
+        if (isSignUp &&
+            root.TryGetProperty("user", out var userProp) &&
+            userProp.ValueKind == JsonValueKind.Object)
         {
             return new AuthResult(
                 false,
                 true,
                 null,
-                "Подтвердите email по ссылке из письма, затем нажмите Login ещё раз.");
+                "Подтвердите email по ссылке из письма, затем выполните вход ещё раз.");
         }
 
         throw new SupabaseAuthException("Supabase returned an auth payload without a valid session.");
@@ -200,7 +217,7 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
                 GetString(root, "error");
 
             if (!string.IsNullOrWhiteSpace(message))
-                return message;
+                return message!;
         }
         catch
         {
