@@ -165,9 +165,18 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
     private static bool TryParseTokens(JsonElement root, out AuthTokens? tokens)
     {
         tokens = null;
+        var tokenSource = root;
+        var accessToken = GetString(tokenSource, "access_token");
+        var refreshToken = GetString(tokenSource, "refresh_token");
 
-        var accessToken = GetString(root, "access_token");
-        var refreshToken = GetString(root, "refresh_token");
+        if ((string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(refreshToken)) &&
+            root.TryGetProperty("session", out var sessionProp) &&
+            sessionProp.ValueKind == JsonValueKind.Object)
+        {
+            tokenSource = sessionProp;
+            accessToken = GetString(tokenSource, "access_token");
+            refreshToken = GetString(tokenSource, "refresh_token");
+        }
 
         string? userId = null;
         string? email = null;
@@ -176,6 +185,13 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
         {
             userId = GetString(userProp, "id");
             email = GetString(userProp, "email");
+        }
+        else if (tokenSource.ValueKind == JsonValueKind.Object &&
+                 tokenSource.TryGetProperty("user", out var tokenUserProp) &&
+                 tokenUserProp.ValueKind == JsonValueKind.Object)
+        {
+            userId = GetString(tokenUserProp, "id");
+            email = GetString(tokenUserProp, "email");
         }
 
         if (string.IsNullOrWhiteSpace(accessToken) ||
@@ -186,7 +202,7 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
         }
 
         DateTimeOffset? expiresAtUtc = null;
-        if (root.TryGetProperty("expires_in", out var expiresProp) &&
+        if (tokenSource.TryGetProperty("expires_in", out var expiresProp) &&
             expiresProp.ValueKind == JsonValueKind.Number &&
             expiresProp.TryGetInt32(out var expiresIn))
         {
@@ -230,9 +246,15 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
     {
         if (!element.TryGetProperty(name, out var prop))
             return null;
-
-        return prop.ValueKind == JsonValueKind.String
-            ? prop.GetString()
-            : prop.GetRawText();
+        return prop.ValueKind switch
+        {
+            JsonValueKind.String => prop.GetString(),
+            JsonValueKind.Null => null,
+            JsonValueKind.Undefined => null,
+            JsonValueKind.True => bool.TrueString,
+            JsonValueKind.False => bool.FalseString,
+            JsonValueKind.Number => prop.GetRawText(),
+            _ => null
+        };
     }
 }
