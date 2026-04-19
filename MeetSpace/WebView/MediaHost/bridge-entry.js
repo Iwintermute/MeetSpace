@@ -42,6 +42,9 @@ const state = {
     videoElements: new Map(),
     videoTiles: new Map(),
     videoTileKeysByConsumer: new Map(),
+    stageContainer: null,
+    stripContainer: null,
+    focusedTileKey: null,
     pendingConnect: new Map(),
     pendingProduce: new Map()
 };
@@ -169,6 +172,101 @@ function getMediaGridElement() {
     return grid;
 }
 
+function normalizeVideoTrackType(trackType) {
+    if (!trackType)
+        return 'camera';
+
+    const normalized = trackType.toString().trim().toLowerCase();
+    if (normalized === 'screen_share' || normalized === 'screenshare' || normalized === 'display')
+        return 'screen';
+    if (normalized === 'video')
+        return 'camera';
+
+    return normalized;
+}
+
+function resolveConsumeKind(kind, trackType) {
+    const normalizedTrackType = normalizeVideoTrackType(trackType);
+    if (normalizedTrackType === 'screen' || normalizedTrackType === 'camera')
+        return 'video';
+
+    const normalizedKind = (kind || '').toString().trim().toLowerCase();
+    if (
+        normalizedKind === 'video' ||
+        normalizedKind === 'camera' ||
+        normalizedKind === 'screen' ||
+        normalizedKind === 'screen_share' ||
+        normalizedKind === 'screenshare'
+    ) {
+        return 'video';
+    }
+
+    return 'audio';
+}
+
+function ensureMediaLayout() {
+    const grid = getMediaGridElement();
+
+    if (!state.stageContainer) {
+        const stage = document.createElement('div');
+        stage.className = 'media-stage';
+        grid.appendChild(stage);
+        state.stageContainer = stage;
+    }
+
+    if (!state.stripContainer) {
+        const strip = document.createElement('div');
+        strip.className = 'media-strip';
+        grid.appendChild(strip);
+        state.stripContainer = strip;
+    }
+
+    return {
+        grid,
+        stage: state.stageContainer,
+        strip: state.stripContainer
+    };
+}
+
+function syncTileLayout() {
+    const { grid, stage, strip } = ensureMediaLayout();
+    const hasFocus = !!(state.focusedTileKey && state.videoTiles.has(state.focusedTileKey));
+
+    grid.dataset.hasFocus = hasFocus ? 'true' : 'false';
+
+    for (const [tileKey, tile] of state.videoTiles.entries()) {
+        const shouldFocus = hasFocus && tileKey === state.focusedTileKey;
+        if (shouldFocus) {
+            stage.appendChild(tile.container);
+            tile.container.classList.add('media-tile--focused');
+        } else {
+            strip.appendChild(tile.container);
+            tile.container.classList.remove('media-tile--focused');
+        }
+    }
+}
+
+function setFocusedTile(tileKey) {
+    if (tileKey && !state.videoTiles.has(tileKey))
+        state.focusedTileKey = null;
+    else
+        state.focusedTileKey = tileKey || null;
+
+    syncTileLayout();
+}
+
+function toggleTileFocus(tileKey) {
+    if (!tileKey)
+        return;
+
+    if (state.focusedTileKey === tileKey) {
+        setFocusedTile(null);
+        return;
+    }
+
+    setFocusedTile(tileKey);
+}
+
 function getTrackTypeLabel(trackType) {
     switch (trackType) {
         case 'screen':
@@ -196,6 +294,8 @@ async function applyTrackConstraintsSafe(track, constraints) {
 }
 
 function ensureVideoTile(tileKey, trackType, isLocal) {
+    const normalizedTrackType = normalizeVideoTrackType(trackType);
+    const { strip } = ensureMediaLayout();
     let tile = state.videoTiles.get(tileKey);
 
     if (!tile) {
@@ -213,7 +313,14 @@ function ensureVideoTile(tileKey, trackType, isLocal) {
 
         container.appendChild(video);
         container.appendChild(label);
-        getMediaGridElement().appendChild(container);
+        container.addEventListener('dblclick', (event) =>
+        {
+            if (typeof event.button === 'number' && event.button !== 0)
+                return;
+
+            toggleTileFocus(tileKey);
+        });
+        strip.appendChild(container);
 
         tile = {
             container,
@@ -225,9 +332,9 @@ function ensureVideoTile(tileKey, trackType, isLocal) {
         state.videoTiles.set(tileKey, tile);
     }
 
-    tile.container.dataset.trackType = trackType || 'camera';
+    tile.container.dataset.trackType = normalizedTrackType;
     tile.container.dataset.scope = isLocal ? 'local' : 'remote';
-    tile.label.textContent = getTileTitle(trackType || 'camera', isLocal);
+    tile.label.textContent = getTileTitle(normalizedTrackType, isLocal);
     tile.video.muted = !!isLocal;
 
     return tile;
@@ -273,11 +380,17 @@ async function openCameraStreamWithFallback() {
     throw lastError || new Error('Could not start video source');
 }
 async function attachVideoTile(tileKey, stream, trackType, isLocal) {
-    const tile = ensureVideoTile(tileKey, trackType, isLocal);
+    const normalizedTrackType = normalizeVideoTrackType(trackType);
+    const tile = ensureVideoTile(tileKey, normalizedTrackType, isLocal);
     tile.stream = stream;
     tile.video.srcObject = stream;
 
     await playMediaElementSafe(tile.video);
+
+    if (normalizedTrackType === 'screen')
+        setFocusedTile(tileKey);
+    else
+        syncTileLayout();
 }
 
 function removeVideoTile(tileKey) {
@@ -300,14 +413,21 @@ function removeVideoTile(tileKey) {
     }
 
     state.videoTiles.delete(tileKey);
+
+    if (state.focusedTileKey === tileKey)
+        state.focusedTileKey = null;
+
+    syncTileLayout();
 }
 
 function removeAllVideoTiles() {
     for (const tileKey of Array.from(state.videoTiles.keys())) {
         removeVideoTile(tileKey);
     }
+    state.focusedTileKey = null;
 
     state.videoTileKeysByConsumer.clear();
+    syncTileLayout();
 }
 function cleanupConsumer(consumerId) {
     const item = state.consumers.get(consumerId);
@@ -916,15 +1036,8 @@ async function handleCommand(message) {
 
                 cleanupConsumer(payload.consumerId);
                 cleanupConsumerByProducerId(payload.producerId);
-                const rawKind = (payload.kind || '').toString().toLowerCase();
-                const consumeKind =
-                    rawKind === 'video' ||
-                    rawKind === 'camera' ||
-                    rawKind === 'screen' ||
-                    rawKind === 'screen_share' ||
-                    rawKind === 'screenshare'
-                        ? 'video'
-                        : 'audio';
+                const normalizedTrackType = normalizeVideoTrackType(payload.trackType || 'camera');
+                const consumeKind = resolveConsumeKind(payload.kind, normalizedTrackType);
 
                 const consumer = await state.recvTransport.consume({
                     id: payload.consumerId,
@@ -933,13 +1046,13 @@ async function handleCommand(message) {
                     rtpParameters: payload.rtpParameters,
                     appData: {
                         producerId: payload.producerId,
-                        trackType: payload.trackType || 'camera'
+                        trackType: normalizedTrackType
                     }
                 });
 
                 const stream = new MediaStream();
                 stream.addTrack(consumer.track);
-                const trackType = payload.trackType || 'camera';
+                const trackType = normalizedTrackType;
                 const tileKey = `remote:${consumer.id}`;
                 state.videoTileKeysByConsumer.set(consumer.id, tileKey);
 
