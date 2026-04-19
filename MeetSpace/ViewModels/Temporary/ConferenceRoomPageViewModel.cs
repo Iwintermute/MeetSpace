@@ -36,8 +36,13 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
 
     private string _authorizedUserText = "Авторизованный пользователь";
     private string _authorizedUserMetaText = "peer / conference";
+    private string _callStatusText = string.Empty;
     private string _microphoneButtonContent = "Подключить аудио";
-    private bool _isMicrophoneButtonEnabled;
+    private string _cameraButtonContent = "Камера выкл";
+    private string _screenShareButtonContent = "Экран выкл";
+    private bool _isMicrophoneButtonEnabled = true;
+    private bool _isCameraButtonEnabled = true;
+    private bool _isScreenShareButtonEnabled = true;
     private Visibility _chatPanelVisibility = Visibility.Collapsed;
     private GridLength _chatPanelWidth = new GridLength(0);
 
@@ -64,6 +69,7 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     }
 
     public ObservableCollection<ConferenceChatMessageViewItem> Messages { get; } = new();
+    public ObservableCollection<ConferenceParticipantTileViewItem> Participants { get; } = new();
 
     public string AuthorizedUserText
     {
@@ -77,16 +83,46 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         private set => SetProperty(ref _authorizedUserMetaText, value);
     }
 
+    public string CallStatusText
+    {
+        get => _callStatusText;
+        private set => SetProperty(ref _callStatusText, value);
+    }
+
     public string MicrophoneButtonContent
     {
         get => _microphoneButtonContent;
         private set => SetProperty(ref _microphoneButtonContent, value);
     }
 
+    public string CameraButtonContent
+    {
+        get => _cameraButtonContent;
+        private set => SetProperty(ref _cameraButtonContent, value);
+    }
+
+    public string ScreenShareButtonContent
+    {
+        get => _screenShareButtonContent;
+        private set => SetProperty(ref _screenShareButtonContent, value);
+    }
+
     public bool IsMicrophoneButtonEnabled
     {
         get => _isMicrophoneButtonEnabled;
         private set => SetProperty(ref _isMicrophoneButtonEnabled, value);
+    }
+
+    public bool IsCameraButtonEnabled
+    {
+        get => _isCameraButtonEnabled;
+        private set => SetProperty(ref _isCameraButtonEnabled, value);
+    }
+
+    public bool IsScreenShareButtonEnabled
+    {
+        get => _isScreenShareButtonEnabled;
+        private set => SetProperty(ref _isScreenShareButtonEnabled, value);
     }
 
     public Visibility ChatPanelVisibility
@@ -226,57 +262,48 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
 
     public async Task HandleMicrophoneAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_conferenceId))
+        var connected = await EnsureConferenceCallJoinedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
             return;
 
-        try
-        {
-            var stage = _callStore.Current.Stage;
-
-            if (stage == CallConnectionStage.Idle || stage == CallConnectionStage.Faulted)
-            {
-                _ = _conferenceCoordinator.ListMembersAsync(_conferenceId, cancellationToken);
-
-                var joinResult = await _callCoordinator.JoinAudioAsync(_conferenceId, cancellationToken).ConfigureAwait(false);
-                if (joinResult.IsFailure && !cancellationToken.IsCancellationRequested)
-                {
-                    await RunOnUiThreadAsync(() =>
-                    {
-                        SetStatusMessage(joinResult.Error?.Message ?? "audio start failed");
-                    }).ConfigureAwait(false);
-                }
-
-                return;
-            }
-
-            if (stage == CallConnectionStage.JoiningRoom ||
-                stage == CallConnectionStage.TransportOpening ||
-                stage == CallConnectionStage.Negotiating ||
-                stage == CallConnectionStage.Publishing)
-            {
-                return;
-            }
-
-            if (stage != CallConnectionStage.Connected)
-                return;
-
-            var toggleResult = await _callCoordinator.ToggleMicrophoneAsync(cancellationToken).ConfigureAwait(false);
-            if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
-            {
-                await RunOnUiThreadAsync(() =>
-                {
-                    SetStatusMessage(toggleResult.Error?.Message ?? "mic toggle failed");
-                }).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
+        var toggleResult = await _callCoordinator.ToggleMicrophoneAsync(cancellationToken).ConfigureAwait(false);
+        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
         {
             await RunOnUiThreadAsync(() =>
             {
-                SetStatusMessage("audio bridge init failed: " + ex.Message);
+                SetStatusMessage(toggleResult.Error?.Message ?? "mic toggle failed");
+            }).ConfigureAwait(false);
+        }
+    }
+
+    public async Task HandleCameraAsync(CancellationToken cancellationToken)
+    {
+        var connected = await EnsureConferenceCallJoinedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
+            return;
+
+        var toggleResult = await _callCoordinator.ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
+        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                SetStatusMessage(toggleResult.Error?.Message ?? "camera toggle failed");
+            }).ConfigureAwait(false);
+        }
+    }
+
+    public async Task HandleScreenShareAsync(CancellationToken cancellationToken)
+    {
+        var connected = await EnsureConferenceCallJoinedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
+            return;
+
+        var toggleResult = await _callCoordinator.ToggleScreenShareAsync(cancellationToken).ConfigureAwait(false);
+        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                SetStatusMessage(toggleResult.Error?.Message ?? "screen toggle failed");
             }).ConfigureAwait(false);
         }
     }
@@ -308,6 +335,37 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     {
         if (!string.IsNullOrWhiteSpace(message))
             AuthorizedUserMetaText = message!;
+    }
+
+    private async Task<bool> EnsureConferenceCallJoinedAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_conferenceId))
+            return false;
+
+        var stage = _callStore.Current.Stage;
+        if (stage == CallConnectionStage.Connected)
+            return true;
+
+        if (stage == CallConnectionStage.JoiningRoom ||
+            stage == CallConnectionStage.TransportOpening ||
+            stage == CallConnectionStage.Negotiating ||
+            stage == CallConnectionStage.Publishing)
+        {
+            return false;
+        }
+
+        _ = _conferenceCoordinator.ListMembersAsync(_conferenceId, cancellationToken);
+        var joinResult = await _callCoordinator.JoinAudioAsync(_conferenceId, cancellationToken).ConfigureAwait(false);
+        if (joinResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                SetStatusMessage(joinResult.Error?.Message ?? "audio start failed");
+            }).ConfigureAwait(false);
+            return false;
+        }
+
+        return joinResult.IsSuccess;
     }
 
     private async Task<bool> EnsureAuthorizedAsync()
@@ -464,19 +522,58 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         if (joinInProgress)
         {
             IsMicrophoneButtonEnabled = false;
+            IsCameraButtonEnabled = false;
+            IsScreenShareButtonEnabled = false;
             MicrophoneButtonContent = "Подключение...";
+            CameraButtonContent = "Подключение...";
+            ScreenShareButtonContent = "Подключение...";
         }
         else if (state.Stage == CallConnectionStage.Connected)
         {
             IsMicrophoneButtonEnabled = true;
+            IsCameraButtonEnabled = true;
+            IsScreenShareButtonEnabled = true;
+
             MicrophoneButtonContent = state.LocalMedia.MicrophoneEnabled
                 ? "Микрофон вкл"
                 : "Микрофон выкл";
+            CameraButtonContent = state.LocalMedia.CameraEnabled
+                ? "Камера вкл"
+                : "Камера выкл";
+            ScreenShareButtonContent = state.LocalMedia.ScreenShareEnabled
+                ? "Экран вкл"
+                : "Экран выкл";
         }
         else
         {
             IsMicrophoneButtonEnabled = true;
+            IsCameraButtonEnabled = true;
+            IsScreenShareButtonEnabled = true;
             MicrophoneButtonContent = "Подключить аудио";
+            CameraButtonContent = "Включить камеру";
+            ScreenShareButtonContent = "Демонстрация экрана";
+        }
+
+        CallStatusText = state.Stage switch
+        {
+            CallConnectionStage.Idle => "Не подключено",
+            CallConnectionStage.JoiningRoom => "Подключение к конференции…",
+            CallConnectionStage.TransportOpening => "Открытие транспорта…",
+            CallConnectionStage.Negotiating => "Согласование медиа…",
+            CallConnectionStage.Publishing => "Публикация треков…",
+            CallConnectionStage.Connected => "Вы в конференции",
+            CallConnectionStage.Faulted => "Ошибка подключения",
+            _ => state.Stage.ToString()
+        };
+
+        Participants.Clear();
+        foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
+        {
+            Participants.Add(new ConferenceParticipantTileViewItem(
+                string.IsNullOrWhiteSpace(participant.UserId) ? participant.PeerId : participant.UserId!,
+                participant.HasAudio,
+                participant.HasVideo,
+                participant.HasScreenShare));
         }
 
         ApplyIdentity(_authStore.Current, _sessionStore.Current);
@@ -551,4 +648,24 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
 
         return tcs.Task;
     }
+}
+
+public sealed class ConferenceParticipantTileViewItem
+{
+    public ConferenceParticipantTileViewItem(
+        string title,
+        bool hasAudio,
+        bool hasVideo,
+        bool hasScreenShare)
+    {
+        Title = title;
+        HasAudio = hasAudio;
+        HasVideo = hasVideo;
+        HasScreenShare = hasScreenShare;
+    }
+
+    public string Title { get; }
+    public bool HasAudio { get; }
+    public bool HasVideo { get; }
+    public bool HasScreenShare { get; }
 }

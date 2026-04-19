@@ -19,9 +19,57 @@
             background: transparent;
             overflow: hidden;
         }
+
+        #media-grid {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-auto-rows: minmax(140px, 1fr);
+        }
+
+        .media-tile {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            background: #06090f;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .media-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .media-tile[data-track-type='screen'] .media-video {
+            object-fit: contain;
+        }
+
+        .media-tile-label {
+            position: absolute;
+            left: 8px;
+            bottom: 8px;
+            max-width: calc(100% - 16px);
+            box-sizing: border-box;
+            padding: 3px 8px;
+            border-radius: 999px;
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.55);
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
+    <div id="media-grid"></div>
     <script src="bridge.bundle.js"></script>
 </body>
 </html>

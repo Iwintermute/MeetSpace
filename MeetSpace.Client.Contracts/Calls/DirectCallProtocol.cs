@@ -21,6 +21,9 @@ public static class DirectCallProtocol
 
         public const string OpenTransport = "open_transport";
         public const string PublishTrack = "publish_track";
+        public const string PauseTrack = "pause_track";
+        public const string ResumeTrack = "resume_track";
+        public const string CloseTrack = "close_track";
         public const string ConsumeTrack = "consume_track";
         public const string ConsumerReady = "consumer_ready";
         public const string WebRtcOffer = "webrtc_offer";
@@ -62,6 +65,20 @@ public static class DirectCallProtocol
     public static readonly string[] PublishTrackActions =
     {
         Actions.PublishTrack
+    };
+    public static readonly string[] PauseTrackActions =
+    {
+        Actions.PauseTrack
+    };
+
+    public static readonly string[] ResumeTrackActions =
+    {
+        Actions.ResumeTrack
+    };
+
+    public static readonly string[] CloseTrackActions =
+    {
+        Actions.CloseTrack
     };
 
     public static readonly string[] ConsumeTrackActions =

@@ -5,13 +5,14 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetSpace.Views.Temporary"
+    xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="#05070B">
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="88" />
+            <RowDefinition Height="96" />
         </Grid.RowDefinitions>
 
         <Grid>
@@ -20,44 +21,67 @@
                 <ColumnDefinition x:Name="ChatPanelColumn" Width="{x:Bind ViewModel.ChatPanelWidth, Mode=OneWay}" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0" Padding="12">
-                <!-- ВАЖНО:
-                     WebView2 больше не создаём прямо в XAML.
-                     Держим только контейнер, а сам control создаём в code-behind внутри try/catch. -->
-                <Grid
-                    x:Name="MediaHostContainer"
-                    Width="1"
-                    Height="1"
-                    Opacity="0.01"
-                    IsHitTestVisible="False"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top" />
+            <Grid Grid.Column="0" Padding="12" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <Grid>
-                    <Ellipse
-                        Width="84"
-                        Height="84"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Fill="#33222222" />
-
-                    <StackPanel
-                        Margin="20"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom"
-                        Spacing="4">
+                <Border
+                    Grid.Row="0"
+                    Padding="10,8"
+                    Background="#131C28"
+                    CornerRadius="8">
+                    <StackPanel>
                         <TextBlock
                             x:Name="AuthorizedUserTextBlock"
-                            FontSize="28"
+                            FontSize="24"
                             FontWeight="SemiBold"
                             Text="{x:Bind ViewModel.AuthorizedUserText, Mode=OneWay}" />
-
                         <TextBlock
                             x:Name="AuthorizedUserMetaTextBlock"
                             Opacity="0.8"
                             Text="{x:Bind ViewModel.AuthorizedUserMetaText, Mode=OneWay}" />
+                        <TextBlock
+                            Margin="0,4,0,0"
+                            FontSize="12"
+                            Opacity="0.8"
+                            Text="{x:Bind ViewModel.CallStatusText, Mode=OneWay}" />
                     </StackPanel>
-                </Grid>
+                </Border>
+
+                <Border
+                    Grid.Row="1"
+                    Background="#0A1119"
+                    BorderBrush="#223043"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid x:Name="MediaHostContainer" />
+                </Border>
+
+                <Border
+                    Grid.Row="2"
+                    Padding="8"
+                    Background="#121C28"
+                    CornerRadius="8">
+                    <ListView
+                        x:Name="ParticipantsList"
+                        ItemsSource="{x:Bind ViewModel.Participants, Mode=OneWay}"
+                        SelectionMode="None"
+                        MaxHeight="130">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ConferenceParticipantTileViewItem">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasAudio}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasVideo}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasScreenShare}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
             </Grid>
 
             <Border
@@ -150,26 +174,30 @@
             Grid.Row="1"
             Padding="0,0,0,16"
             VerticalAlignment="Bottom">
-
             <StackPanel
                 Orientation="Horizontal"
                 HorizontalAlignment="Center"
                 Spacing="12">
-
                 <Button
                     x:Name="MicrophoneButton"
                     IsEnabled="{x:Bind ViewModel.IsMicrophoneButtonEnabled, Mode=OneWay}"
                     Content="{x:Bind ViewModel.MicrophoneButtonContent, Mode=OneWay}"
                     Click="MicrophoneButton_Click" />
 
-                <Button Content="Камера" />
-                <Button Content="Экран" />
-                <Button Content="Эмодзи" />
-                <Button Content="Субтитры" />
-                <Button Content="Поднять руку" />
-                <Button Content="Ещё" />
-                <Button Content="Завершить" Click="LeaveConferenceButton_Click" />
+                <Button
+                    x:Name="CameraButton"
+                    IsEnabled="{x:Bind ViewModel.IsCameraButtonEnabled, Mode=OneWay}"
+                    Content="{x:Bind ViewModel.CameraButtonContent, Mode=OneWay}"
+                    Click="CameraButton_Click" />
+
+                <Button
+                    x:Name="ScreenShareButton"
+                    IsEnabled="{x:Bind ViewModel.IsScreenShareButtonEnabled, Mode=OneWay}"
+                    Content="{x:Bind ViewModel.ScreenShareButtonContent, Mode=OneWay}"
+                    Click="ScreenShareButton_Click" />
+
                 <Button Content="Чат" Click="OpenChatButton_Click" />
+                <Button Content="Завершить" Click="LeaveConferenceButton_Click" />
             </StackPanel>
         </Grid>
     </Grid>

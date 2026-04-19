@@ -62,13 +62,20 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
             }
 
             var auth = _authStore.Current;
-            if (!auth.IsAuthenticated || string.IsNullOrWhiteSpace(auth.AccessToken))
+            if (!auth.IsAuthenticated)
             {
                 _sessionStore.SetConnectionState(ConnectionState.Connected, DateTimeOffset.UtcNow);
                 return Result.Success();
             }
 
-            if (string.Equals(_boundAccessToken, auth.AccessToken, StringComparison.Ordinal) &&
+            var accessToken = NormalizeAuthValue(auth.AccessToken);
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                _sessionStore.SetConnectionState(ConnectionState.Faulted);
+                return Result.Failure(new Error("auth.invalid_access_token", "Auth access token is invalid."));
+            }
+
+            if (string.Equals(_boundAccessToken, accessToken, StringComparison.Ordinal) &&
                 !string.IsNullOrWhiteSpace(_sessionStore.Current.SelfPeerId))
             {
                 return Result.Success();
@@ -80,7 +87,7 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
                 "bind_session",
                 new Dictionary<string, object?>
                 {
-                    ["accessToken"] = auth.AccessToken,
+                    ["accessToken"] = accessToken,
                     ["deviceId"] = _options.DefaultDeviceId
                 },
                 TimeSpan.FromSeconds(15),
@@ -93,7 +100,7 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
             }
 
             ApplyBindResponse(bindResult.Value!, auth.UserId);
-            _boundAccessToken = auth.AccessToken;
+            _boundAccessToken = accessToken;
 
             return Result.Success();
         }
@@ -133,6 +140,21 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
     private void Gateway_Disconnected(object? sender, EventArgs e)
     {
         _boundAccessToken = null;
+    }
+
+    private static string? NormalizeAuthValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        if (string.Equals(normalized, "null", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalized, "undefined", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return normalized;
     }
 
     public void Dispose()

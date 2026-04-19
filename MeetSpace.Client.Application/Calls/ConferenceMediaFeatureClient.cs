@@ -109,6 +109,60 @@ public sealed class ConferenceMediaFeatureClient : IConferenceMediaFeatureClient
             : Result.Failure(response.Error!);
     }
 
+    public async Task<Result> PauseTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            ConferenceProtocol.PauseTrackActions,
+            CreateContext(sessionId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> ResumeTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            ConferenceProtocol.ResumeTrackActions,
+            CreateContext(sessionId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> CloseTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            ConferenceProtocol.CloseTrackActions,
+            CreateContext(sessionId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
     public async Task<Result<ConsumerInfo>> ConsumeTrackAsync(
         string sessionId,
         string transportId,

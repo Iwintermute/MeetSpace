@@ -123,15 +123,32 @@ sealed partial class App : Application
             return false;
         }
 
-        if (persistedTokens == null ||
-            string.IsNullOrWhiteSpace(persistedTokens.AccessToken) ||
-            string.IsNullOrWhiteSpace(persistedTokens.UserId))
+        if (persistedTokens == null)
         {
             authStore.ClearSession();
             return false;
         }
 
-        var effectiveTokens = persistedTokens;
+        var accessToken = NormalizeAuthValue(persistedTokens.AccessToken);
+        var refreshToken = NormalizeAuthValue(persistedTokens.RefreshToken);
+        var userId = NormalizeAuthValue(persistedTokens.UserId);
+        var email = NormalizeAuthValue(persistedTokens.Email);
+
+        if (string.IsNullOrWhiteSpace(accessToken) ||
+            string.IsNullOrWhiteSpace(refreshToken) ||
+            string.IsNullOrWhiteSpace(userId))
+        {
+            authStore.ClearSession();
+            await SafeDeleteAuthFileAsync(filePath).ConfigureAwait(true);
+            return false;
+        }
+
+        var effectiveTokens = new AuthTokens(
+            accessToken,
+            refreshToken,
+            userId,
+            email,
+            persistedTokens.ExpiresAtUtc);
         var nowUtc = DateTimeOffset.UtcNow;
 
         var needRefresh =
@@ -225,6 +242,21 @@ sealed partial class App : Application
         }
 
         await Task.CompletedTask;
+    }
+
+    private static string? NormalizeAuthValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        if (string.Equals(normalized, "null", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalized, "undefined", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return normalized;
     }
 
     private async void OnNavigationFailed(object sender, NavigationFailedEventArgs e)

@@ -21,10 +21,11 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
 
     public async Task<Result<DirectCallSessionInfo>> CreateCallAsync(
         string targetUserId,
+        string? mode = null,
         string? clientRequestId = null,
         CancellationToken cancellationToken = default)
     {
-        return await CreateCallCoreAsync(targetUserId, null, clientRequestId, cancellationToken).ConfigureAwait(false);
+        return await CreateCallCoreAsync(targetUserId, mode, clientRequestId, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<DirectCallSessionInfo>> AcceptCallAsync(
@@ -187,6 +188,60 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
                 ["kind"] = Guard.NotNullOrWhiteSpace(kind, nameof(kind)),
                 ["trackType"] = string.IsNullOrWhiteSpace(trackType) ? kind : trackType,
                 ["rtpParameters"] = JsonSerializer.Deserialize<JsonElement>(rtpParametersJson)
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> PauseTrackAsync(
+        string callId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            DirectCallProtocol.PauseTrackActions,
+            CreateCallContext(callId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> ResumeTrackAsync(
+        string callId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            DirectCallProtocol.ResumeTrackActions,
+            CreateCallContext(callId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> CloseTrackAsync(
+        string callId,
+        string producerId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await DispatchAsync(
+            DirectCallProtocol.CloseTrackActions,
+            CreateCallContext(callId, new Dictionary<string, object?>
+            {
+                ["producerId"] = Guard.NotNullOrWhiteSpace(producerId, nameof(producerId))
             }),
             cancellationToken).ConfigureAwait(false);
 

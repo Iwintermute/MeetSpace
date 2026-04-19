@@ -7,6 +7,7 @@ public interface IDirectCallFeatureClient : ICallMediaFeatureClient
 {
     Task<Result<DirectCallSessionInfo>> CreateCallAsync(
         string targetUserId,
+        string? mode = null,
         string? clientRequestId = null,
         CancellationToken cancellationToken = default);
 

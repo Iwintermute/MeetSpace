@@ -73,7 +73,7 @@ public sealed class CallCoordinator : IDisposable
         CancellationToken cancellationToken = default)
     {
         var created = await _directCallClient
-            .CreateCallAsync(targetUserId, mode, cancellationToken)
+            .CreateCallAsync(targetUserId, mode, null, cancellationToken)
             .ConfigureAwait(false);
 
         if (created.IsFailure)
@@ -131,6 +131,16 @@ public sealed class CallCoordinator : IDisposable
                 return Result.Failure(new Error("call.not_connected", "Call is not connected."));
 
             var nextState = !_callStore.Current.LocalMedia.MicrophoneEnabled;
+            if (_localProducerByTrackType.TryGetValue("microphone", out var producerId) &&
+                !string.IsNullOrWhiteSpace(_sessionId))
+            {
+                var trackControlResult = nextState
+                    ? await ResumeTrackAsync(_kind, _sessionId!, producerId, cancellationToken).ConfigureAwait(false)
+                    : await PauseTrackAsync(_kind, _sessionId!, producerId, cancellationToken).ConfigureAwait(false);
+
+                if (trackControlResult.IsFailure)
+                    return Result.Failure(trackControlResult.Error!);
+            }
             await _audioEngine.SetMicrophoneEnabledAsync(nextState, cancellationToken).ConfigureAwait(false);
             _callStore.SetMicrophoneEnabled(nextState);
             return Result.Success();
@@ -160,12 +170,26 @@ public sealed class CallCoordinator : IDisposable
             {
                 if (_localProducerByTrackType.ContainsKey("camera"))
                 {
+                    if (!string.IsNullOrWhiteSpace(_sessionId) &&
+                        _localProducerByTrackType.TryGetValue("camera", out var existingProducerId))
+                    {
+                        var resumeResult = await ResumeTrackAsync(_kind, _sessionId!, existingProducerId, cancellationToken).ConfigureAwait(false);
+                        if (resumeResult.IsFailure)
+                            return Result.Failure(resumeResult.Error!);
+                    }
                     await _audioEngine.SetCameraEnabledAsync(true, cancellationToken).ConfigureAwait(false);
                     _callStore.SetCameraEnabled(true);
                     return Result.Success();
                 }
 
                 return await StartTrackAsync(CallMediaTrackType.Video, cancellationToken).ConfigureAwait(false);
+            }
+            if (!string.IsNullOrWhiteSpace(_sessionId) &&
+                _localProducerByTrackType.TryGetValue("camera", out var cameraProducerId))
+            {
+                var pauseResult = await PauseTrackAsync(_kind, _sessionId!, cameraProducerId, cancellationToken).ConfigureAwait(false);
+                if (pauseResult.IsFailure)
+                    return Result.Failure(pauseResult.Error!);
             }
 
             await _audioEngine.SetCameraEnabledAsync(false, cancellationToken).ConfigureAwait(false);
@@ -197,12 +221,26 @@ public sealed class CallCoordinator : IDisposable
             {
                 if (_localProducerByTrackType.ContainsKey("screen"))
                 {
+                    if (!string.IsNullOrWhiteSpace(_sessionId) &&
+                        _localProducerByTrackType.TryGetValue("screen", out var existingProducerId))
+                    {
+                        var resumeResult = await ResumeTrackAsync(_kind, _sessionId!, existingProducerId, cancellationToken).ConfigureAwait(false);
+                        if (resumeResult.IsFailure)
+                            return Result.Failure(resumeResult.Error!);
+                    }
                     await _audioEngine.SetScreenShareEnabledAsync(true, cancellationToken).ConfigureAwait(false);
                     _callStore.SetScreenShareEnabled(true);
                     return Result.Success();
                 }
 
                 return await StartTrackAsync(CallMediaTrackType.ScreenShare, cancellationToken).ConfigureAwait(false);
+            }
+            if (!string.IsNullOrWhiteSpace(_sessionId) &&
+                _localProducerByTrackType.TryGetValue("screen", out var screenProducerId))
+            {
+                var closeResult = await CloseTrackAsync(_kind, _sessionId!, screenProducerId, cancellationToken).ConfigureAwait(false);
+                if (closeResult.IsFailure)
+                    return Result.Failure(closeResult.Error!);
             }
 
             await _audioEngine.SetScreenShareEnabledAsync(false, cancellationToken).ConfigureAwait(false);
@@ -986,6 +1024,39 @@ public sealed class CallCoordinator : IDisposable
         return kind == CallKind.Direct
             ? _directCallClient.PublishTrackAsync(sessionId, transportId, producerId, mediaKind, trackType, rtpParametersJson, cancellationToken)
             : _conferenceMediaClient.PublishTrackAsync(sessionId, transportId, producerId, mediaKind, trackType, rtpParametersJson, cancellationToken);
+    }
+
+    private Task<Result> PauseTrackAsync(
+        CallKind kind,
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.PauseTrackAsync(sessionId, producerId, cancellationToken)
+            : _conferenceMediaClient.PauseTrackAsync(sessionId, producerId, cancellationToken);
+    }
+
+    private Task<Result> ResumeTrackAsync(
+        CallKind kind,
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.ResumeTrackAsync(sessionId, producerId, cancellationToken)
+            : _conferenceMediaClient.ResumeTrackAsync(sessionId, producerId, cancellationToken);
+    }
+
+    private Task<Result> CloseTrackAsync(
+        CallKind kind,
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken)
+    {
+        return kind == CallKind.Direct
+            ? _directCallClient.CloseTrackAsync(sessionId, producerId, cancellationToken)
+            : _conferenceMediaClient.CloseTrackAsync(sessionId, producerId, cancellationToken);
     }
 
     private Task<Result<ConsumerInfo>> ConsumeTrackAsync(

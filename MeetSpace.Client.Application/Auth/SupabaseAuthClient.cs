@@ -166,16 +166,16 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
     {
         tokens = null;
         var tokenSource = root;
-        var accessToken = GetString(tokenSource, "access_token");
-        var refreshToken = GetString(tokenSource, "refresh_token");
+        var accessToken = NormalizeTokenValue(GetString(tokenSource, "access_token"));
+        var refreshToken = NormalizeTokenValue(GetString(tokenSource, "refresh_token"));
 
         if ((string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(refreshToken)) &&
             root.TryGetProperty("session", out var sessionProp) &&
             sessionProp.ValueKind == JsonValueKind.Object)
         {
             tokenSource = sessionProp;
-            accessToken = GetString(tokenSource, "access_token");
-            refreshToken = GetString(tokenSource, "refresh_token");
+            accessToken = NormalizeTokenValue(GetString(tokenSource, "access_token"));
+            refreshToken = NormalizeTokenValue(GetString(tokenSource, "refresh_token"));
         }
 
         string? userId = null;
@@ -183,15 +183,15 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
 
         if (root.TryGetProperty("user", out var userProp) && userProp.ValueKind == JsonValueKind.Object)
         {
-            userId = GetString(userProp, "id");
-            email = GetString(userProp, "email");
+            userId = NormalizeTokenValue(GetString(userProp, "id"));
+            email = NormalizeTokenValue(GetString(userProp, "email"));
         }
         else if (tokenSource.ValueKind == JsonValueKind.Object &&
                  tokenSource.TryGetProperty("user", out var tokenUserProp) &&
                  tokenUserProp.ValueKind == JsonValueKind.Object)
         {
-            userId = GetString(tokenUserProp, "id");
-            email = GetString(tokenUserProp, "email");
+            userId = NormalizeTokenValue(GetString(tokenUserProp, "id"));
+            email = NormalizeTokenValue(GetString(tokenUserProp, "email"));
         }
 
         if (string.IsNullOrWhiteSpace(accessToken) ||
@@ -256,5 +256,20 @@ public sealed class SupabaseAuthClient : ISupabaseAuthClient
             JsonValueKind.Number => prop.GetRawText(),
             _ => null
         };
+    }
+
+    private static string? NormalizeTokenValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        if (string.Equals(normalized, "null", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalized, "undefined", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return normalized;
     }
 }

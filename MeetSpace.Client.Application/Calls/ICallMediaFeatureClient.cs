@@ -24,6 +24,21 @@ public interface ICallMediaFeatureClient
         string rtpParametersJson,
         CancellationToken cancellationToken = default);
 
+    Task<Result> PauseTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> ResumeTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> CloseTrackAsync(
+        string sessionId,
+        string producerId,
+        CancellationToken cancellationToken = default);
+
     Task<Result<ConsumerInfo>> ConsumeTrackAsync(
         string sessionId,
         string transportId,

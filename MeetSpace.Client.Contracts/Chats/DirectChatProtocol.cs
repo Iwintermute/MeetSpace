@@ -17,6 +17,7 @@ public static class DirectChatProtocol
         public const string SyncMessages = "sync_messages";
         public const string ListThreads = "list_threads";
         public const string AckMessages = "ack_messages";
+        public const string SearchUsers = "search_users";
     }
 
     public static readonly string[] SendMessageActions =
@@ -48,5 +49,11 @@ public static class DirectChatProtocol
     {
         Actions.AckMessages,
         "ack_messages"
+    };
+
+    public static readonly string[] SearchUsersActions =
+    {
+        Actions.SearchUsers,
+        "search_users"
     };
 }

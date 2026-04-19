@@ -2,29 +2,28 @@
     x:Class="MeetSpace.Views.Temporary.ChatPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:MeetSpace.Views.Temporary"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:chat="using:MeetSpace.Client.Domain.Chat"
+    xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="{ThemeResource MicaDarkerBrush}"
     BorderBrush="{ThemeResource MicaBorderBrush}">
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="330" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Левый список диалогов -->
         <Border
             Grid.Column="0"
             BorderBrush="{ThemeResource MicaBorderBrush}"
             BorderThickness="0,0,1,0"
             Background="{ThemeResource MicaDarkerBrush}">
-
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
@@ -34,24 +33,59 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
                     <AutoSuggestBox
-    x:Name="DialogsSearchBox"
-    PlaceholderText="Поиск"
-    TextChanged="DialogsSearchBox_TextChanged"
-/>
-
+                        x:Name="DialogsSearchBox"
+                        PlaceholderText="Поиск по диалогам"
+                        TextChanged="DialogsSearchBox_TextChanged" />
                     <Button
-    x:Name="ResetSearchButton"
-    Grid.Column="1"
-    Content="Сброс"
-    Click="ResetSearchButton_Click"
-/>
+                        Grid.Column="1"
+                        Content="Сброс"
+                        Click="ResetSearchButton_Click" />
                 </Grid>
+
+                <Border Grid.Row="1" Margin="12,0,12,8" Padding="8" Background="#101A26" CornerRadius="8">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Найти пользователя по email" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                x:Name="UserSearchBox"
+                                PlaceholderText="email@example.com"
+                                KeyUp="UserSearchBox_KeyUp" />
+                            <Button
+                                Grid.Column="1"
+                                Content="Найти"
+                                Click="SearchUsersButton_Click" />
+                        </Grid>
+                        <TextBlock
+                            FontSize="12"
+                            Opacity="0.75"
+                            Text="{x:Bind ViewModel.UserSearchStatusText, Mode=OneWay}" />
+                        <ListView
+                            x:Name="UserSearchResultsList"
+                            MaxHeight="180"
+                            ItemsSource="{x:Bind ViewModel.UserSearchResults, Mode=OneWay}"
+                            SelectionMode="Single"
+                            IsItemClickEnabled="True"
+                            ItemClick="UserSearchResultsList_ItemClick">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="chat:DirectUserSearchItem">
+                                    <StackPanel Padding="6,4">
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+                                        <TextBlock FontSize="12" Opacity="0.75" Text="{x:Bind Email}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
 
                 <ListView
                     x:Name="DialogsList"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     ItemsSource="{x:Bind ViewModel.FilteredDialogs, Mode=OneWay}"
                     SelectionMode="Single"
                     IsItemClickEnabled="True"
@@ -87,13 +121,11 @@
                                         FontWeight="SemiBold"
                                         Text="{x:Bind Title}"
                                         TextTrimming="CharacterEllipsis" />
-
                                     <TextBlock
                                         FontSize="12"
                                         Opacity="0.72"
                                         Text="{x:Bind LastMessagePreview}"
                                         TextTrimming="CharacterEllipsis" />
-
                                     <TextBlock
                                         FontSize="11"
                                         Opacity="0.55"
@@ -130,15 +162,16 @@
             </Grid>
         </Border>
 
-        <!-- Правая часть -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="64" />
+                <RowDefinition Height="72" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="{x:Bind ViewModel.MediaHostRowHeight, Mode=OneWay}" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <Border
                 Grid.Row="0"
                 Background="#17212B"
@@ -148,6 +181,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="44" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <Grid
@@ -157,7 +191,6 @@
                         Background="#4C8DDA"
                         CornerRadius="20">
                         <TextBlock
-                            x:Name="ActiveDialogAvatarTextBlock"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             FontWeight="SemiBold"
@@ -166,21 +199,110 @@
 
                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                         <TextBlock
-                            x:Name="ActiveDialogTitleTextBlock"
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="{x:Bind ViewModel.ActiveDialogTitle, Mode=OneWay}" />
                         <TextBlock
-                            x:Name="ActiveDialogSubtitleTextBlock"
                             FontSize="12"
                             Opacity="0.7"
                             Text="{x:Bind ViewModel.ActiveDialogSubtitle, Mode=OneWay}" />
                     </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Content="Аудио"
+                            IsEnabled="{x:Bind ViewModel.IsStartAudioCallEnabled, Mode=OneWay}"
+                            Click="StartAudioCallButton_Click" />
+                        <Button
+                            Content="Видео"
+                            IsEnabled="{x:Bind ViewModel.IsStartVideoCallEnabled, Mode=OneWay}"
+                            Click="StartVideoCallButton_Click" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Empty state -->
-            <Grid x:Name="EmptyStateGrid" Grid.Row="1" Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}">
+            <Border
+                Grid.Row="1"
+                Margin="12,8,12,0"
+                Padding="10,8"
+                Background="#2A3B52"
+                CornerRadius="8"
+                Visibility="{x:Bind ViewModel.IncomingCallVisibility, Mode=OneWay}">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.IncomingCallText, Mode=OneWay}" />
+                    <Button Grid.Column="1" Content="Принять" Click="AcceptIncomingCallButton_Click" />
+                    <Button Grid.Column="2" Content="Отклонить" Click="DeclineIncomingCallButton_Click" />
+                </Grid>
+            </Border>
+
+            <Border
+                Grid.Row="2"
+                Margin="12,8,12,0"
+                Padding="10,8"
+                Background="#111A26"
+                CornerRadius="8"
+                Visibility="{x:Bind ViewModel.CallControlsVisibility, Mode=OneWay}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{x:Bind ViewModel.CallStatusText, Mode=OneWay}" />
+                    <WrapGrid HorizontalAlignment="Left" Orientation="Horizontal">
+                        <Button
+                            Margin="0,0,8,8"
+                            Content="{x:Bind ViewModel.MicrophoneToggleButtonContent, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.IsMicrophoneToggleEnabled, Mode=OneWay}"
+                            Click="ToggleMicrophoneButton_Click" />
+                        <Button
+                            Margin="0,0,8,8"
+                            Content="{x:Bind ViewModel.CameraToggleButtonContent, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.IsCameraToggleEnabled, Mode=OneWay}"
+                            Click="ToggleCameraButton_Click" />
+                        <Button
+                            Margin="0,0,8,8"
+                            Content="{x:Bind ViewModel.ScreenShareToggleButtonContent, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.IsScreenShareToggleEnabled, Mode=OneWay}"
+                            Click="ToggleScreenShareButton_Click" />
+                        <Button
+                            Margin="0,0,8,8"
+                            Content="Завершить звонок"
+                            IsEnabled="{x:Bind ViewModel.IsEndCallEnabled, Mode=OneWay}"
+                            Click="EndCallButton_Click" />
+                    </WrapGrid>
+                    <ListView
+                        ItemsSource="{x:Bind ViewModel.CallParticipants, Mode=OneWay}"
+                        SelectionMode="None"
+                        MaxHeight="120">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DirectCallParticipantViewItem">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasAudio}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasVideo}" />
+                                    <TextBlock Opacity="0.75" Text="{x:Bind HasScreenShare}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="3"
+                Margin="12,8,12,0"
+                Background="#05070B"
+                BorderBrush="#222D3A"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{x:Bind ViewModel.MediaHostVisibility, Mode=OneWay}">
+                <Grid x:Name="MediaHostContainer" />
+            </Border>
+
+            <Grid
+                Grid.Row="4"
+                Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}">
                 <Border
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -191,16 +313,14 @@
                 </Border>
             </Grid>
 
-            <!-- Messages -->
             <ListView
                 x:Name="MessagesList"
-                Grid.Row="1"
+                Grid.Row="4"
                 ItemsSource="{x:Bind ViewModel.Messages, Mode=OneWay}"
                 SelectionMode="None"
                 Visibility="{x:Bind ViewModel.MessagesVisibility, Mode=OneWay}"
                 Background="#0E1621"
                 BorderThickness="0">
-
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="chat:ChatMessageItem">
                         <Grid Padding="16,4">
@@ -214,7 +334,6 @@
                                     <TextBlock
                                         Text="{x:Bind Text}"
                                         TextWrapping="WrapWholeWords" />
-
                                     <TextBlock
                                         HorizontalAlignment="Right"
                                         FontSize="11"
@@ -227,22 +346,18 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- Composer -->
             <Border
-                x:Name="ComposerBorder"
-                Grid.Row="2"
+                Grid.Row="5"
                 Padding="12"
                 Background="#17212B"
                 BorderBrush="{ThemeResource MicaBorderBrush}"
                 BorderThickness="0,1,0,0"
                 Visibility="{x:Bind ViewModel.ComposerVisibility, Mode=OneWay}">
-
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
                     <TextBox
                         x:Name="MessageTextBox"
                         MinHeight="44"
@@ -250,7 +365,6 @@
                         AcceptsReturn="True"
                         TextWrapping="Wrap"
                         PlaceholderText="Сообщение..." />
-
                     <Button
                         Grid.Column="1"
                         VerticalAlignment="Bottom"
@@ -258,32 +372,6 @@
                         Click="SendButton_Click" />
                 </Grid>
             </Border>
-
-            <!-- Технический блок не удаляем, просто прячем -->
-            <StackPanel
-                x:Name="DebugConnectionPanel"
-                Grid.Row="2"
-                Visibility="Collapsed"
-                Orientation="Horizontal"
-                Spacing="8">
-                <TextBox
-                    x:Name="EndpointTextBox"
-                    Width="260"
-                    Header="WebSocket endpoint"
-                    Text="ws://127.0.0.1:9002" />
-                <TextBox
-                    x:Name="ConferenceIdTextBox"
-                    Width="220"
-                    Header="Conversation ID"
-                    PlaceholderText="dm-peer-id" />
-                <Button Content="Connect" Click="ConnectButton_Click" />
-                <Button Content="Disconnect" Click="DisconnectButton_Click" />
-                <Button Content="Create" Click="CreateConferenceButton_Click" />
-                <Button Content="Join" Click="JoinConferenceButton_Click" />
-                <TextBlock x:Name="ConnectionTextBlock" Text="{x:Bind ViewModel.ConnectionText, Mode=OneWay}" />
-                <TextBlock x:Name="PeerTextBlock" Text="{x:Bind ViewModel.PeerText, Mode=OneWay}" />
-                <TextBlock x:Name="ErrorTextBlock" Foreground="IndianRed" Text="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
-            </StackPanel>
         </Grid>
     </Grid>
 </Page>

@@ -1,4 +1,18 @@
 import * as mediasoupClient from 'mediasoup-client';
+const CAMERA_VIDEO_CONSTRAINTS = {
+    width: { ideal: 1280, max: 1280 },
+    height: { ideal: 720, max: 720 },
+    frameRate: { ideal: 30, max: 30 }
+};
+
+const SCREEN_VIDEO_CONSTRAINTS = {
+    width: { ideal: 1280, max: 1280 },
+    height: { ideal: 720, max: 720 },
+    frameRate: { ideal: 30, max: 30 }
+};
+
+const LOCAL_CAMERA_TILE_KEY = 'local:camera';
+const LOCAL_SCREEN_TILE_KEY = 'local:screen';
 
 const state = {
     device: null,
@@ -16,6 +30,8 @@ const state = {
     consumers: new Map(),
     audioElements: new Map(),
     videoElements: new Map(),
+    videoTiles: new Map(),
+    videoTileKeysByConsumer: new Map(),
     pendingConnect: new Map(),
     pendingProduce: new Map()
 };
@@ -133,6 +149,120 @@ function buildTransportOptions(payload) {
     };
 }
 
+function getMediaGridElement() {
+    let grid = document.getElementById('media-grid');
+    if (!grid) {
+        grid = document.createElement('div');
+        grid.id = 'media-grid';
+        document.body.appendChild(grid);
+    }
+    return grid;
+}
+
+function getTrackTypeLabel(trackType) {
+    switch (trackType) {
+        case 'screen':
+            return 'Экран';
+        case 'camera':
+            return 'Камера';
+        default:
+            return 'Видео';
+    }
+}
+
+function getTileTitle(trackType, isLocal) {
+    return `${isLocal ? 'Вы' : 'Участник'} · ${getTrackTypeLabel(trackType)}`;
+}
+
+async function applyTrackConstraintsSafe(track, constraints) {
+    if (!track || typeof track.applyConstraints !== 'function') {
+        return;
+    }
+
+    try {
+        await track.applyConstraints(constraints);
+    } catch (_) {
+    }
+}
+
+function ensureVideoTile(tileKey, trackType, isLocal) {
+    let tile = state.videoTiles.get(tileKey);
+
+    if (!tile) {
+        const container = document.createElement('div');
+        container.className = 'media-tile';
+
+        const video = document.createElement('video');
+        video.autoplay = true;
+        video.playsInline = true;
+        video.controls = false;
+        video.className = 'media-video';
+
+        const label = document.createElement('div');
+        label.className = 'media-tile-label';
+
+        container.appendChild(video);
+        container.appendChild(label);
+        getMediaGridElement().appendChild(container);
+
+        tile = {
+            container,
+            video,
+            label,
+            stream: null
+        };
+
+        state.videoTiles.set(tileKey, tile);
+    }
+
+    tile.container.dataset.trackType = trackType || 'camera';
+    tile.container.dataset.scope = isLocal ? 'local' : 'remote';
+    tile.label.textContent = getTileTitle(trackType || 'camera', isLocal);
+    tile.video.muted = !!isLocal;
+
+    return tile;
+}
+
+async function attachVideoTile(tileKey, stream, trackType, isLocal) {
+    const tile = ensureVideoTile(tileKey, trackType, isLocal);
+    tile.stream = stream;
+    tile.video.srcObject = stream;
+
+    try {
+        await tile.video.play();
+    } catch (_) {
+    }
+}
+
+function removeVideoTile(tileKey) {
+    const tile = state.videoTiles.get(tileKey);
+    if (!tile) {
+        return;
+    }
+
+    try {
+        tile.video.pause();
+        tile.video.srcObject = null;
+    } catch (_) {
+    }
+
+    try {
+        if (tile.container.parentElement) {
+            tile.container.parentElement.removeChild(tile.container);
+        }
+    } catch (_) {
+    }
+
+    state.videoTiles.delete(tileKey);
+}
+
+function removeAllVideoTiles() {
+    for (const tileKey of Array.from(state.videoTiles.keys())) {
+        removeVideoTile(tileKey);
+    }
+
+    state.videoTileKeysByConsumer.clear();
+}
 function cleanupConsumer(consumerId) {
     const item = state.consumers.get(consumerId);
     if (!item) {
@@ -162,6 +292,10 @@ function cleanupConsumer(consumerId) {
     state.consumers.delete(consumerId);
     state.audioElements.delete(consumerId);
     state.videoElements.delete(consumerId);
+
+    const tileKey = state.videoTileKeysByConsumer.get(consumerId) || `remote:${consumerId}`;
+    removeVideoTile(tileKey);
+    state.videoTileKeysByConsumer.delete(consumerId);
 }
 
 function stopProducer(name) {
@@ -198,6 +332,9 @@ async function closeAll() {
     stopStream('micStream', 'micTrack');
     stopStream('cameraStream', 'cameraTrack');
     stopStream('screenStream', 'screenTrack');
+    removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+    removeVideoTile(LOCAL_SCREEN_TILE_KEY);
+    removeAllVideoTiles();
 
     try {
         if (state.sendTransport) {
@@ -460,10 +597,11 @@ async function handleCommand(message) {
 
                 stopProducer('cameraProducer');
                 stopStream('cameraStream', 'cameraTrack');
+                removeVideoTile(LOCAL_CAMERA_TILE_KEY);
 
                 state.cameraStream = await navigator.mediaDevices.getUserMedia({
                     audio: false,
-                    video: true
+                    video: CAMERA_VIDEO_CONSTRAINTS
                 });
 
                 const videoTracks = state.cameraStream.getVideoTracks();
@@ -472,6 +610,9 @@ async function handleCommand(message) {
                 }
 
                 state.cameraTrack = videoTracks[0];
+                state.cameraTrack.contentHint = 'motion';
+                await applyTrackConstraintsSafe(state.cameraTrack, CAMERA_VIDEO_CONSTRAINTS);
+                await attachVideoTile(LOCAL_CAMERA_TILE_KEY, state.cameraStream, 'camera', true);
 
                 const producer = await state.sendTransport.produce({
                     track: state.cameraTrack,
@@ -499,6 +640,7 @@ async function handleCommand(message) {
             case 'stop_camera': {
                 stopProducer('cameraProducer');
                 stopStream('cameraStream', 'cameraTrack');
+                removeVideoTile(LOCAL_CAMERA_TILE_KEY);
                 sendResponse(requestId, true, {});
                 return;
             }
@@ -518,9 +660,10 @@ async function handleCommand(message) {
 
                 stopProducer('screenProducer');
                 stopStream('screenStream', 'screenTrack');
+                removeVideoTile(LOCAL_SCREEN_TILE_KEY);
 
                 state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
+                    video: SCREEN_VIDEO_CONSTRAINTS,
                     audio: false
                 });
 
@@ -530,9 +673,13 @@ async function handleCommand(message) {
                 }
 
                 state.screenTrack = videoTracks[0];
+                state.screenTrack.contentHint = 'detail';
+                await applyTrackConstraintsSafe(state.screenTrack, SCREEN_VIDEO_CONSTRAINTS);
+                await attachVideoTile(LOCAL_SCREEN_TILE_KEY, state.screenStream, 'screen', true);
                 state.screenTrack.onended = () => {
                     stopProducer('screenProducer');
                     stopStream('screenStream', 'screenTrack');
+                    removeVideoTile(LOCAL_SCREEN_TILE_KEY);
                 };
 
                 const producer = await state.sendTransport.produce({
@@ -561,6 +708,7 @@ async function handleCommand(message) {
             case 'stop_screen': {
                 stopProducer('screenProducer');
                 stopStream('screenStream', 'screenTrack');
+                removeVideoTile(LOCAL_SCREEN_TILE_KEY);
                 sendResponse(requestId, true, {});
                 return;
             }
@@ -705,21 +853,17 @@ async function handleCommand(message) {
 
                 const stream = new MediaStream();
                 stream.addTrack(consumer.track);
+                const trackType = payload.trackType || 'camera';
+                const tileKey = `remote:${consumer.id}`;
+                state.videoTileKeysByConsumer.set(consumer.id, tileKey);
 
                 let video = state.videoElements.get(consumer.id);
-                if (!video) {
-                    video = document.createElement('video');
-                    video.autoplay = true;
-                    video.muted = true;
-                    video.playsInline = true;
+
+                await attachVideoTile(tileKey, stream, trackType, false);
+                const tile = state.videoTiles.get(tileKey);
+                if (tile) {
+                    video = tile.video;
                     state.videoElements.set(consumer.id, video);
-                }
-
-                video.srcObject = stream;
-
-                try {
-                    await video.play();
-                } catch (_) {
                 }
 
                 state.consumers.set(consumer.id, {

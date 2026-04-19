@@ -150,12 +150,9 @@ public sealed partial class ConferenceRoomPage : Page
 
         var webView = new WebView2
         {
-            Width = 1,
-            Height = 1,
-            Opacity = 0.01,
             IsHitTestVisible = false,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
         };
 
         MediaHostContainer.Children.Clear();
@@ -221,6 +218,46 @@ public sealed partial class ConferenceRoomPage : Page
         catch (Exception ex)
         {
             ViewModel.SetStatusMessage("audio bridge init failed: " + ex.Message);
+        }
+    }
+
+    private async void CameraButton_Click(object sender, RoutedEventArgs e)
+    {
+        var token = _pageLifetimeCts != null ? _pageLifetimeCts.Token : CancellationToken.None;
+
+        try
+        {
+            if (!_audioBridgeReady)
+                await EnsureAudioBridgeReadyAsync(token);
+
+            await ViewModel.HandleCameraAsync(token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            ViewModel.SetStatusMessage("camera bridge init failed: " + ex.Message);
+        }
+    }
+
+    private async void ScreenShareButton_Click(object sender, RoutedEventArgs e)
+    {
+        var token = _pageLifetimeCts != null ? _pageLifetimeCts.Token : CancellationToken.None;
+
+        try
+        {
+            if (!_audioBridgeReady)
+                await EnsureAudioBridgeReadyAsync(token);
+
+            await ViewModel.HandleScreenShareAsync(token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            ViewModel.SetStatusMessage("screen bridge init failed: " + ex.Message);
         }
     }
 

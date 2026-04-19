@@ -29,4 +29,9 @@ public interface IDirectChatFeatureClient
         IReadOnlyList<string> messageIds,
         bool markRead,
         CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<DirectUserSearchItem>>> SearchUsersByEmailAsync(
+        string query,
+        int limit = 20,
+        CancellationToken cancellationToken = default);
 }

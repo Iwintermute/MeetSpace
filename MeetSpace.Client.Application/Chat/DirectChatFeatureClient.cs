@@ -1,7 +1,9 @@
-﻿using MeetSpace.Client.Contracts.Chats;
+﻿using System.Text.Json;
+using MeetSpace.Client.Contracts.Chats;
 using MeetSpace.Client.Contracts.Protocol;
 using MeetSpace.Client.Domain.Chat;
 using MeetSpace.Client.Realtime.Rpc;
+using MeetSpace.Client.Shared.Json;
 using MeetSpace.Client.Shared.Results;
 using MeetSpace.Client.Shared.Utilities;
 
@@ -150,5 +152,90 @@ public sealed class DirectChatFeatureClient : IDirectChatFeatureClient
         return response.IsSuccess
             ? Result.Success()
             : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result<IReadOnlyList<DirectUserSearchItem>>> SearchUsersByEmailAsync(
+        string query,
+        int limit = 20,
+        CancellationToken cancellationToken = default)
+    {
+        query = query?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(query))
+            return Result<IReadOnlyList<DirectUserSearchItem>>.Success(Array.Empty<DirectUserSearchItem>());
+
+        var response = await _rpcClient.DispatchFirstAsync(
+            DirectChatProtocol.Object,
+            DirectChatProtocol.Agents.Messaging,
+            DirectChatProtocol.SearchUsersActions,
+            new Dictionary<string, object?>
+            {
+                ["query"] = query,
+                ["limit"] = limit <= 0 ? 20 : limit
+            },
+            TimeSpan.FromSeconds(15),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.IsFailure)
+            return Result<IReadOnlyList<DirectUserSearchItem>>.Failure(response.Error!);
+
+        try
+        {
+            var root = GetPayloadRoot(response.Value!);
+            if (!root.TryGetAnyProperty(out var usersNode, "users") || usersNode.ValueKind != JsonValueKind.Array)
+                return Result<IReadOnlyList<DirectUserSearchItem>>.Success(Array.Empty<DirectUserSearchItem>());
+
+            var users = new List<DirectUserSearchItem>();
+            foreach (var item in usersNode.EnumerateArray())
+            {
+                var userId = item.GetString("userId", "user_id", "id");
+                var email = item.GetString("email");
+                if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(email))
+                    continue;
+
+                users.Add(new DirectUserSearchItem(
+                    userId,
+                    email,
+                    item.GetString("displayName", "display_name", "name")));
+            }
+
+            return Result<IReadOnlyList<DirectUserSearchItem>>.Success(users);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<DirectUserSearchItem>>.Failure(
+                new Error("direct_chat.search_users.parse_failed", ex.Message));
+        }
+    }
+
+    private static JsonElement GetPayloadRoot(FeatureResponseEnvelope envelope)
+    {
+        if (envelope.TryGetPayload(out var payload))
+        {
+            if (payload.ValueKind == JsonValueKind.Object &&
+                payload.TryGetAnyProperty(out var nestedData, "data") &&
+                nestedData.ValueKind == JsonValueKind.Object)
+            {
+                return nestedData;
+            }
+
+            if (payload.ValueKind == JsonValueKind.Object)
+                return payload;
+        }
+
+        if (!string.IsNullOrWhiteSpace(envelope.Message))
+        {
+            using var doc = JsonDocument.Parse(envelope.Message);
+            var root = doc.RootElement.Clone();
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetAnyProperty(out var nestedData, "data") &&
+                nestedData.ValueKind == JsonValueKind.Object)
+            {
+                return nestedData.Clone();
+            }
+
+            return root;
+        }
+
+        throw new InvalidOperationException("Direct chat payload is missing.");
     }
 }

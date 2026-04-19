@@ -1,14 +1,20 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using MeetSpace.Client.App.Auth;
+using MeetSpace.Client.App.Calls;
 using MeetSpace.Client.App.Chat;
 using MeetSpace.Client.App.Session;
+using MeetSpace.Client.Contracts.Protocol;
+using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Domain.Chat;
+using MeetSpace.Client.Realtime.Abstractions;
 using MeetSpace.Client.Shared.Configuration;
+using MeetSpace.Client.Shared.Json;
 using MeetSpace.Client.Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -18,19 +24,24 @@ namespace MeetSpace.ViewModels.Temporary;
 public sealed class ChatPageViewModel : ObservableObject
 {
     private readonly ChatCoordinator _chatCoordinator;
+    private readonly IDirectChatFeatureClient _directChatClient;
     private readonly ChatStore _chatStore;
     private readonly SessionStore _sessionStore;
     private readonly AuthSessionStore _authStore;
     private readonly RealtimeStartupService _realtimeStartupService;
+    private readonly CallCoordinator _callCoordinator;
+    private readonly CallStore _callStore;
+    private readonly IRealtimeGateway _realtimeGateway;
     private readonly ClientRuntimeOptions _options;
 
     private readonly Dictionary<string, ChatDialogItem> _dialogMap = new(StringComparer.Ordinal);
 
     private CoreDispatcher? _dispatcher;
     private bool _isActive;
-    private string? _searchQuery;
-
+    private string? _dialogsSearchQuery;
     private ChatDialogItem? _selectedDialog;
+    private string? _incomingCallId;
+    private string? _incomingCallerUserId;
     private string _activeDialogTitle = "Выберите чат";
     private string _activeDialogSubtitle = "Слева выберите диалог";
     private string _activeDialogAvatarText = "?";
@@ -40,26 +51,53 @@ public sealed class ChatPageViewModel : ObservableObject
     private string _connectionText = string.Empty;
     private string _peerText = string.Empty;
     private string _errorText = string.Empty;
+    private string _userSearchStatusText = string.Empty;
+    private bool _isSearchingUsers;
+    private bool _isStartAudioCallEnabled;
+    private bool _isStartVideoCallEnabled;
+    private bool _isEndCallEnabled;
+    private bool _isMicrophoneToggleEnabled;
+    private bool _isCameraToggleEnabled;
+    private bool _isScreenShareToggleEnabled;
+    private Visibility _incomingCallVisibility = Visibility.Collapsed;
+    private string _incomingCallText = string.Empty;
+    private Visibility _callControlsVisibility = Visibility.Collapsed;
+    private Visibility _mediaHostVisibility = Visibility.Collapsed;
+    private GridLength _mediaHostRowHeight = new GridLength(0);
+    private string _callStatusText = string.Empty;
+    private string _microphoneToggleButtonContent = "Микрофон";
+    private string _cameraToggleButtonContent = "Камера";
+    private string _screenShareToggleButtonContent = "Экран";
 
     public ChatPageViewModel(
         ChatCoordinator chatCoordinator,
+        IDirectChatFeatureClient directChatClient,
         ChatStore chatStore,
         SessionStore sessionStore,
         AuthSessionStore authStore,
         RealtimeStartupService realtimeStartupService,
+        CallCoordinator callCoordinator,
+        CallStore callStore,
+        IRealtimeGateway realtimeGateway,
         ClientRuntimeOptions options)
     {
         _chatCoordinator = chatCoordinator;
+        _directChatClient = directChatClient;
         _chatStore = chatStore;
         _sessionStore = sessionStore;
         _authStore = authStore;
         _realtimeStartupService = realtimeStartupService;
+        _callCoordinator = callCoordinator;
+        _callStore = callStore;
+        _realtimeGateway = realtimeGateway;
         _options = options;
     }
 
     public ObservableCollection<ChatDialogItem> Dialogs { get; } = new();
     public ObservableCollection<ChatDialogItem> FilteredDialogs { get; } = new();
     public ObservableCollection<ChatMessageItem> Messages { get; } = new();
+    public ObservableCollection<DirectUserSearchItem> UserSearchResults { get; } = new();
+    public ObservableCollection<DirectCallParticipantViewItem> CallParticipants { get; } = new();
 
     public ChatDialogItem? SelectedDialog
     {
@@ -127,6 +165,108 @@ public sealed class ChatPageViewModel : ObservableObject
         private set => SetProperty(ref _errorText, value);
     }
 
+    public string UserSearchStatusText
+    {
+        get => _userSearchStatusText;
+        private set => SetProperty(ref _userSearchStatusText, value);
+    }
+
+    public bool IsSearchingUsers
+    {
+        get => _isSearchingUsers;
+        private set => SetProperty(ref _isSearchingUsers, value);
+    }
+
+    public bool IsStartAudioCallEnabled
+    {
+        get => _isStartAudioCallEnabled;
+        private set => SetProperty(ref _isStartAudioCallEnabled, value);
+    }
+
+    public bool IsStartVideoCallEnabled
+    {
+        get => _isStartVideoCallEnabled;
+        private set => SetProperty(ref _isStartVideoCallEnabled, value);
+    }
+
+    public bool IsEndCallEnabled
+    {
+        get => _isEndCallEnabled;
+        private set => SetProperty(ref _isEndCallEnabled, value);
+    }
+
+    public bool IsMicrophoneToggleEnabled
+    {
+        get => _isMicrophoneToggleEnabled;
+        private set => SetProperty(ref _isMicrophoneToggleEnabled, value);
+    }
+
+    public bool IsCameraToggleEnabled
+    {
+        get => _isCameraToggleEnabled;
+        private set => SetProperty(ref _isCameraToggleEnabled, value);
+    }
+
+    public bool IsScreenShareToggleEnabled
+    {
+        get => _isScreenShareToggleEnabled;
+        private set => SetProperty(ref _isScreenShareToggleEnabled, value);
+    }
+
+    public Visibility IncomingCallVisibility
+    {
+        get => _incomingCallVisibility;
+        private set => SetProperty(ref _incomingCallVisibility, value);
+    }
+
+    public string IncomingCallText
+    {
+        get => _incomingCallText;
+        private set => SetProperty(ref _incomingCallText, value);
+    }
+
+    public Visibility CallControlsVisibility
+    {
+        get => _callControlsVisibility;
+        private set => SetProperty(ref _callControlsVisibility, value);
+    }
+
+    public Visibility MediaHostVisibility
+    {
+        get => _mediaHostVisibility;
+        private set => SetProperty(ref _mediaHostVisibility, value);
+    }
+
+    public GridLength MediaHostRowHeight
+    {
+        get => _mediaHostRowHeight;
+        private set => SetProperty(ref _mediaHostRowHeight, value);
+    }
+
+    public string CallStatusText
+    {
+        get => _callStatusText;
+        private set => SetProperty(ref _callStatusText, value);
+    }
+
+    public string MicrophoneToggleButtonContent
+    {
+        get => _microphoneToggleButtonContent;
+        private set => SetProperty(ref _microphoneToggleButtonContent, value);
+    }
+
+    public string CameraToggleButtonContent
+    {
+        get => _cameraToggleButtonContent;
+        private set => SetProperty(ref _cameraToggleButtonContent, value);
+    }
+
+    public string ScreenShareToggleButtonContent
+    {
+        get => _screenShareToggleButtonContent;
+        private set => SetProperty(ref _screenShareToggleButtonContent, value);
+    }
+
     public event EventHandler? NavigateToLoginRequested;
 
     public async Task ActivateAsync(CoreDispatcher dispatcher)
@@ -140,6 +280,8 @@ public sealed class ChatPageViewModel : ObservableObject
         _chatStore.StateChanged += ChatStore_StateChanged;
         _sessionStore.StateChanged += SessionStore_StateChanged;
         _authStore.StateChanged += AuthStore_StateChanged;
+        _callStore.StateChanged += CallStore_StateChanged;
+        _realtimeGateway.EnvelopeReceived += Gateway_EnvelopeReceived;
 
         var authorized = await EnsureAuthorizedAsync().ConfigureAwait(false);
         if (!authorized)
@@ -153,6 +295,7 @@ public sealed class ChatPageViewModel : ObservableObject
             ApplyAuthState(_authStore.Current);
             ApplySessionState(_sessionStore.Current);
             ApplyChatState(_chatStore.Current);
+            ApplyCallState(_callStore.Current);
         }).ConfigureAwait(false);
 
         var syncResult = await _chatCoordinator.SyncDirectDialogsAsync().ConfigureAwait(false);
@@ -167,6 +310,7 @@ public sealed class ChatPageViewModel : ObservableObject
         await RunOnUiThreadAsync(() =>
         {
             ApplyChatState(_chatStore.Current);
+            ApplyCallState(_callStore.Current);
         }).ConfigureAwait(false);
 
         if (SelectedDialog == null && FilteredDialogs.Count > 0)
@@ -183,8 +327,68 @@ public sealed class ChatPageViewModel : ObservableObject
         _chatStore.StateChanged -= ChatStore_StateChanged;
         _sessionStore.StateChanged -= SessionStore_StateChanged;
         _authStore.StateChanged -= AuthStore_StateChanged;
+        _callStore.StateChanged -= CallStore_StateChanged;
+        _realtimeGateway.EnvelopeReceived -= Gateway_EnvelopeReceived;
 
         _dispatcher = null;
+    }
+
+    public async Task AttachAudioHostAsync(IAudioBridgeHost host, CancellationToken cancellationToken)
+    {
+        await _callCoordinator.AttachHostAsync(host, cancellationToken).ConfigureAwait(false);
+        await RunOnUiThreadAsync(() => ApplyCallState(_callStore.Current)).ConfigureAwait(false);
+    }
+
+    public async Task SearchUsersByEmailAsync(string? rawQuery, CancellationToken cancellationToken = default)
+    {
+        var query = rawQuery?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                UserSearchResults.Clear();
+                UserSearchStatusText = string.Empty;
+                IsSearchingUsers = false;
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        await RunOnUiThreadAsync(() =>
+        {
+            IsSearchingUsers = true;
+            UserSearchStatusText = "Поиск…";
+        }).ConfigureAwait(false);
+
+        var result = await _directChatClient
+            .SearchUsersByEmailAsync(query, 20, cancellationToken)
+            .ConfigureAwait(false);
+
+        await RunOnUiThreadAsync(() =>
+        {
+            IsSearchingUsers = false;
+            UserSearchResults.Clear();
+
+            if (result.IsFailure)
+            {
+                UserSearchStatusText = result.Error?.Message ?? "Не удалось выполнить поиск.";
+                return;
+            }
+
+            foreach (var user in result.Value!)
+                UserSearchResults.Add(user);
+
+            UserSearchStatusText = UserSearchResults.Count == 0
+                ? "Ничего не найдено."
+                : "Найдено: " + UserSearchResults.Count;
+        }).ConfigureAwait(false);
+    }
+
+    public async Task OpenSearchResultAsync(DirectUserSearchItem? item)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(item.UserId))
+            return;
+
+        await OpenDirectDialogAsync(item.UserId).ConfigureAwait(false);
     }
 
     public async Task SelectDialogAsync(ChatDialogItem? selected)
@@ -197,6 +401,7 @@ public sealed class ChatPageViewModel : ObservableObject
             SetSelectedDialog(selected);
             RebuildMessages(_chatStore.Current);
             UpdateSelectedDialogPresentation();
+            UpdateCallActionAvailability();
         }).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(selected.PeerId))
@@ -217,6 +422,7 @@ public sealed class ChatPageViewModel : ObservableObject
             RebuildDialogCollections();
             UpdateSelectedDialogPresentation();
             RebuildMessages(_chatStore.Current);
+            UpdateCallActionAvailability();
         }).ConfigureAwait(false);
 
         var result = await _chatCoordinator.LoadDirectConversationAsync(peerId).ConfigureAwait(false);
@@ -255,9 +461,122 @@ public sealed class ChatPageViewModel : ObservableObject
         return true;
     }
 
+    public async Task StartDirectAudioCallAsync(CancellationToken cancellationToken = default)
+    {
+        await StartDirectCallAsync("audio", false, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task StartDirectVideoCallAsync(CancellationToken cancellationToken = default)
+    {
+        await StartDirectCallAsync("video", true, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task AcceptIncomingCallAsync(bool withVideo = false, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_incomingCallId))
+            return;
+
+        var callId = _incomingCallId!;
+        var callerUserId = _incomingCallerUserId;
+        ClearIncomingCall();
+
+        if (!string.IsNullOrWhiteSpace(callerUserId))
+            await OpenDirectDialogAsync(callerUserId).ConfigureAwait(false);
+
+        var result = await _callCoordinator.AcceptAndJoinDirectCallAsync(callId, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Не удалось принять звонок.");
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (withVideo)
+            await ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task DeclineIncomingCallAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_incomingCallId))
+            return;
+
+        var callId = _incomingCallId!;
+        ClearIncomingCall();
+
+        var result = await _callCoordinator.DeclineDirectCallAsync(callId, "declined", cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Не удалось отклонить звонок.");
+            }).ConfigureAwait(false);
+        }
+    }
+
+    public async Task EndCurrentCallAsync(CancellationToken cancellationToken = default)
+    {
+        var state = _callStore.Current;
+        if (state.Kind == CallKind.Direct && !string.IsNullOrWhiteSpace(state.SessionId))
+        {
+            var endResult = await _callCoordinator
+                .EndDirectCallAsync(state.SessionId!, "client_hangup", cancellationToken)
+                .ConfigureAwait(false);
+
+            if (endResult.IsFailure)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    ApplyError(endResult.Error?.Message ?? "Не удалось завершить звонок.");
+                }).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        await _callCoordinator.LeaveAudioAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task ToggleMicrophoneAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _callCoordinator.ToggleMicrophoneAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Не удалось переключить микрофон.");
+            }).ConfigureAwait(false);
+        }
+    }
+
+    public async Task ToggleCameraAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _callCoordinator.ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Не удалось переключить камеру.");
+            }).ConfigureAwait(false);
+        }
+    }
+
+    public async Task ToggleScreenShareAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _callCoordinator.ToggleScreenShareAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Не удалось переключить демонстрацию экрана.");
+            }).ConfigureAwait(false);
+        }
+    }
+
     public void ApplyDialogsFilter(string? query)
     {
-        _searchQuery = query;
+        _dialogsSearchQuery = query;
 
         var filtered = string.IsNullOrWhiteSpace(query)
             ? Dialogs.OrderByDescending(x => x.LastActivityUtc).ToList()
@@ -309,6 +628,37 @@ public sealed class ChatPageViewModel : ObservableObject
                 ApplyError(ex.Message);
             }).ConfigureAwait(false);
         }
+    }
+
+    private async Task StartDirectCallAsync(string mode, bool startVideoAfterJoin, CancellationToken cancellationToken)
+    {
+        if (SelectedDialog == null || string.IsNullOrWhiteSpace(SelectedDialog.PeerId))
+            return;
+
+        var targetUserId = SelectedDialog.PeerId!;
+        var createResult = await _callCoordinator.StartDirectCallAsync(targetUserId, mode, cancellationToken).ConfigureAwait(false);
+        if (createResult.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(createResult.Error?.Message ?? "Не удалось начать звонок.");
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        var callId = createResult.Value!;
+        var joinResult = await _callCoordinator.JoinDirectCallMediaAsync(callId, cancellationToken).ConfigureAwait(false);
+        if (joinResult.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(joinResult.Error?.Message ?? "Не удалось подключить медиа.");
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (startVideoAfterJoin)
+            await ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<bool> EnsureAuthorizedAsync()
@@ -363,6 +713,73 @@ public sealed class ChatPageViewModel : ObservableObject
         {
             ApplyAuthState(state);
         }).ConfigureAwait(false);
+    }
+
+    private async void CallStore_StateChanged(object sender, CallSessionState state)
+    {
+        if (!_isActive)
+            return;
+
+        await RunOnUiThreadAsync(() =>
+        {
+            ApplyCallState(state);
+        }).ConfigureAwait(false);
+    }
+
+    private async void Gateway_EnvelopeReceived(object? sender, FeatureResponseEnvelope envelope)
+    {
+        if (!_isActive)
+            return;
+
+        if (string.Equals(envelope.Type, ProtocolMessageTypes.DirectCallInvite, StringComparison.Ordinal))
+        {
+            var payload = envelope.TryGetPayload(out var payloadNode) && payloadNode.ValueKind == System.Text.Json.JsonValueKind.Object
+                ? payloadNode
+                : (System.Text.Json.JsonElement?)null;
+
+            var callId = envelope.GetString("callId")
+                ?? payload?.GetString("callId", "call_id");
+            var callerUserId = envelope.GetString("callerUserId")
+                ?? payload?.GetString("callerUserId", "caller_user_id");
+            var targetUserId = envelope.GetString("targetUserId")
+                ?? payload?.GetString("targetUserId", "target_user_id");
+
+            if (string.IsNullOrWhiteSpace(callId))
+                return;
+
+            var currentUserId = _authStore.Current.UserId;
+            if (!string.IsNullOrWhiteSpace(targetUserId) &&
+                !string.IsNullOrWhiteSpace(currentUserId) &&
+                !string.Equals(targetUserId, currentUserId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            await RunOnUiThreadAsync(() =>
+            {
+                _incomingCallId = callId;
+                _incomingCallerUserId = callerUserId;
+                IncomingCallText = string.IsNullOrWhiteSpace(callerUserId)
+                    ? "Входящий звонок"
+                    : "Входящий звонок от " + callerUserId;
+                IncomingCallVisibility = Visibility.Visible;
+            }).ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(callerUserId))
+                await OpenDirectDialogAsync(callerUserId).ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(envelope.Type, ProtocolMessageTypes.DirectCallEnded, StringComparison.Ordinal) ||
+            string.Equals(envelope.Type, ProtocolMessageTypes.DirectCallDeclined, StringComparison.Ordinal))
+        {
+            var endedCallId = envelope.GetString("callId");
+            if (!string.IsNullOrWhiteSpace(_incomingCallId) &&
+                string.Equals(_incomingCallId, endedCallId, StringComparison.Ordinal))
+            {
+                await RunOnUiThreadAsync(ClearIncomingCall).ConfigureAwait(false);
+            }
+        }
     }
 
     private void ApplyAuthState(AuthSessionState state)
@@ -440,6 +857,76 @@ public sealed class ChatPageViewModel : ObservableObject
         RebuildDialogCollections();
         RebuildMessages(state);
         UpdateSelectedDialogPresentation();
+        UpdateCallActionAvailability();
+    }
+
+    private void ApplyCallState(CallSessionState state)
+    {
+        var isDirect = state.Kind == CallKind.Direct && !string.IsNullOrWhiteSpace(state.SessionId);
+        var canShowMedia = isDirect &&
+                           state.Stage != CallConnectionStage.Idle &&
+                           state.Stage != CallConnectionStage.Faulted;
+
+        CallControlsVisibility = canShowMedia ? Visibility.Visible : Visibility.Collapsed;
+        MediaHostVisibility = canShowMedia ? Visibility.Visible : Visibility.Collapsed;
+        MediaHostRowHeight = canShowMedia ? new GridLength(320) : new GridLength(0);
+
+        MicrophoneToggleButtonContent = state.LocalMedia.MicrophoneEnabled ? "Микрофон вкл" : "Микрофон выкл";
+        CameraToggleButtonContent = state.LocalMedia.CameraEnabled ? "Камера вкл" : "Камера выкл";
+        ScreenShareToggleButtonContent = state.LocalMedia.ScreenShareEnabled ? "Экран вкл" : "Экран выкл";
+
+        var isConnected = state.Stage == CallConnectionStage.Connected;
+        IsEndCallEnabled = canShowMedia;
+        IsMicrophoneToggleEnabled = isConnected;
+        IsCameraToggleEnabled = isConnected;
+        IsScreenShareToggleEnabled = isConnected;
+
+        CallStatusText = BuildCallStatusText(state);
+
+        CallParticipants.Clear();
+        foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
+        {
+            CallParticipants.Add(new DirectCallParticipantViewItem(
+                string.IsNullOrWhiteSpace(participant.UserId) ? participant.PeerId : participant.UserId!,
+                participant.HasAudio,
+                participant.HasVideo,
+                participant.HasScreenShare));
+        }
+
+        if (!isDirect && state.Stage == CallConnectionStage.Idle)
+            CallStatusText = string.Empty;
+
+        UpdateCallActionAvailability();
+    }
+
+    private string BuildCallStatusText(CallSessionState state)
+    {
+        if (state.Kind != CallKind.Direct)
+            return string.Empty;
+
+        return state.Stage switch
+        {
+            CallConnectionStage.Idle => "Звонок не активен",
+            CallConnectionStage.JoiningRoom => "Подключение к звонку…",
+            CallConnectionStage.TransportOpening => "Открытие транспорта…",
+            CallConnectionStage.Negotiating => "Согласование медиа…",
+            CallConnectionStage.Publishing => "Публикация треков…",
+            CallConnectionStage.Connected => "Вы в звонке",
+            CallConnectionStage.Faulted => "Ошибка звонка",
+            _ => state.Stage.ToString()
+        };
+    }
+
+    private void UpdateCallActionAvailability()
+    {
+        var hasDialog = SelectedDialog != null && !string.IsNullOrWhiteSpace(SelectedDialog.PeerId);
+        var callState = _callStore.Current;
+        var hasActiveDirectCall = callState.Kind == CallKind.Direct &&
+                                  callState.Stage != CallConnectionStage.Idle &&
+                                  callState.Stage != CallConnectionStage.Faulted;
+
+        IsStartAudioCallEnabled = hasDialog && !hasActiveDirectCall;
+        IsStartVideoCallEnabled = hasDialog && !hasActiveDirectCall;
     }
 
     private void RebuildDialogCollections()
@@ -453,7 +940,7 @@ public sealed class ChatPageViewModel : ObservableObject
         foreach (var dialog in ordered)
             Dialogs.Add(dialog);
 
-        ApplyDialogsFilter(_searchQuery);
+        ApplyDialogsFilter(_dialogsSearchQuery);
     }
 
     private void RebuildMessages(ChatViewState state)
@@ -550,6 +1037,14 @@ public sealed class ChatPageViewModel : ObservableObject
         NavigateToLoginRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ClearIncomingCall()
+    {
+        _incomingCallId = null;
+        _incomingCallerUserId = null;
+        IncomingCallText = string.Empty;
+        IncomingCallVisibility = Visibility.Collapsed;
+    }
+
     private Task RunOnUiThreadAsync(Action action)
     {
         var dispatcher = _dispatcher;
@@ -612,4 +1107,24 @@ public sealed class ChatPageViewModel : ObservableObject
             IsPinned = source.IsPinned
         };
     }
+}
+
+public sealed class DirectCallParticipantViewItem
+{
+    public DirectCallParticipantViewItem(
+        string title,
+        bool hasAudio,
+        bool hasVideo,
+        bool hasScreenShare)
+    {
+        Title = title;
+        HasAudio = hasAudio;
+        HasVideo = hasVideo;
+        HasScreenShare = hasScreenShare;
+    }
+
+    public string Title { get; }
+    public bool HasAudio { get; }
+    public bool HasVideo { get; }
+    public bool HasScreenShare { get; }
 }
