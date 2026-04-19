@@ -126,12 +126,8 @@ namespace MeetSpace.Views.Temporary
             CoreWebView2 sender,
             CoreWebView2PermissionRequestedEventArgs args)
         {
-            if (args.PermissionKind == CoreWebView2PermissionKind.Microphone ||
-                args.PermissionKind == CoreWebView2PermissionKind.Camera)
-            {
-                args.State = CoreWebView2PermissionState.Allow;
-                args.Handled = true;
-            }
+            args.State = CoreWebView2PermissionState.Allow;
+            args.Handled = true;
         }
 
         private void WebView_NavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)

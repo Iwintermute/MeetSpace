@@ -13,6 +13,8 @@ namespace MeetSpace.Temporary
         private static readonly TimeSpan HostReadyTimeout = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan ConsumeVideoCommandTimeout = TimeSpan.FromSeconds(45);
+        private static readonly TimeSpan UserMediaPromptCommandTimeout = TimeSpan.FromSeconds(90);
+        private static readonly TimeSpan ScreenShareCommandTimeout = TimeSpan.FromSeconds(150);
 
         private readonly SemaphoreSlim _attachSync = new SemaphoreSlim(1, 1);
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
@@ -203,9 +205,13 @@ namespace MeetSpace.Temporary
                 ["trackType"] = info.TrackType,
                 ["rtpParameters"] = JsonSerializer.Deserialize<JsonElement>(info.RtpParametersJson)
             };
+            var normalizedTrackType = info.TrackType?.Trim().ToLowerInvariant();
             var command = string.Equals(info.Kind, "audio", StringComparison.OrdinalIgnoreCase)
-                          && !string.Equals(info.TrackType, "camera", StringComparison.OrdinalIgnoreCase)
-                          && !string.Equals(info.TrackType, "screen", StringComparison.OrdinalIgnoreCase)
+                          && normalizedTrackType is not "camera"
+                          && normalizedTrackType is not "screen"
+                          && normalizedTrackType is not "screen_share"
+                          && normalizedTrackType is not "screenshare"
+                          && normalizedTrackType is not "video"
                 ? "consume_audio"
                 : "consume_video";
 
@@ -299,9 +305,20 @@ namespace MeetSpace.Temporary
             Dictionary<string, object?> payload,
             CancellationToken cancellationToken)
         {
-            var timeoutOverride = string.Equals(command, "consume_video", StringComparison.Ordinal)
-                ? ConsumeVideoCommandTimeout
-                : (TimeSpan?)null;
+            TimeSpan? timeoutOverride = null;
+            if (string.Equals(command, "consume_video", StringComparison.Ordinal))
+            {
+                timeoutOverride = ConsumeVideoCommandTimeout;
+            }
+            else if (string.Equals(command, "start_screen", StringComparison.Ordinal))
+            {
+                timeoutOverride = ScreenShareCommandTimeout;
+            }
+            else if (string.Equals(command, "start_camera", StringComparison.Ordinal) ||
+                     string.Equals(command, "start_microphone", StringComparison.Ordinal))
+            {
+                timeoutOverride = UserMediaPromptCommandTimeout;
+            }
 
             _ = await SendRequestAsync(command, payload, cancellationToken, timeoutOverride).ConfigureAwait(false);
         }

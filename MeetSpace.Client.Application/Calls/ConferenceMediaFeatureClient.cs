@@ -188,14 +188,16 @@ public sealed class ConferenceMediaFeatureClient : IConferenceMediaFeatureClient
         try
         {
             var root = GetPayloadRoot(response.Value!);
+            var trackType = root.GetString("trackType", "track_type");
+            var resolvedKind = ResolveConsumerKind(root.GetString("kind"), trackType);
             var info = new ConsumerInfo(
                 root.GetString("consumerId", "consumer_id", "id") ?? (consumerId ?? string.Empty),
                 root.GetString("producerId", "producer_id") ?? producerId,
-                root.GetString("kind") ?? "audio",
+                resolvedKind,
                 root.TryGetAnyProperty(out var rtpParameters, "rtpParameters", "rtp_parameters")
                     ? rtpParameters.GetRawText()
                     : "{}",
-                root.GetString("trackType", "track_type"),
+                trackType,
                 root.GetString("producerPeerId", "producer_peer_id"),
                 root.GetBoolean("paused") ?? false);
 
@@ -363,7 +365,8 @@ public sealed class ConferenceMediaFeatureClient : IConferenceMediaFeatureClient
                 item.GetString("peerId", "peer_id", "producerPeerId", "producer_peer_id") ?? string.Empty,
                 producerId,
                 item.GetString("kind") ?? "audio",
-                item.GetString("trackType", "track_type")));
+                item.GetString("trackType", "track_type"),
+                item.GetBoolean("paused") ?? false));
         }
 
         return result;
@@ -400,5 +403,23 @@ public sealed class ConferenceMediaFeatureClient : IConferenceMediaFeatureClient
             return int.MaxValue;
 
         return (int)value.Value;
+    }
+
+    private static string ResolveConsumerKind(string? rawKind, string? trackType)
+    {
+        if (!string.IsNullOrWhiteSpace(rawKind))
+        {
+            var normalizedKind = rawKind.Trim().ToLowerInvariant();
+            if (normalizedKind is "video" or "camera" or "screen" or "screen_share" or "screenshare")
+                return "video";
+        }
+        if (!string.IsNullOrWhiteSpace(trackType))
+        {
+            var normalizedTrackType = trackType.Trim().ToLowerInvariant();
+            if (normalizedTrackType is "camera" or "screen" or "screen_share" or "screenshare" or "video")
+                return "video";
+        }
+
+        return "audio";
     }
 }

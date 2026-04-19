@@ -10,6 +10,16 @@ const SCREEN_VIDEO_CONSTRAINTS = {
     height: { ideal: 720, max: 720 },
     frameRate: { ideal: 30, max: 30 }
 };
+const CAMERA_FALLBACK_CONSTRAINTS = [
+    CAMERA_VIDEO_CONSTRAINTS,
+    {
+        width: { ideal: 960, max: 960 },
+        height: { ideal: 540, max: 540 },
+        frameRate: { ideal: 24, max: 30 }
+    },
+    true
+];
+const MEDIA_PLAY_TIMEOUT_MS = 1500;
 
 const LOCAL_CAMERA_TILE_KEY = 'local:camera';
 const LOCAL_SCREEN_TILE_KEY = 'local:screen';
@@ -223,15 +233,51 @@ function ensureVideoTile(tileKey, trackType, isLocal) {
     return tile;
 }
 
+
+async function playMediaElementSafe(element, timeoutMs = MEDIA_PLAY_TIMEOUT_MS) {
+    if (!element || typeof element.play !== 'function') {
+        return;
+    }
+
+    try {
+        const playPromise = element.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+            await Promise.race([
+                playPromise,
+                new Promise((resolve) => {
+                    setTimeout(resolve, timeoutMs);
+                })
+            ]);
+        }
+    } catch (_) {
+    }
+}
+
+async function openCameraStreamWithFallback() {
+    let lastError = null;
+
+    for (const videoConstraints of CAMERA_FALLBACK_CONSTRAINTS) {
+        try {
+            return await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: videoConstraints
+            });
+        } catch (error) {
+            lastError = error;
+            sendDiag('start_camera.constraints_retry', {
+                message: error && error.message ? error.message : String(error)
+            });
+        }
+    }
+
+    throw lastError || new Error('Could not start video source');
+}
 async function attachVideoTile(tileKey, stream, trackType, isLocal) {
     const tile = ensureVideoTile(tileKey, trackType, isLocal);
     tile.stream = stream;
     tile.video.srcObject = stream;
 
-    try {
-        await tile.video.play();
-    } catch (_) {
-    }
+    await playMediaElementSafe(tile.video);
 }
 
 function removeVideoTile(tileKey) {
@@ -629,10 +675,7 @@ async function handleCommand(message) {
                 stopStream('cameraStream', 'cameraTrack');
                 removeVideoTile(LOCAL_CAMERA_TILE_KEY);
 
-                state.cameraStream = await navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: CAMERA_VIDEO_CONSTRAINTS
-                });
+                state.cameraStream = await openCameraStreamWithFallback();
 
                 const videoTracks = state.cameraStream.getVideoTracks();
                 if (!videoTracks || videoTracks.length === 0) {
@@ -693,7 +736,7 @@ async function handleCommand(message) {
                 removeVideoTile(LOCAL_SCREEN_TILE_KEY);
 
                 state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: SCREEN_VIDEO_CONSTRAINTS,
+                    video: true,
                     audio: false
                 });
 
@@ -814,10 +857,11 @@ async function handleCommand(message) {
                 cleanupConsumer(payload.consumerId);
                 cleanupConsumerByProducerId(payload.producerId);
 
+
                 const consumer = await state.recvTransport.consume({
                     id: payload.consumerId,
                     producerId: payload.producerId,
-                    kind: payload.kind,
+                    kind: 'audio',
                     rtpParameters: payload.rtpParameters,
                     appData: {
                         producerId: payload.producerId
@@ -838,10 +882,7 @@ async function handleCommand(message) {
 
                 audio.srcObject = stream;
 
-                try {
-                    await audio.play();
-                } catch (_) {
-                }
+                await playMediaElementSafe(audio);
 
                 state.consumers.set(consumer.id, {
                     consumer,
@@ -875,11 +916,20 @@ async function handleCommand(message) {
 
                 cleanupConsumer(payload.consumerId);
                 cleanupConsumerByProducerId(payload.producerId);
+                const rawKind = (payload.kind || '').toString().toLowerCase();
+                const consumeKind =
+                    rawKind === 'video' ||
+                    rawKind === 'camera' ||
+                    rawKind === 'screen' ||
+                    rawKind === 'screen_share' ||
+                    rawKind === 'screenshare'
+                        ? 'video'
+                        : 'audio';
 
                 const consumer = await state.recvTransport.consume({
                     id: payload.consumerId,
                     producerId: payload.producerId,
-                    kind: payload.kind || 'video',
+                    kind: consumeKind,
                     rtpParameters: payload.rtpParameters,
                     appData: {
                         producerId: payload.producerId,

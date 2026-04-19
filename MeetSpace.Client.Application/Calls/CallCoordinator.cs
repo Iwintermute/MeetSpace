@@ -26,6 +26,8 @@ public sealed class CallCoordinator : IDisposable
     private readonly HashSet<string> _consumedProducerIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _consumerIdByProducerId = new(StringComparer.Ordinal);
     private readonly HashSet<string> _consumeInFlightProducerIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _consumeRetryAfterByProducerId = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _consumeFailureCountByProducerId = new(StringComparer.Ordinal);
 
     private CancellationTokenSource? _backgroundLoopCts;
     private CancellationTokenSource? _joinAttemptCts;
@@ -372,6 +374,8 @@ public sealed class CallCoordinator : IDisposable
             _consumedProducerIds.Clear();
             _consumerIdByProducerId.Clear();
             _consumeInFlightProducerIds.Clear();
+            _consumeRetryAfterByProducerId.Clear();
+            _consumeFailureCountByProducerId.Clear();
 
             _callStore.SetStage(
                 CallConnectionStage.JoiningRoom,
@@ -633,6 +637,8 @@ public sealed class CallCoordinator : IDisposable
         _consumedProducerIds.Clear();
         _consumerIdByProducerId.Clear();
         _consumeInFlightProducerIds.Clear();
+        _consumeRetryAfterByProducerId.Clear();
+        _consumeFailureCountByProducerId.Clear();
 
         _callStore.Reset();
     }
@@ -881,6 +887,8 @@ public sealed class CallCoordinator : IDisposable
             {
                 if (string.IsNullOrWhiteSpace(producer.ProducerId))
                     continue;
+                if (producer.Paused)
+                    continue;
 
                 if (!string.IsNullOrWhiteSpace(selfPeerId) &&
                     string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
@@ -895,6 +903,11 @@ public sealed class CallCoordinator : IDisposable
 
                 if (_consumedProducerIds.Contains(producer.ProducerId))
                     continue;
+                if (_consumeRetryAfterByProducerId.TryGetValue(producer.ProducerId, out var retryAfterUtc) &&
+                    retryAfterUtc > DateTimeOffset.UtcNow)
+                {
+                    continue;
+                }
 
                 if (!_consumeInFlightProducerIds.Add(producer.ProducerId))
                     continue;
@@ -910,16 +923,38 @@ public sealed class CallCoordinator : IDisposable
                         cancellationToken).ConfigureAwait(false);
 
                     if (consumeResult.IsFailure)
+                    {
+                        ScheduleConsumeRetry(producer.ProducerId);
                         continue;
+                    }
 
                     var consumerInfo = consumeResult.Value!;
 
                     await _audioEngine.ConsumeRemoteTrackAsync(consumerInfo, cancellationToken).ConfigureAwait(false);
 
+                    var consumerReadyResult = await ConsumerReadyAsync(
+                        _kind,
+                        _sessionId!,
+                        consumerInfo.ConsumerId,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (consumerReadyResult.IsFailure)
+                    {
+                        try
+                        {
+                            await _audioEngine.RemoveRemoteConsumerAsync(consumerInfo.ConsumerId, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                        }
+
+                        ScheduleConsumeRetry(producer.ProducerId);
+                        continue;
+                    }
+
                     _consumedProducerIds.Add(producer.ProducerId);
                     _consumerIdByProducerId[producer.ProducerId] = consumerInfo.ConsumerId;
-
-                    _ = ConsumerReadyAsync(_kind, _sessionId!, consumerInfo.ConsumerId, cancellationToken);
+                    ResetConsumeRetry(producer.ProducerId);
                 }
                 catch (OperationCanceledException)
                 {
@@ -927,6 +962,7 @@ public sealed class CallCoordinator : IDisposable
                 }
                 catch
                 {
+                    ScheduleConsumeRetry(producer.ProducerId);
                 }
                 finally
                 {
@@ -954,12 +990,46 @@ public sealed class CallCoordinator : IDisposable
                 _consumerIdByProducerId.Remove(producerId);
                 _consumedProducerIds.Remove(producerId);
                 _consumeInFlightProducerIds.Remove(producerId);
+                _consumeRetryAfterByProducerId.Remove(producerId);
+                _consumeFailureCountByProducerId.Remove(producerId);
             }
         }
         finally
         {
             _remoteSync.Release();
         }
+    }
+
+    private void ScheduleConsumeRetry(string producerId)
+    {
+        if (string.IsNullOrWhiteSpace(producerId))
+            return;
+
+        var nextFailureCount = 1;
+        if (_consumeFailureCountByProducerId.TryGetValue(producerId, out var currentFailureCount))
+            nextFailureCount = currentFailureCount + 1;
+
+        _consumeFailureCountByProducerId[producerId] = nextFailureCount;
+
+        var delay = nextFailureCount switch
+        {
+            1 => TimeSpan.FromSeconds(3),
+            2 => TimeSpan.FromSeconds(6),
+            3 => TimeSpan.FromSeconds(12),
+            4 => TimeSpan.FromSeconds(20),
+            _ => TimeSpan.FromSeconds(30)
+        };
+
+        _consumeRetryAfterByProducerId[producerId] = DateTimeOffset.UtcNow.Add(delay);
+    }
+
+    private void ResetConsumeRetry(string producerId)
+    {
+        if (string.IsNullOrWhiteSpace(producerId))
+            return;
+
+        _consumeRetryAfterByProducerId.Remove(producerId);
+        _consumeFailureCountByProducerId.Remove(producerId);
     }
 
     private void ApplyParticipantsFromMediaSnapshot(
@@ -1005,6 +1075,7 @@ public sealed class CallCoordinator : IDisposable
         foreach (var producer in producers)
         {
             if (string.IsNullOrWhiteSpace(producer.PeerId) ||
+                producer.Paused ||
                 string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
             {
                 continue;
@@ -1173,8 +1244,12 @@ public sealed class CallCoordinator : IDisposable
             };
         }
 
-        if (string.Equals(mediaKind, "video", StringComparison.OrdinalIgnoreCase))
-            return "camera";
+        if (!string.IsNullOrWhiteSpace(mediaKind))
+        {
+            var normalizedKind = mediaKind.Trim().ToLowerInvariant();
+            if (normalizedKind is "video" or "camera" or "screen" or "screen_share" or "screenshare")
+                return normalizedKind is "screen" or "screen_share" or "screenshare" ? "screen" : "camera";
+        }
 
         return "microphone";
     }

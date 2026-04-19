@@ -192,32 +192,54 @@ internal static class ChatPayloadParser
 
         foreach (var item in arrayRoot.EnumerateArray())
         {
+            var senderUserId = item.GetString(
+                "senderUserId",
+                "sender_user_id");
+
             var senderPeerId = item.GetString(
                 "senderPeerId",
                 "sender_peer_id",
                 "peerId",
                 "peer_id",
-                "sender",
-                "senderUserId",
-                "sender_user_id");
+                "sender");
+            var senderDisplayName = item.GetString(
+                "senderDisplayName",
+                "sender_display_name",
+                "displayName",
+                "display_name",
+                "senderName",
+                "sender_name");
 
-            if (string.IsNullOrWhiteSpace(senderPeerId))
+            var senderEmail = item.GetString(
+                "senderEmail",
+                "sender_email");
+
+            var senderIdentity = isDirect
+                ? (senderUserId ?? senderPeerId)
+                : (senderPeerId ?? senderUserId);
+
+            if (string.IsNullOrWhiteSpace(senderIdentity))
                 continue;
 
             var text = item.GetString("text", "message", "body");
             if (text is null)
                 continue;
 
-            var targetId = item.GetString(
-                "targetPeerId",
-                "target_peer_id",
-                "peerIdTarget",
-                "peer_id_target",
+            var targetUserId = item.GetString(
                 "targetUserId",
                 "target_user_id",
                 "counterpartUserId",
-                "counterpart_user_id")
-                ?? fallbackTargetId;
+                "counterpart_user_id");
+
+            var targetPeerId = item.GetString(
+                "targetPeerId",
+                "target_peer_id",
+                "peerIdTarget",
+                "peer_id_target");
+
+            var targetId = isDirect
+                ? (targetUserId ?? targetPeerId ?? fallbackTargetId)
+                : (targetPeerId ?? targetUserId ?? fallbackTargetId);
 
             var conversationId =
                 item.GetString(
@@ -230,7 +252,11 @@ internal static class ChatPayloadParser
                     "threadId",
                     "thread_id")
                 ?? (isDirect && !string.IsNullOrWhiteSpace(targetId)
-                    ? ConversationKeys.BuildDirectDialogId(selfPeerId, senderPeerId == selfPeerId ? targetId! : senderPeerId)
+                    ? ConversationKeys.BuildDirectDialogId(
+                        selfPeerId,
+                        string.Equals(senderPeerId, selfPeerId, StringComparison.Ordinal)
+                            ? targetId!
+                            : senderIdentity!)
                     : fallbackConversationId);
 
             var messageId = item.GetString("messageId", "message_id", "id");
@@ -247,20 +273,27 @@ internal static class ChatPayloadParser
                 "sentAt",
                 "sent_at");
 
-            var isOwn = string.Equals(senderPeerId, selfPeerId, StringComparison.Ordinal);
+            var isOwn = !string.IsNullOrWhiteSpace(senderPeerId)
+                ? string.Equals(senderPeerId, selfPeerId, StringComparison.Ordinal)
+                : (isDirect && !string.IsNullOrWhiteSpace(targetId)
+                    ? !string.Equals(senderIdentity, targetId, StringComparison.Ordinal)
+                    : string.Equals(senderIdentity, selfPeerId, StringComparison.Ordinal));
 
             result.Add(new ChatMessageItem(
                 localId: messageId ?? clientRequestId ?? Guid.NewGuid().ToString("N"),
                 messageId: messageId,
                 conversationId: conversationId,
-                senderPeerId: senderPeerId,
+                senderPeerId: senderIdentity!,
                 text: text,
                 sentAtUtc: sentAt,
                 isOwn: isOwn,
                 status: isOwn ? ChatDeliveryState.Sent : ChatDeliveryState.Received,
                 clientRequestId: clientRequestId,
                 isDirect: isDirect,
-                targetId: targetId));
+                targetId: targetId,
+                senderUserId: senderUserId,
+                senderDisplayName: senderDisplayName,
+                senderEmail: senderEmail));
         }
 
         return result

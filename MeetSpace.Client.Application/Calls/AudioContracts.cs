@@ -39,4 +39,5 @@ public sealed record RemoteProducerDescriptor(
     string PeerId,
     string ProducerId,
     string Kind,
-    string? TrackType = null);
+    string? TrackType = null,
+    bool Paused = false);

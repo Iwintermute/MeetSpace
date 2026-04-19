@@ -90,9 +90,12 @@ public sealed class ChatInboundRouter : IDisposable
         var selfPeerId = _sessionStore.Current.SelfPeerId;
         if (string.IsNullOrWhiteSpace(selfPeerId))
             return;
-
-        string? senderPeerId = envelope.GetString("senderPeerId") ?? envelope.GetString("senderUserId");
-        string? targetPeerId = envelope.GetString("targetPeerId") ?? envelope.GetString("targetUserId");
+        string? senderUserId = envelope.GetString("senderUserId");
+        string? senderPeerId = envelope.GetString("senderPeerId") ?? senderUserId;
+        string? senderDisplayName = envelope.GetString("senderDisplayName");
+        string? senderEmail = envelope.GetString("senderEmail");
+        string? targetUserId = envelope.GetString("targetUserId");
+        string? targetPeerId = envelope.GetString("targetPeerId") ?? targetUserId;
         string? text = envelope.GetString("text");
         string? messageId = envelope.GetString("messageId");
         string? clientRequestId = envelope.GetString("clientRequestId");
@@ -110,7 +113,17 @@ public sealed class ChatInboundRouter : IDisposable
                 "sender",
                 "senderUserId",
                 "sender_user_id");
+            senderUserId ??= payload.GetString("senderUserId", "sender_user_id");
+            senderDisplayName ??= payload.GetString(
+                "senderDisplayName",
+                "sender_display_name",
+                "displayName",
+                "display_name",
+                "senderName",
+                "sender_name");
+            senderEmail ??= payload.GetString("senderEmail", "sender_email");
 
+            targetUserId ??= payload.GetString("targetUserId", "target_user_id");
             targetPeerId ??= payload.GetString(
                 "targetPeerId",
                 "target_peer_id",
@@ -131,11 +144,13 @@ public sealed class ChatInboundRouter : IDisposable
             sentAtRaw ??= payload.GetString("createdAt", "created_at", "sentAt", "sent_at");
         }
 
-        if (string.IsNullOrWhiteSpace(senderPeerId) || string.IsNullOrWhiteSpace(text))
+        var senderIdentity = senderUserId ?? senderPeerId;
+        if (string.IsNullOrWhiteSpace(senderIdentity) || string.IsNullOrWhiteSpace(text))
             return;
 
-        var isOwn = string.Equals(senderPeerId, selfPeerId, StringComparison.Ordinal);
-        var counterpartId = isOwn ? targetPeerId : senderPeerId;
+        var isOwn = !string.IsNullOrWhiteSpace(senderPeerId) &&
+                    string.Equals(senderPeerId, selfPeerId, StringComparison.Ordinal);
+        var counterpartId = isOwn ? (targetUserId ?? targetPeerId) : senderIdentity;
         if (string.IsNullOrWhiteSpace(counterpartId))
             return;
 
@@ -145,14 +160,17 @@ public sealed class ChatInboundRouter : IDisposable
             localId: messageId ?? clientRequestId ?? Guid.NewGuid().ToString("N"),
             messageId: messageId,
             conversationId: conversationId,
-            senderPeerId: senderPeerId,
+            senderPeerId: senderIdentity,
             text: text,
             sentAtUtc: ResolveTimestamp(sentAtUnixMs, sentAtRaw),
             isOwn: isOwn,
             status: isOwn ? ChatDeliveryState.Sent : ChatDeliveryState.Received,
             clientRequestId: clientRequestId,
             isDirect: true,
-            targetId: counterpartId);
+            targetId: counterpartId,
+            senderUserId: senderUserId,
+            senderDisplayName: senderDisplayName,
+            senderEmail: senderEmail);
 
         _store.UpsertMessage(message);
     }
@@ -164,7 +182,10 @@ public sealed class ChatInboundRouter : IDisposable
             return;
 
         string? conferenceId = envelope.GetString("conferenceId") ?? envelope.GetString("conferencePublicId");
-        string? senderPeerId = envelope.GetString("senderPeerId") ?? envelope.GetString("senderUserId");
+        string? senderUserId = envelope.GetString("senderUserId");
+        string? senderPeerId = envelope.GetString("senderPeerId") ?? senderUserId;
+        string? senderDisplayName = envelope.GetString("senderDisplayName");
+        string? senderEmail = envelope.GetString("senderEmail");
         string? text = envelope.GetString("text");
         string? messageId = envelope.GetString("messageId");
         string? clientRequestId = envelope.GetString("clientRequestId");
@@ -188,6 +209,15 @@ public sealed class ChatInboundRouter : IDisposable
                 "sender",
                 "senderUserId",
                 "sender_user_id");
+            senderUserId ??= payload.GetString("senderUserId", "sender_user_id");
+            senderDisplayName ??= payload.GetString(
+                "senderDisplayName",
+                "sender_display_name",
+                "displayName",
+                "display_name",
+                "senderName",
+                "sender_name");
+            senderEmail ??= payload.GetString("senderEmail", "sender_email");
             text ??= payload.GetString("text", "message", "body");
             messageId ??= payload.GetString("messageId", "message_id", "id");
             clientRequestId ??= payload.GetString("clientRequestId", "client_request_id");
@@ -195,27 +225,32 @@ public sealed class ChatInboundRouter : IDisposable
             sentAtRaw ??= payload.GetString("createdAt", "created_at", "sentAt", "sent_at");
         }
 
+        var senderIdentity = senderPeerId ?? senderUserId;
         if (string.IsNullOrWhiteSpace(conferenceId) ||
-            string.IsNullOrWhiteSpace(senderPeerId) ||
+            string.IsNullOrWhiteSpace(senderIdentity) ||
             text is null)
         {
             return;
         }
 
-        var isOwn = string.Equals(selfPeerId, senderPeerId, StringComparison.Ordinal);
+        var isOwn = !string.IsNullOrWhiteSpace(senderPeerId) &&
+                    string.Equals(selfPeerId, senderPeerId, StringComparison.Ordinal);
 
         var message = new ChatMessageItem(
             localId: messageId ?? clientRequestId ?? Guid.NewGuid().ToString("N"),
             messageId: messageId,
             conversationId: conferenceId,
-            senderPeerId: senderPeerId,
+            senderPeerId: senderIdentity,
             text: text,
             sentAtUtc: ResolveTimestamp(sentAtUnixMs, sentAtRaw),
             isOwn: isOwn,
             status: isOwn ? ChatDeliveryState.Sent : ChatDeliveryState.Received,
             clientRequestId: clientRequestId,
             isDirect: false,
-            targetId: conferenceId);
+            targetId: conferenceId,
+            senderUserId: senderUserId,
+            senderDisplayName: senderDisplayName,
+            senderEmail: senderEmail);
 
         _store.UpsertMessage(message);
     }

@@ -61,6 +61,9 @@ public sealed class ChatMessageItem
     public string? MessageId { get; }
     public string ConversationId { get; }
     public string SenderPeerId { get; }
+    public string? SenderUserId { get; }
+    public string? SenderDisplayName { get; }
+    public string? SenderEmail { get; }
     public string Text { get; }
     public DateTimeOffset SentAtUtc { get; }
     public bool IsOwn { get; }
@@ -83,7 +86,10 @@ public sealed class ChatMessageItem
         ChatDeliveryState status,
         string? clientRequestId = null,
         bool isDirect = false,
-        string? targetId = null)
+        string? targetId = null,
+        string? senderUserId = null,
+        string? senderDisplayName = null,
+        string? senderEmail = null)
     {
         if (string.IsNullOrWhiteSpace(localId))
             throw new ArgumentException("LocalId must not be empty.", nameof(localId));
@@ -101,6 +107,9 @@ public sealed class ChatMessageItem
         MessageId = messageId;
         ConversationId = conversationId;
         SenderPeerId = senderPeerId;
+        SenderUserId = senderUserId;
+        SenderDisplayName = senderDisplayName;
+        SenderEmail = senderEmail;
         Text = text;
         SentAtUtc = sentAtUtc;
         IsOwn = isOwn;

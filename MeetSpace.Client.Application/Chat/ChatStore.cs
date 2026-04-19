@@ -118,7 +118,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                     current.Status,
                     current.ClientRequestId,
                     current.IsDirect,
-                    current.TargetId);
+                    current.TargetId,
+                    current.SenderUserId,
+                    current.SenderDisplayName,
+                    current.SenderEmail);
             }
 
             var dialogs = state.Dialogs
@@ -205,7 +208,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                             current.Status,
                             current.ClientRequestId,
                             current.IsDirect,
-                            current.TargetId);
+                            current.TargetId,
+                            current.SenderUserId,
+                            current.SenderDisplayName,
+                            current.SenderEmail);
                     }
 
                     existingDialogByPeer.ConversationId = newConversationId;
@@ -329,7 +335,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                     ChatDeliveryState.Sent,
                     current.ClientRequestId,
                     current.IsDirect,
-                    current.TargetId);
+                    current.TargetId,
+                    current.SenderUserId,
+                    current.SenderDisplayName,
+                    current.SenderEmail);
             }
 
             if (!string.IsNullOrWhiteSpace(oldConversationId) &&
@@ -353,7 +362,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                         current.Status,
                         current.ClientRequestId,
                         current.IsDirect,
-                        current.TargetId);
+                        current.TargetId,
+                        current.SenderUserId,
+                        current.SenderDisplayName,
+                        current.SenderEmail);
                 }
 
                 var oldDialog = dialogs.FirstOrDefault(x => x.ConversationId == oldConversationId);
@@ -426,7 +438,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                         ChatDeliveryState.Failed,
                         x.ClientRequestId,
                         x.IsDirect,
-                        x.TargetId);
+                        x.TargetId,
+                        x.SenderUserId,
+                        x.SenderDisplayName,
+                        x.SenderEmail);
                 })
                 .ToList();
 
@@ -514,7 +529,10 @@ public sealed class ChatStore : StoreBase<ChatViewState>
             source.Status,
             source.ClientRequestId,
             source.IsDirect,
-            source.TargetId);
+            source.TargetId,
+            source.SenderUserId,
+            source.SenderDisplayName,
+            source.SenderEmail);
 
     private static ChatDialogItem CloneDialog(ChatDialogItem source)
         => new()

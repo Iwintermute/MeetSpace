@@ -153,7 +153,6 @@ public sealed partial class ConferenceRoomPage : Page
 
         var webView = new WebView2
         {
-            IsHitTestVisible = false,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch
         };

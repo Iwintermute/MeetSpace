@@ -660,16 +660,27 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return "Вы";
         }
 
-        if (string.IsNullOrWhiteSpace(item.SenderPeerId))
-        return "Участник";
+        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) && !LooksLikeTechnicalId(item.SenderDisplayName))
+            return item.SenderDisplayName;
+
+        if (!string.IsNullOrWhiteSpace(item.SenderEmail) && item.SenderEmail.Contains("@"))
+            return item.SenderEmail;
 
         var participant = _callStore.Current.Participants.FirstOrDefault(x =>
             string.Equals(x.PeerId, item.SenderPeerId, StringComparison.Ordinal));
 
         if (participant != null)
             return ResolveParticipantLabel(participant.PeerId, participant.UserId);
+        if (!string.IsNullOrWhiteSpace(item.SenderUserId))
+        {
+            participant = _callStore.Current.Participants.FirstOrDefault(x =>
+                string.Equals(x.UserId, item.SenderUserId, StringComparison.Ordinal));
 
-        return ResolveParticipantLabel(item.SenderPeerId, null);
+            if (participant != null)
+                return ResolveParticipantLabel(participant.PeerId, participant.UserId);
+        }
+
+        return ResolveParticipantLabel(item.SenderPeerId, item.SenderUserId);
     }
 
     private void RaiseNavigateToLogin()
