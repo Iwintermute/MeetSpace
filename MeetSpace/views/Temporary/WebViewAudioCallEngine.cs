@@ -11,7 +11,8 @@ namespace MeetSpace.Temporary
     public sealed class WebViewAudioCallEngine : IAudioCallEngine
     {
         private static readonly TimeSpan HostReadyTimeout = TimeSpan.FromSeconds(10);
-        private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan ConsumeVideoCommandTimeout = TimeSpan.FromSeconds(45);
 
         private readonly SemaphoreSlim _attachSync = new SemaphoreSlim(1, 1);
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
@@ -298,7 +299,11 @@ namespace MeetSpace.Temporary
             Dictionary<string, object?> payload,
             CancellationToken cancellationToken)
         {
-            _ = await SendRequestAsync(command, payload, cancellationToken).ConfigureAwait(false);
+            var timeoutOverride = string.Equals(command, "consume_video", StringComparison.Ordinal)
+                ? ConsumeVideoCommandTimeout
+                : (TimeSpan?)null;
+
+            _ = await SendRequestAsync(command, payload, cancellationToken, timeoutOverride).ConfigureAwait(false);
         }
 
         private void Host_MessageReceived(object? sender, string raw)
@@ -471,7 +476,8 @@ namespace MeetSpace.Temporary
         private async Task<JsonElement> SendRequestAsync(
             string command,
             Dictionary<string, object?> payload,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            TimeSpan? timeoutOverride = null)
         {
             var host = _host;
             if (host == null)
@@ -493,7 +499,7 @@ namespace MeetSpace.Temporary
                 }
             }))
             {
-                timeoutCts.CancelAfter(CommandTimeout);
+                timeoutCts.CancelAfter(timeoutOverride ?? CommandTimeout);
 
                 try
                 {

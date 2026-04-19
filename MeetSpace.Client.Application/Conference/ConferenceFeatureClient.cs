@@ -214,6 +214,8 @@ public sealed class ConferenceFeatureClient : IConferenceFeatureClient
                     var sessionId = item.GetString("sessionId", "session_id") ?? peerId ?? userId!;
                     var role = item.GetString("role") ?? string.Empty;
                     var membershipStatus = item.GetString("membershipStatus", "membership_status");
+                    var displayName = item.GetString("displayName", "display_name", "name");
+                    var email = item.GetString("email");
                     var isOwner = (item.GetBoolean("isOwner", "is_owner") ?? false) ||
                                   string.Equals(role, "owner", StringComparison.OrdinalIgnoreCase) ||
                                   (!string.IsNullOrWhiteSpace(ownerUserId) && string.Equals(userId, ownerUserId, StringComparison.Ordinal));
@@ -229,7 +231,9 @@ public sealed class ConferenceFeatureClient : IConferenceFeatureClient
                         role,
                         membershipStatus,
                         ParseDateTimeOffset(item.GetString("joinedAt", "joined_at")),
-                        ParseDateTimeOffset(item.GetString("leftAt", "left_at"))));
+                        ParseDateTimeOffset(item.GetString("leftAt", "left_at")),
+                        displayName,
+                        email));
                 }
             }
 

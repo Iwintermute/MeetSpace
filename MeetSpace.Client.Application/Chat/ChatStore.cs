@@ -232,7 +232,7 @@ public sealed class ChatStore : StoreBase<ChatViewState>
             if (message.IsDirect)
             {
                 var otherPeerId = message.IsOwn ? message.TargetId : message.SenderPeerId;
-                var title = string.IsNullOrWhiteSpace(otherPeerId) ? message.ConversationId : otherPeerId;
+                var title = ResolveDirectDialogTitle(otherPeerId, dialog?.Title);
                 var subtitle = "Личный чат";
 
                 if (dialog == null)
@@ -458,6 +458,48 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                 LastError = null
             };
         });
+    }
+
+    private static string ResolveDirectDialogTitle(string? peerId, string? existingTitle)
+    {
+        if (!string.IsNullOrWhiteSpace(existingTitle) && !LooksLikeTechnicalId(existingTitle!))
+            return existingTitle!;
+
+        if (string.IsNullOrWhiteSpace(peerId))
+            return "Пользователь";
+
+        if (peerId.Contains("@"))
+            return peerId;
+
+        if (LooksLikeTechnicalId(peerId))
+            return "Пользователь";
+
+        return peerId;
+    }
+
+    private static bool LooksLikeTechnicalId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var normalized = value.Trim();
+        if (normalized.Contains("@"))
+            return false;
+
+        if (normalized.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (normalized.Length >= 24)
+            return true;
+
+        if (normalized.Contains('-') && normalized.Length >= 16)
+            return true;
+
+        var digits = normalized.Count(char.IsDigit);
+        return digits >= normalized.Length / 2 && normalized.Length >= 10;
     }
 
     private static ChatMessageItem CloneMessage(ChatMessageItem source)

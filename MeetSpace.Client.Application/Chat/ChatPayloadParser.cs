@@ -97,13 +97,7 @@ internal static class ChatPayloadParser
                     "dialog_id")
                 ?? ConversationKeys.BuildDirectDialogId(selfPeerId, peerId);
 
-            var title = item.GetString(
-                "title",
-                "displayName",
-                "display_name",
-                "counterpartDisplayName",
-                "counterpart_display_name")
-                ?? peerId;
+            var title = ResolveDirectDialogTitle(item, peerId);
 
             var subtitle = item.GetString("subtitle") ?? "Личный чат";
             var preview = item.GetString(
@@ -273,6 +267,52 @@ internal static class ChatPayloadParser
             .OrderBy(x => x.SentAtUtc)
             .ThenBy(x => x.LocalId, StringComparer.Ordinal)
             .ToList();
+    }
+
+    private static string ResolveDirectDialogTitle(JsonElement item, string peerId)
+    {
+        var title = item.GetString(
+            "title",
+            "displayName",
+            "display_name",
+            "counterpartDisplayName",
+            "counterpart_display_name",
+            "counterpartEmail",
+            "counterpart_email",
+            "email");
+
+        if (!string.IsNullOrWhiteSpace(title))
+            return title!;
+
+        if (LooksLikeTechnicalId(peerId))
+            return "Пользователь";
+
+        return peerId;
+    }
+
+    private static bool LooksLikeTechnicalId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var normalized = value.Trim();
+        if (normalized.Contains("@"))
+            return false;
+
+        if (normalized.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (normalized.Length >= 24)
+            return true;
+
+        if (normalized.Contains('-') && normalized.Length >= 16)
+            return true;
+
+        var digits = normalized.Count(char.IsDigit);
+        return digits >= normalized.Length / 2 && normalized.Length >= 10;
     }
 
     private static DateTimeOffset ParseTimestamp(

@@ -21,6 +21,7 @@ public sealed partial class ChatPage : Page
     private UwpWebViewAudioBridgeHost? _audioBridgeHost;
     private WebView2? _mediaHostView;
     private bool _audioBridgeReady;
+    private bool _isSynchronizingDialogsSelection;
 
     public ChatPageViewModel ViewModel { get; }
 
@@ -111,24 +112,35 @@ public sealed partial class ChatPage : Page
 
     private void SyncSelectedDialogInList()
     {
-        var selectedDialog = ViewModel.SelectedDialog;
-        if (selectedDialog == null)
-        {
-            DialogsList.SelectedItem = null;
+        if (_isSynchronizingDialogsSelection)
             return;
-        }
 
-        var selected = ViewModel.FilteredDialogs.FirstOrDefault(x =>
-            string.Equals(x.ConversationId, selectedDialog.ConversationId, StringComparison.Ordinal));
-
-        if (selected == null && !string.IsNullOrWhiteSpace(selectedDialog.PeerId))
+        _isSynchronizingDialogsSelection = true;
+        var selectedDialog = ViewModel.SelectedDialog;
+        try
         {
-            selected = ViewModel.FilteredDialogs.FirstOrDefault(x =>
-                string.Equals(x.PeerId, selectedDialog.PeerId, StringComparison.Ordinal));
-        }
+            if (selectedDialog == null)
+            {
+                DialogsList.SelectedItem = null;
+                return;
+            }
 
-        if (!ReferenceEquals(DialogsList.SelectedItem, selected))
-            DialogsList.SelectedItem = selected;
+            var selected = ViewModel.FilteredDialogs.FirstOrDefault(x =>
+                string.Equals(x.ConversationId, selectedDialog.ConversationId, StringComparison.Ordinal));
+
+            if (selected == null && !string.IsNullOrWhiteSpace(selectedDialog.PeerId))
+            {
+                selected = ViewModel.FilteredDialogs.FirstOrDefault(x =>
+                    string.Equals(x.PeerId, selectedDialog.PeerId, StringComparison.Ordinal));
+            }
+
+            if (!ReferenceEquals(DialogsList.SelectedItem, selected))
+                DialogsList.SelectedItem = selected;
+        }
+        finally
+        {
+            _isSynchronizingDialogsSelection = false;
+        }
     }
 
     private async Task EnsureAudioBridgeReadyAsync(CancellationToken cancellationToken)
@@ -174,6 +186,8 @@ public sealed partial class ChatPage : Page
 
     private async void DialogsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isSynchronizingDialogsSelection)
+            return;
         await ViewModel.SelectDialogAsync(DialogsList.SelectedItem as ChatDialogItem);
         SyncSelectedDialogInList();
     }

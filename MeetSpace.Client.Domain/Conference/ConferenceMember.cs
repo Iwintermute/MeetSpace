@@ -8,4 +8,6 @@ public sealed record ConferenceMember(
     string? Role = null,
     string? MembershipStatus = null,
     DateTimeOffset? JoinedAtUtc = null,
-    DateTimeOffset? LeftAtUtc = null);
+    DateTimeOffset? LeftAtUtc = null,
+    string? DisplayName = null,
+    string? Email = null);

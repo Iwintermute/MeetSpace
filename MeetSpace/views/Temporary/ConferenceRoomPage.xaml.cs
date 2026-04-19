@@ -55,6 +55,9 @@ public sealed partial class ConferenceRoomPage : Page
         try
         {
             await ViewModel.ActivateAsync(_conferenceId, Dispatcher, _pageLifetimeCts.Token);
+            var token = _pageLifetimeCts?.Token ?? CancellationToken.None;
+            await EnsureAudioBridgeReadyAsync(token);
+            await ViewModel.EnsureConferenceAudioStartedAsync(token);
         }
         catch (OperationCanceledException)
         {

@@ -20,10 +20,12 @@ public sealed class CallCoordinator : IDisposable
     private readonly SessionStore _sessionStore;
 
     private readonly SemaphoreSlim _sync = new(1, 1);
+    private readonly SemaphoreSlim _remoteSync = new(1, 1);
     private readonly HashSet<string> _localProducerIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _localProducerByTrackType = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _consumedProducerIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _consumerIdByProducerId = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _consumeInFlightProducerIds = new(StringComparer.Ordinal);
 
     private CancellationTokenSource? _backgroundLoopCts;
     private CancellationTokenSource? _joinAttemptCts;
@@ -168,14 +170,20 @@ public sealed class CallCoordinator : IDisposable
             var nextState = !_callStore.Current.LocalMedia.CameraEnabled;
             if (nextState)
             {
-                if (_localProducerByTrackType.ContainsKey("camera"))
+                if (_localProducerByTrackType.TryGetValue("camera", out var existingProducerId))
                 {
-                    if (!string.IsNullOrWhiteSpace(_sessionId) &&
-                        _localProducerByTrackType.TryGetValue("camera", out var existingProducerId))
+                    if (!string.IsNullOrWhiteSpace(_sessionId))
                     {
                         var resumeResult = await ResumeTrackAsync(_kind, _sessionId!, existingProducerId, cancellationToken).ConfigureAwait(false);
-                        if (resumeResult.IsFailure)
+                        if (resumeResult.IsFailure && !IsProducerMissingError(resumeResult.Error))
                             return Result.Failure(resumeResult.Error!);
+
+                        if (resumeResult.IsFailure)
+                        {
+                            _localProducerByTrackType.Remove("camera");
+                            _localProducerIds.Remove(existingProducerId);
+                            return await StartTrackAsync(CallMediaTrackType.Video, cancellationToken).ConfigureAwait(false);
+                        }
                     }
                     await _audioEngine.SetCameraEnabledAsync(true, cancellationToken).ConfigureAwait(false);
                     _callStore.SetCameraEnabled(true);
@@ -219,14 +227,20 @@ public sealed class CallCoordinator : IDisposable
             var nextState = !_callStore.Current.LocalMedia.ScreenShareEnabled;
             if (nextState)
             {
-                if (_localProducerByTrackType.ContainsKey("screen"))
+                if (_localProducerByTrackType.TryGetValue("screen", out var existingProducerId))
                 {
-                    if (!string.IsNullOrWhiteSpace(_sessionId) &&
-                        _localProducerByTrackType.TryGetValue("screen", out var existingProducerId))
+                    if (!string.IsNullOrWhiteSpace(_sessionId))
                     {
                         var resumeResult = await ResumeTrackAsync(_kind, _sessionId!, existingProducerId, cancellationToken).ConfigureAwait(false);
-                        if (resumeResult.IsFailure)
+                        if (resumeResult.IsFailure && !IsProducerMissingError(resumeResult.Error))
                             return Result.Failure(resumeResult.Error!);
+
+                        if (resumeResult.IsFailure)
+                        {
+                            _localProducerByTrackType.Remove("screen");
+                            _localProducerIds.Remove(existingProducerId);
+                            return await StartTrackAsync(CallMediaTrackType.ScreenShare, cancellationToken).ConfigureAwait(false);
+                        }
                     }
                     await _audioEngine.SetScreenShareEnabledAsync(true, cancellationToken).ConfigureAwait(false);
                     _callStore.SetScreenShareEnabled(true);
@@ -357,6 +371,7 @@ public sealed class CallCoordinator : IDisposable
             _localProducerByTrackType.Clear();
             _consumedProducerIds.Clear();
             _consumerIdByProducerId.Clear();
+            _consumeInFlightProducerIds.Clear();
 
             _callStore.SetStage(
                 CallConnectionStage.JoiningRoom,
@@ -617,6 +632,7 @@ public sealed class CallCoordinator : IDisposable
         _localProducerByTrackType.Clear();
         _consumedProducerIds.Clear();
         _consumerIdByProducerId.Clear();
+        _consumeInFlightProducerIds.Clear();
 
         _callStore.Reset();
     }
@@ -796,7 +812,13 @@ public sealed class CallCoordinator : IDisposable
             return;
 
         ApplyParticipantsFromConference(active);
-        await SyncRemoteConsumersAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            await SyncRemoteConsumersAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
     }
 
     private void ApplyParticipantsFromConference(ConferenceDetails details)
@@ -810,7 +832,7 @@ public sealed class CallCoordinator : IDisposable
             .Select(member =>
             {
                 if (existing.TryGetValue(member.PeerId, out var current))
-                    return current with { UserId = member.UserId ?? current.UserId };
+                    return current with { UserId = ResolveMemberUserLabel(member, current.UserId) };
 
                 return new RemoteParticipantState(
                     member.PeerId,
@@ -818,7 +840,7 @@ public sealed class CallCoordinator : IDisposable
                     HasVideo: false,
                     HasScreenShare: false,
                     IsSpeaking: false,
-                    UserId: member.UserId);
+                    UserId: ResolveMemberUserLabel(member, null));
             })
             .OrderBy(x => x.PeerId, StringComparer.Ordinal)
             .ToList();
@@ -838,77 +860,105 @@ public sealed class CallCoordinator : IDisposable
             return;
         }
 
-        var statsResult = await GetMediaStatsAsync(_kind, _sessionId!, cancellationToken).ConfigureAwait(false);
-        if (statsResult.IsFailure)
+        if (!await _remoteSync.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             return;
 
-        var snapshot = statsResult.Value!;
-        var producers = snapshot.Producers ?? Array.Empty<RemoteProducerDescriptor>();
-        var selfPeerId = _sessionStore.Current.SelfPeerId;
-
-        ApplyParticipantsFromMediaSnapshot(snapshot, producers);
-
-        var activeRemoteProducerIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var producer in producers)
+        try
         {
-            if (string.IsNullOrWhiteSpace(producer.ProducerId))
-                continue;
+            var statsResult = await GetMediaStatsAsync(_kind, _sessionId!, cancellationToken).ConfigureAwait(false);
+            if (statsResult.IsFailure)
+                return;
 
-            if (!string.IsNullOrWhiteSpace(selfPeerId) &&
-                string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
+            var snapshot = statsResult.Value!;
+            var producers = snapshot.Producers ?? Array.Empty<RemoteProducerDescriptor>();
+            var selfPeerId = _sessionStore.Current.SelfPeerId;
+
+            ApplyParticipantsFromMediaSnapshot(snapshot, producers);
+
+            var activeRemoteProducerIds = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var producer in producers)
             {
-                continue;
-            }
+                if (string.IsNullOrWhiteSpace(producer.ProducerId))
+                    continue;
 
-            if (_localProducerIds.Contains(producer.ProducerId))
-                continue;
+                if (!string.IsNullOrWhiteSpace(selfPeerId) &&
+                    string.Equals(producer.PeerId, selfPeerId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
 
-            activeRemoteProducerIds.Add(producer.ProducerId);
+                if (_localProducerIds.Contains(producer.ProducerId))
+                    continue;
 
-            if (_consumedProducerIds.Contains(producer.ProducerId))
-                continue;
+                activeRemoteProducerIds.Add(producer.ProducerId);
 
-            var consumeResult = await ConsumeTrackAsync(
-                _kind,
-                _sessionId!,
-                _recvTransportId!,
-                producer.ProducerId,
-                _audioEngine.RecvRtpCapabilitiesJson!,
-                cancellationToken).ConfigureAwait(false);
+                if (_consumedProducerIds.Contains(producer.ProducerId))
+                    continue;
 
-            if (consumeResult.IsFailure)
-                continue;
+                if (!_consumeInFlightProducerIds.Add(producer.ProducerId))
+                    continue;
 
-            var consumerInfo = consumeResult.Value!;
-
-            await _audioEngine.ConsumeRemoteTrackAsync(consumerInfo, cancellationToken).ConfigureAwait(false);
-
-            _consumedProducerIds.Add(producer.ProducerId);
-            _consumerIdByProducerId[producer.ProducerId] = consumerInfo.ConsumerId;
-
-            _ = ConsumerReadyAsync(_kind, _sessionId!, consumerInfo.ConsumerId, cancellationToken);
-        }
-
-        var staleProducers = _consumerIdByProducerId.Keys
-            .Where(id => !activeRemoteProducerIds.Contains(id))
-            .ToList();
-
-        foreach (var producerId in staleProducers)
-        {
-            if (_consumerIdByProducerId.TryGetValue(producerId, out var consumerId))
-            {
                 try
                 {
-                    await _audioEngine.RemoveRemoteConsumerAsync(consumerId, cancellationToken).ConfigureAwait(false);
+                    var consumeResult = await ConsumeTrackAsync(
+                        _kind,
+                        _sessionId!,
+                        _recvTransportId!,
+                        producer.ProducerId,
+                        _audioEngine.RecvRtpCapabilitiesJson!,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (consumeResult.IsFailure)
+                        continue;
+
+                    var consumerInfo = consumeResult.Value!;
+
+                    await _audioEngine.ConsumeRemoteTrackAsync(consumerInfo, cancellationToken).ConfigureAwait(false);
+
+                    _consumedProducerIds.Add(producer.ProducerId);
+                    _consumerIdByProducerId[producer.ProducerId] = consumerInfo.ConsumerId;
+
+                    _ = ConsumerReadyAsync(_kind, _sessionId!, consumerInfo.ConsumerId, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch
                 {
                 }
+                finally
+                {
+                    _consumeInFlightProducerIds.Remove(producer.ProducerId);
+                }
             }
 
-            _consumerIdByProducerId.Remove(producerId);
-            _consumedProducerIds.Remove(producerId);
+            var staleProducers = _consumerIdByProducerId.Keys
+                .Where(id => !activeRemoteProducerIds.Contains(id))
+                .ToList();
+
+            foreach (var producerId in staleProducers)
+            {
+                if (_consumerIdByProducerId.TryGetValue(producerId, out var consumerId))
+                {
+                    try
+                    {
+                        await _audioEngine.RemoveRemoteConsumerAsync(consumerId, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                _consumerIdByProducerId.Remove(producerId);
+                _consumedProducerIds.Remove(producerId);
+                _consumeInFlightProducerIds.Remove(producerId);
+            }
+        }
+        finally
+        {
+            _remoteSync.Release();
         }
     }
 
@@ -929,7 +979,7 @@ public sealed class CallCoordinator : IDisposable
                 .GroupBy(x => x.PeerId, StringComparer.Ordinal)
                 .ToDictionary(
                     x => x.Key,
-                    x => x.Select(member => member.UserId).FirstOrDefault(static user => !string.IsNullOrWhiteSpace(user)),
+                    x => x.Select(member => ResolveMemberUserLabel(member, null)).FirstOrDefault(static user => !string.IsNullOrWhiteSpace(user)),
                     StringComparer.Ordinal);
         }
 
@@ -1129,6 +1179,36 @@ public sealed class CallCoordinator : IDisposable
         return "microphone";
     }
 
+    private static bool IsProducerMissingError(Error? error)
+    {
+        if (error == null)
+            return false;
+        return ContainsIgnoreCase(error.Code, "producer_not_found") ||
+               ContainsIgnoreCase(error.Code, "not_found") ||
+               ContainsIgnoreCase(error.Message, "producer not found") ||
+               ContainsIgnoreCase(error.Message, "not found");
+    }
+
+    private static bool ContainsIgnoreCase(string? value, string fragment)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string? ResolveMemberUserLabel(ConferenceMember member, string? fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(member.DisplayName))
+            return member.DisplayName;
+
+        if (!string.IsNullOrWhiteSpace(member.Email))
+            return member.Email;
+
+        if (!string.IsNullOrWhiteSpace(member.UserId))
+            return member.UserId;
+
+        return fallback;
+    }
+
     public void Dispose()
     {
         _backgroundLoopCts?.Cancel();
@@ -1138,5 +1218,6 @@ public sealed class CallCoordinator : IDisposable
         _audioEngine.TransportConnectRequired -= AudioEngine_TransportConnectRequired;
         _audioEngine.TransportProduceRequired -= AudioEngine_TransportProduceRequired;
         _sync.Dispose();
+        _remoteSync.Dispose();
     }
 }

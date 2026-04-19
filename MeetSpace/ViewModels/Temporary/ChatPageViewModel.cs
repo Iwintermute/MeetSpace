@@ -35,6 +35,7 @@ public sealed class ChatPageViewModel : ObservableObject
     private readonly ClientRuntimeOptions _options;
 
     private readonly Dictionary<string, ChatDialogItem> _dialogMap = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _knownUserLabels = new(StringComparer.Ordinal);
 
     private CoreDispatcher? _dispatcher;
     private bool _isActive;
@@ -375,7 +376,10 @@ public sealed class ChatPageViewModel : ObservableObject
             }
 
             foreach (var user in result.Value!)
+            {
+                RememberUserLabel(user.UserId, user.DisplayName, user.Email);
                 UserSearchResults.Add(user);
+            }
 
             UserSearchStatusText = UserSearchResults.Count == 0
                 ? "Ничего не найдено."
@@ -387,6 +391,7 @@ public sealed class ChatPageViewModel : ObservableObject
     {
         if (item == null || string.IsNullOrWhiteSpace(item.UserId))
             return;
+        RememberUserLabel(item.UserId, item.DisplayName, item.Email);
 
         await OpenDirectDialogAsync(item.UserId).ConfigureAwait(false);
     }
@@ -415,11 +420,20 @@ public sealed class ChatPageViewModel : ObservableObject
 
         await RunOnUiThreadAsync(() =>
         {
-            var provisional = CreateProvisionalDialog(peerId);
-            _dialogMap[provisional.ConversationId] = provisional;
+            var existing = _dialogMap.Values.FirstOrDefault(x =>
+                string.Equals(x.PeerId, peerId, StringComparison.Ordinal));
 
-            SetSelectedDialog(provisional);
-            RebuildDialogCollections();
+            if (existing != null)
+            {
+                SetSelectedDialog(existing);
+            }
+            else
+            {
+                var provisional = CreateProvisionalDialog(peerId);
+                _dialogMap[provisional.ConversationId] = provisional;
+                SetSelectedDialog(provisional);
+                RebuildDialogCollections();
+            }
             UpdateSelectedDialogPresentation();
             RebuildMessages(_chatStore.Current);
             UpdateCallActionAvailability();
@@ -757,11 +771,12 @@ public sealed class ChatPageViewModel : ObservableObject
 
             await RunOnUiThreadAsync(() =>
             {
+                var callerTitle = ResolveUserLabel(callerUserId, callerUserId);
                 _incomingCallId = callId;
                 _incomingCallerUserId = callerUserId;
                 IncomingCallText = string.IsNullOrWhiteSpace(callerUserId)
                     ? "Входящий звонок"
-                    : "Входящий звонок от " + callerUserId;
+                    : "Входящий звонок от " + callerTitle;
                 IncomingCallVisibility = Visibility.Visible;
             }).ConfigureAwait(false);
 
@@ -820,7 +835,11 @@ public sealed class ChatPageViewModel : ObservableObject
 
         _dialogMap.Clear();
         foreach (var dialog in directDialogs)
+        {
+            dialog.Title = ResolveUserLabel(dialog.PeerId, dialog.Title);
             _dialogMap[dialog.ConversationId] = dialog;
+            RememberUserLabel(dialog.PeerId, dialog.Title, null);
+        }
 
         if (SelectedDialog != null)
         {
@@ -886,8 +905,10 @@ public sealed class ChatPageViewModel : ObservableObject
         CallParticipants.Clear();
         foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
         {
+            var participantTitle = ResolveUserLabel(participant.PeerId, participant.UserId);
+            RememberUserLabel(participant.PeerId, participant.UserId, null);
             CallParticipants.Add(new DirectCallParticipantViewItem(
-                string.IsNullOrWhiteSpace(participant.UserId) ? participant.PeerId : participant.UserId!,
+                participantTitle,
                 participant.HasAudio,
                 participant.HasVideo,
                 participant.HasScreenShare));
@@ -1018,13 +1039,78 @@ public sealed class ChatPageViewModel : ObservableObject
             ConversationId = conversationId,
             Kind = ChatDialogKind.Direct,
             PeerId = peerId,
-            Title = peerId,
+            Title = ResolveUserLabel(peerId, null),
             Subtitle = "Личный чат",
             LastMessagePreview = string.Empty,
             LastActivityUtc = DateTimeOffset.MinValue,
             UnreadCount = 0,
             IsPinned = false
         };
+    }
+
+    private void RememberUserLabel(string? userId, string? displayName, string? email)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return;
+
+        var normalized = ResolveUserLabel(userId, displayName, email);
+        if (!string.IsNullOrWhiteSpace(normalized))
+            _knownUserLabels[userId] = normalized;
+    }
+
+    private string ResolveUserLabel(string? userId, string? preferredLabel, string? fallbackEmail = null)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredLabel) && !LooksLikeTechnicalId(preferredLabel!))
+            return preferredLabel!;
+
+        if (!string.IsNullOrWhiteSpace(fallbackEmail) && fallbackEmail!.Contains("@"))
+            return fallbackEmail!;
+
+        if (!string.IsNullOrWhiteSpace(userId) &&
+            _knownUserLabels.TryGetValue(userId, out var known) &&
+            !string.IsNullOrWhiteSpace(known))
+        {
+            return known;
+        }
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            if (userId.Contains("@"))
+                return userId;
+
+            if (!LooksLikeTechnicalId(userId))
+                return userId;
+        }
+
+        return "Пользователь";
+    }
+
+    private static bool LooksLikeTechnicalId(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return true;
+
+        var value = raw.Trim();
+        if (value.Contains("@"))
+            return false;
+
+        if (value.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (value.Contains('-') && value.Length >= 16)
+            return true;
+
+        var digits = value.Count(char.IsDigit);
+        if (digits >= value.Length / 2 && value.Length >= 10)
+            return true;
+
+        if (value.Length >= 24)
+            return true;
+
+        return false;
     }
 
     private void ApplyError(string? error)

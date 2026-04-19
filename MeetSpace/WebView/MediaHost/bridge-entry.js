@@ -298,6 +298,26 @@ function cleanupConsumer(consumerId) {
     state.videoTileKeysByConsumer.delete(consumerId);
 }
 
+function cleanupConsumerByProducerId(producerId) {
+    if (!producerId) {
+        return;
+    }
+
+    for (const [consumerId, item] of state.consumers.entries()) {
+        const currentProducerId =
+            item &&
+            item.consumer &&
+            item.consumer.appData &&
+            item.consumer.appData.producerId
+                ? item.consumer.appData.producerId
+                : null;
+
+        if (currentProducerId === producerId) {
+            cleanupConsumer(consumerId);
+        }
+    }
+}
+
 function stopProducer(name) {
     const producer = state[name];
     if (producer) {
@@ -546,7 +566,11 @@ async function handleCommand(message) {
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
-                        autoGainControl: true
+                        autoGainControl: false,
+                        channelCount: { ideal: 1, max: 1 },
+                        sampleRate: { ideal: 48000 },
+                        sampleSize: { ideal: 16 },
+                        latency: { ideal: 0.01 }
                     },
                     video: false
                 });
@@ -557,6 +581,12 @@ async function handleCommand(message) {
                 }
 
                 state.micTrack = audioTracks[0];
+                state.micTrack.contentHint = 'speech';
+                await applyTrackConstraintsSafe(state.micTrack, {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: false
+                });
 
                 const producer = await state.sendTransport.produce({
                     track: state.micTrack,
@@ -781,6 +811,9 @@ async function handleCommand(message) {
                     throw new Error('receive transport is not initialized');
                 }
 
+                cleanupConsumer(payload.consumerId);
+                cleanupConsumerByProducerId(payload.producerId);
+
                 const consumer = await state.recvTransport.consume({
                     id: payload.consumerId,
                     producerId: payload.producerId,
@@ -839,6 +872,9 @@ async function handleCommand(message) {
                 if (!state.recvTransport) {
                     throw new Error('receive transport is not initialized');
                 }
+
+                cleanupConsumer(payload.consumerId);
+                cleanupConsumerByProducerId(payload.producerId);
 
                 const consumer = await state.recvTransport.consume({
                     id: payload.consumerId,
