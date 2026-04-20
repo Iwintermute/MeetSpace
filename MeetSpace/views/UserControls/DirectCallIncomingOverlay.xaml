@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
     mc:Ignorable="d">
     <Border
         Padding="12,10"
@@ -32,30 +31,21 @@
                 <Button
                     Click="AcceptAudioButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_Phone" />
+                        <SymbolIcon Symbol="Phone" />
                         <TextBlock Text="Аудио" />
                     </StackPanel>
                 </Button>
                 <Button
                     Click="AcceptVideoButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_Video" />
+                        <SymbolIcon Symbol="Video" />
                         <TextBlock Text="Видео" />
                     </StackPanel>
                 </Button>
                 <Button
                     Click="DeclineButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_PhoneSlash" />
+                        <SymbolIcon Symbol="Cancel" />
                         <TextBlock Text="Отклонить" />
                     </StackPanel>
                 </Button>

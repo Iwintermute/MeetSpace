@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
     xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="#05070B">
@@ -29,10 +28,7 @@
                 <Button
                     Click="BackButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_ArrowLeft" />
+                        <SymbolIcon Symbol="Back" />
                         <TextBlock Text="Назад" />
                     </StackPanel>
                 </Button>
@@ -130,10 +126,7 @@
                     IsEnabled="{x:Bind ViewModel.IsMicrophoneButtonEnabled, Mode=OneWay}"
                     Click="MicrophoneButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_Microphone" />
+                        <SymbolIcon Symbol="Microphone" />
                         <TextBlock Text="{x:Bind ViewModel.MicrophoneButtonContent, Mode=OneWay}" />
                     </StackPanel>
                 </Button>
@@ -141,10 +134,7 @@
                     IsEnabled="{x:Bind ViewModel.IsCameraButtonEnabled, Mode=OneWay}"
                     Click="CameraButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_Video" />
+                        <SymbolIcon Symbol="Video" />
                         <TextBlock Text="{x:Bind ViewModel.CameraButtonContent, Mode=OneWay}" />
                     </StackPanel>
                 </Button>
@@ -160,10 +150,7 @@
                     IsEnabled="{x:Bind ViewModel.IsEndCallEnabled, Mode=OneWay}"
                     Click="EndCallButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <fa:FontAwesome
-                            Width="14"
-                            Height="14"
-                            Icon="Solid_PhoneSlash" />
+                        <SymbolIcon Symbol="Cancel" />
                         <TextBlock Text="Завершить звонок" />
                     </StackPanel>
                 </Button>

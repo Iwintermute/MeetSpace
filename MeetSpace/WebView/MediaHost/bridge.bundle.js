@@ -1669,17 +1669,16 @@
         validateNumSctpStreams(caps.numStreams);
       }
       function getExtendedRtpCapabilities(localCaps, remoteCaps, preferLocalCodecsOrder) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _i;
         const extendedRtpCapabilities = {
           codecs: [],
           headerExtensions: []
         };
         if (preferLocalCodecsOrder) {
-          for (const localCodec of (_a = localCaps.codecs) != null ? _a : []) {
+          for (const localCodec of localCaps.codecs ?? []) {
             if (isRtxCodec(localCodec)) {
               continue;
             }
-            const matchingRemoteCodec = ((_b = remoteCaps.codecs) != null ? _b : []).find((remoteCodec) => matchCodecs(remoteCodec, localCodec, { strict: true, modify: true }));
+            const matchingRemoteCodec = (remoteCaps.codecs ?? []).find((remoteCodec) => matchCodecs(remoteCodec, localCodec, { strict: true, modify: true }));
             if (!matchingRemoteCodec) {
               continue;
             }
@@ -1692,18 +1691,18 @@
               localRtxPayloadType: void 0,
               remotePayloadType: matchingRemoteCodec.preferredPayloadType,
               remoteRtxPayloadType: void 0,
-              localParameters: (_c = localCodec.parameters) != null ? _c : {},
-              remoteParameters: (_d = matchingRemoteCodec.parameters) != null ? _d : {},
+              localParameters: localCodec.parameters ?? {},
+              remoteParameters: matchingRemoteCodec.parameters ?? {},
               rtcpFeedback: reduceRtcpFeedback(localCodec, matchingRemoteCodec)
             };
             extendedRtpCapabilities.codecs.push(extendedCodec);
           }
         } else {
-          for (const remoteCodec of (_e = remoteCaps.codecs) != null ? _e : []) {
+          for (const remoteCodec of remoteCaps.codecs ?? []) {
             if (isRtxCodec(remoteCodec)) {
               continue;
             }
-            const matchingLocalCodec = ((_f = localCaps.codecs) != null ? _f : []).find((localCodec) => matchCodecs(localCodec, remoteCodec, { strict: true, modify: true }));
+            const matchingLocalCodec = (localCaps.codecs ?? []).find((localCodec) => matchCodecs(localCodec, remoteCodec, { strict: true, modify: true }));
             if (!matchingLocalCodec) {
               continue;
             }
@@ -1716,22 +1715,16 @@
               localRtxPayloadType: void 0,
               remotePayloadType: remoteCodec.preferredPayloadType,
               remoteRtxPayloadType: void 0,
-              localParameters: (_g = matchingLocalCodec.parameters) != null ? _g : {},
-              remoteParameters: (_h = remoteCodec.parameters) != null ? _h : {},
+              localParameters: matchingLocalCodec.parameters ?? {},
+              remoteParameters: remoteCodec.parameters ?? {},
               rtcpFeedback: reduceRtcpFeedback(matchingLocalCodec, remoteCodec)
             };
             extendedRtpCapabilities.codecs.push(extendedCodec);
           }
         }
         for (const extendedCodec of extendedRtpCapabilities.codecs) {
-          const matchingLocalRtxCodec = localCaps.codecs.find((localCodec) => {
-            var _a2;
-            return isRtxCodec(localCodec) && ((_a2 = localCodec.parameters) == null ? void 0 : _a2["apt"]) === extendedCodec.localPayloadType;
-          });
-          const matchingRemoteRtxCodec = remoteCaps.codecs.find((remoteCodec) => {
-            var _a2;
-            return isRtxCodec(remoteCodec) && ((_a2 = remoteCodec.parameters) == null ? void 0 : _a2["apt"]) === extendedCodec.remotePayloadType;
-          });
+          const matchingLocalRtxCodec = localCaps.codecs.find((localCodec) => isRtxCodec(localCodec) && localCodec.parameters?.["apt"] === extendedCodec.localPayloadType);
+          const matchingRemoteRtxCodec = remoteCaps.codecs.find((remoteCodec) => isRtxCodec(remoteCodec) && remoteCodec.parameters?.["apt"] === extendedCodec.remotePayloadType);
           if (matchingLocalRtxCodec && matchingRemoteRtxCodec) {
             extendedCodec.localRtxPayloadType = matchingLocalRtxCodec.preferredPayloadType;
             extendedCodec.remoteRtxPayloadType = matchingRemoteRtxCodec.preferredPayloadType;
@@ -1747,7 +1740,7 @@
             uri: remoteExt.uri,
             sendId: matchingLocalExt.preferredId,
             recvId: remoteExt.preferredId,
-            encrypt: (_i = matchingLocalExt.preferredEncrypt) != null ? _i : false,
+            encrypt: matchingLocalExt.preferredEncrypt ?? false,
             direction: "sendrecv"
           };
           switch (remoteExt.direction) {
@@ -1827,7 +1820,6 @@
         return rtpParameters;
       }
       function getSendingRemoteRtpParameters(kind, extendedRtpCapabilities) {
-        var _a, _b, _c;
         const rtpParameters = {
           mid: void 0,
           codecs: [],
@@ -1875,15 +1867,15 @@
         }
         if (rtpParameters.headerExtensions.some((ext) => ext.uri === "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01")) {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_a = codec.rtcpFeedback) != null ? _a : []).filter((fb) => fb.type !== "goog-remb");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "goog-remb");
           }
         } else if (rtpParameters.headerExtensions.some((ext) => ext.uri === "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time")) {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_b = codec.rtcpFeedback) != null ? _b : []).filter((fb) => fb.type !== "transport-cc");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "transport-cc");
           }
         } else {
           for (const codec of rtpParameters.codecs) {
-            codec.rtcpFeedback = ((_c = codec.rtcpFeedback) != null ? _c : []).filter((fb) => fb.type !== "transport-cc" && fb.type !== "goog-remb");
+            codec.rtcpFeedback = (codec.rtcpFeedback ?? []).filter((fb) => fb.type !== "transport-cc" && fb.type !== "goog-remb");
           }
         }
         return rtpParameters;
@@ -1927,17 +1919,15 @@
         return rtpParameters;
       }
       function canSend(kind, rtpCapabilities) {
-        var _a;
-        return ((_a = rtpCapabilities.codecs) != null ? _a : []).some((codec) => codec.kind === kind);
+        return (rtpCapabilities.codecs ?? []).some((codec) => codec.kind === kind);
       }
       function canReceive(rtpParameters, rtpCapabilities) {
-        var _a;
         validateAndNormalizeRtpParameters(rtpParameters);
         if (rtpParameters.codecs.length === 0) {
           return false;
         }
         const firstMediaCodec = rtpParameters.codecs[0];
-        return ((_a = rtpCapabilities.codecs) != null ? _a : []).some((codec) => codec.preferredPayloadType === firstMediaCodec.payloadType);
+        return (rtpCapabilities.codecs ?? []).some((codec) => codec.preferredPayloadType === firstMediaCodec.payloadType);
       }
       function validateAndNormalizeRtpCodecCapability(codec) {
         const MimeTypeRegex = new RegExp("^(audio|video)/(.+)", "i");
@@ -2152,7 +2142,6 @@
         }
       }
       function getRtpCapabilities({ direction, extendedRtpCapabilities }) {
-        var _a;
         const rtpCapabilities = {
           codecs: [],
           headerExtensions: []
@@ -2191,7 +2180,7 @@
             kind: extendedExtension.kind,
             uri: extendedExtension.uri,
             preferredId: extendedExtension.recvId,
-            preferredEncrypt: (_a = extendedExtension.encrypt) != null ? _a : false,
+            preferredEncrypt: extendedExtension.encrypt ?? false,
             direction: extendedExtension.direction
           };
           rtpCapabilities.headerExtensions.push(ext);
@@ -2205,7 +2194,6 @@
         return /.+\/rtx$/i.test(codec.mimeType);
       }
       function matchCodecs(aCodec, bCodec, { strict = false, modify = false } = {}) {
-        var _a, _b, _c, _d;
         const aMimeType = aCodec.mimeType.toLowerCase();
         const bMimeType = bCodec.mimeType.toLowerCase();
         if (aMimeType !== bMimeType) {
@@ -2220,8 +2208,8 @@
         switch (aMimeType) {
           case "video/h264": {
             if (strict) {
-              const aPacketizationMode = (_a = aCodec.parameters["packetization-mode"]) != null ? _a : 0;
-              const bPacketizationMode = (_b = bCodec.parameters["packetization-mode"]) != null ? _b : 0;
+              const aPacketizationMode = aCodec.parameters["packetization-mode"] ?? 0;
+              const bPacketizationMode = bCodec.parameters["packetization-mode"] ?? 0;
               if (aPacketizationMode !== bPacketizationMode) {
                 return false;
               }
@@ -2248,8 +2236,8 @@
           }
           case "video/vp9": {
             if (strict) {
-              const aProfileId = (_c = aCodec.parameters["profile-id"]) != null ? _c : 0;
-              const bProfileId = (_d = bCodec.parameters["profile-id"]) != null ? _d : 0;
+              const aProfileId = aCodec.parameters["profile-id"] ?? 0;
+              const bProfileId = bCodec.parameters["profile-id"] ?? 0;
               if (aProfileId !== bProfileId) {
                 return false;
               }
@@ -2269,10 +2257,9 @@
         return true;
       }
       function reduceRtcpFeedback(codecA, codecB) {
-        var _a, _b;
         const reducedRtcpFeedback = [];
-        for (const aFb of (_a = codecA.rtcpFeedback) != null ? _a : []) {
-          const matchingBFb = ((_b = codecB.rtcpFeedback) != null ? _b : []).find((bFb) => bFb.type === aFb.type && (bFb.parameter === aFb.parameter || !bFb.parameter && !aFb.parameter));
+        for (const aFb of codecA.rtcpFeedback ?? []) {
+          const matchingBFb = (codecB.rtcpFeedback ?? []).find((bFb) => bFb.type === aFb.type && (bFb.parameter === aFb.parameter || !bFb.parameter && !aFb.parameter));
           if (matchingBFb) {
             reducedRtcpFeedback.push(matchingBFb);
           }
@@ -2330,7 +2317,7 @@
       exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = void 0;
       var AwaitQueueStoppedError = class _AwaitQueueStoppedError extends Error {
         constructor(message) {
-          super(message != null ? message : "queue stopped");
+          super(message ?? "queue stopped");
           this.name = "AwaitQueueStoppedError";
           if (typeof Error.captureStackTrace === "function") {
             Error.captureStackTrace(this, _AwaitQueueStoppedError);
@@ -2340,7 +2327,7 @@
       exports.AwaitQueueStoppedError = AwaitQueueStoppedError;
       var AwaitQueueRemovedTaskError = class _AwaitQueueRemovedTaskError extends Error {
         constructor(message) {
-          super(message != null ? message : "queue task removed");
+          super(message ?? "queue task removed");
           this.name = "AwaitQueueRemovedTaskError";
           if (typeof Error.captureStackTrace === "function") {
             Error.captureStackTrace(this, _AwaitQueueRemovedTaskError);
@@ -2372,7 +2359,7 @@
           return this.pendingTasks.size;
         }
         async push(task, name, options) {
-          name = name != null ? name : task.name;
+          name = name ?? task.name;
           logger.debug(`push() [name:${name}, options:%o]`, options);
           if (typeof task !== "function") {
             throw new TypeError("given task is not a function");
@@ -2384,7 +2371,7 @@
             }
           }
           return new Promise((resolve, reject) => {
-            if (name && (options == null ? void 0 : options.removeOngoingTasksWithSameName)) {
+            if (name && options?.removeOngoingTasksWithSameName) {
               for (const pendingTask2 of this.pendingTasks.values()) {
                 if (pendingTask2.name === name) {
                   pendingTask2.reject(new errors_1.AwaitQueueRemovedTaskError(), {
@@ -2557,7 +2544,7 @@
           this._stopTracks = stopTracks;
           this._disableTrackOnPause = disableTrackOnPause;
           this._zeroRtpOnPause = zeroRtpOnPause;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.onTrackEnded = this.onTrackEnded.bind(this);
           this.handleTrack();
         }
@@ -2726,7 +2713,7 @@
               }
             }
             throw new errors_1.InvalidStateError("closed");
-          } else if ((track == null ? void 0 : track.readyState) === "ended") {
+          } else if (track?.readyState === "ended") {
             throw new errors_1.InvalidStateError("track ended");
           }
           if (track === this._track) {
@@ -2846,7 +2833,7 @@
           this._track = track;
           this._rtpParameters = rtpParameters;
           this._paused = !track.enabled;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.onTrackEnded = this.onTrackEnded.bind(this);
           this.handleTrack();
         }
@@ -3043,7 +3030,7 @@
           this._id = id;
           this._dataChannel = dataChannel;
           this._sctpStreamParameters = sctpStreamParameters;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleDataChannel();
         }
         /**
@@ -3165,13 +3152,12 @@
             this.safeEmit("open");
           });
           this._dataChannel.addEventListener("error", (event) => {
-            var _a, _b, _c;
             if (this._closed) {
               return;
             }
-            const error = (_a = event.error) != null ? _a : new Error("unknown DataChannel error");
-            if (((_b = event.error) == null ? void 0 : _b.errorDetail) === "sctp-failure") {
-              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", (_c = event.error) == null ? void 0 : _c.sctpCauseCode, event.error.message);
+            const error = event.error ?? new Error("unknown DataChannel error");
+            if (event.error?.errorDetail === "sctp-failure") {
+              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", event.error?.sctpCauseCode, event.error.message);
             } else {
               logger.error('DataChannel "error" event: %o', error);
             }
@@ -3236,7 +3222,7 @@
           this._dataProducerId = dataProducerId;
           this._dataChannel = dataChannel;
           this._sctpStreamParameters = sctpStreamParameters;
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleDataChannel();
         }
         /**
@@ -3345,13 +3331,12 @@
             this.safeEmit("open");
           });
           this._dataChannel.addEventListener("error", (event) => {
-            var _a, _b, _c;
             if (this._closed) {
               return;
             }
-            const error = (_a = event.error) != null ? _a : new Error("unknown DataChannel error");
-            if (((_b = event.error) == null ? void 0 : _b.errorDetail) === "sctp-failure") {
-              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", (_c = event.error) == null ? void 0 : _c.sctpCauseCode, event.error.message);
+            const error = event.error ?? new Error("unknown DataChannel error");
+            if (event.error?.errorDetail === "sctp-failure") {
+              logger.error("DataChannel SCTP error [sctpCauseCode:%s]: %s", event.error?.sctpCauseCode, event.error.message);
             } else {
               logger.error('DataChannel "error" event: %o', error);
             }
@@ -3411,7 +3396,6 @@
       };
       var Transport = class extends enhancedEvents_1.EnhancedEventEmitter {
         constructor({ direction, id, iceParameters, iceCandidates, dtlsParameters, sctpParameters, iceServers, iceTransportPolicy, additionalSettings, appData, handlerFactory, getSendExtendedRtpCapabilities, recvRtpCapabilities, canProduceByKind }) {
-          var _a;
           super();
           // Id.
           __publicField(this, "_id");
@@ -3474,7 +3458,7 @@
           this._recvRtpCapabilities = recvRtpCapabilities;
           this._canProduceByKind = canProduceByKind;
           this._maxSctpMessageSize = sctpParameters ? sctpParameters.maxMessageSize : null;
-          const clonedAdditionalSettings = (_a = utils.clone(additionalSettings)) != null ? _a : {};
+          const clonedAdditionalSettings = utils.clone(additionalSettings) ?? {};
           delete clonedAdditionalSettings.iceServers;
           delete clonedAdditionalSettings.iceTransportPolicy;
           delete clonedAdditionalSettings.bundlePolicy;
@@ -3490,7 +3474,7 @@
             additionalSettings: clonedAdditionalSettings,
             getSendExtendedRtpCapabilities: this._getSendExtendedRtpCapabilities
           });
-          this._appData = appData != null ? appData : {};
+          this._appData = appData ?? {};
           this.handleHandler();
         }
         /**
@@ -3637,7 +3621,7 @@
             let normalizedEncodings;
             if (encodings && !Array.isArray(encodings)) {
               throw TypeError("encodings must be an array");
-            } else if ((encodings == null ? void 0 : encodings.length) === 0) {
+            } else if (encodings?.length === 0) {
               normalizedEncodings = void 0;
             } else if (encodings) {
               normalizedEncodings = encodings.map((encoding) => {
@@ -4836,7 +4820,7 @@
       exports.parse = parse;
       var ScalabilityModeRegex = new RegExp("^[LS]([1-9]\\d{0,1})T([1-9]\\d{0,1})");
       function parse(scalabilityMode) {
-        const match = ScalabilityModeRegex.exec(scalabilityMode != null ? scalabilityMode : "");
+        const match = ScalabilityModeRegex.exec(scalabilityMode ?? "");
         if (match) {
           return {
             spatialLayers: Number(match[1]),
@@ -4864,7 +4848,6 @@
         constructor({ iceParameters, iceCandidates, dtlsParameters }) {
           // SDP media object.
           __publicField(this, "_mediaObject");
-          var _a;
           this._mediaObject = {
             type: "",
             port: 0,
@@ -4886,7 +4869,7 @@
                 component: 1,
                 // Be ready for new candidate.address field in mediasoup server side
                 // field and keep backward compatibility with deprecated candidate.ip.
-                ip: (_a = candidate.address) != null ? _a : candidate.ip,
+                ip: candidate.address ?? candidate.ip,
                 port: candidate.port,
                 priority: candidate.priority,
                 transport: candidate.protocol,
@@ -4946,7 +4929,6 @@
       exports.MediaSection = MediaSection;
       var AnswerMediaSection = class extends MediaSection {
         constructor({ iceParameters, iceCandidates, dtlsParameters, sctpParameters, plainRtpParameters, offerMediaObject, offerRtpParameters, answerRtpParameters, codecOptions }) {
-          var _a, _b, _c, _d, _e;
           super({ iceParameters, iceCandidates, dtlsParameters });
           this._mediaObject.mid = String(offerMediaObject.mid);
           this._mediaObject.type = offerMediaObject.type;
@@ -4978,8 +4960,8 @@
                   rtp.encoding = codec.channels;
                 }
                 this._mediaObject.rtp.push(rtp);
-                const codecParameters = (_a = utils.clone(codec.parameters)) != null ? _a : {};
-                let codecRtcpFeedback = (_b = utils.clone(codec.rtcpFeedback)) != null ? _b : [];
+                const codecParameters = utils.clone(codec.parameters) ?? {};
+                let codecRtcpFeedback = utils.clone(codec.rtcpFeedback) ?? [];
                 if (codecOptions) {
                   const { opusStereo, opusFec, opusDtx, opusMaxPlaybackRate, opusMaxAverageBitrate, opusPtime, opusNack, videoGoogleStartBitrate, videoGoogleMaxBitrate, videoGoogleMinBitrate } = codecOptions;
                   const offerCodec = offerRtpParameters.codecs.find((c) => c.payloadType === codec.payloadType);
@@ -5056,7 +5038,7 @@
               this._mediaObject.payloads = answerRtpParameters.codecs.map((codec) => codec.payloadType).join(" ");
               this._mediaObject.ext = [];
               for (const ext of answerRtpParameters.headerExtensions) {
-                const found = ((_c = offerMediaObject.ext) != null ? _c : []).some((localExt) => localExt.uri === ext.uri);
+                const found = (offerMediaObject.ext ?? []).some((localExt) => localExt.uri === ext.uri);
                 if (!found) {
                   continue;
                 }
@@ -5074,7 +5056,7 @@
                   list1: offerMediaObject.simulcast.list1
                 };
                 this._mediaObject.rids = [];
-                for (const rid of (_d = offerMediaObject.rids) != null ? _d : []) {
+                for (const rid of offerMediaObject.rids ?? []) {
                   if (rid.direction !== "send") {
                     continue;
                   }
@@ -5088,7 +5070,7 @@
                   value: offerMediaObject.simulcast_03.value.replace(/send/g, "recv")
                 };
                 this._mediaObject.rids = [];
-                for (const rid of (_e = offerMediaObject.rids) != null ? _e : []) {
+                for (const rid of offerMediaObject.rids ?? []) {
                   if (rid.direction !== "send") {
                     continue;
                   }
@@ -5139,8 +5121,7 @@
           this._mediaObject.direction = "recvonly";
         }
         muxSimulcastStreams(encodings) {
-          var _a, _b;
-          if (!((_a = this._mediaObject.simulcast) == null ? void 0 : _a.list1)) {
+          if (!this._mediaObject.simulcast?.list1) {
             return;
           }
           const layers = {};
@@ -5153,7 +5134,7 @@
           const simulcastStreams = sdpTransform.parseSimulcastStreamList(raw);
           for (const simulcastStream of simulcastStreams) {
             for (const simulcastFormat of simulcastStream) {
-              simulcastFormat.paused = !((_b = layers[simulcastFormat.scid]) == null ? void 0 : _b.active);
+              simulcastFormat.paused = !layers[simulcastFormat.scid]?.active;
             }
           }
           this._mediaObject.simulcast.list1 = simulcastStreams.map((simulcastFormats) => simulcastFormats.map((f) => `${f.paused ? "~" : ""}${f.scid}`).join(",")).join(";");
@@ -5162,7 +5143,6 @@
       exports.AnswerMediaSection = AnswerMediaSection;
       var OfferMediaSection = class extends MediaSection {
         constructor({ iceParameters, iceCandidates, dtlsParameters, sctpParameters, plainRtpParameters, mid, kind, offerRtpParameters, streamId, trackId }) {
-          var _a, _b;
           super({ iceParameters, iceCandidates, dtlsParameters });
           this._mediaObject.mid = String(mid);
           this._mediaObject.type = kind;
@@ -5205,7 +5185,7 @@
                   payload: codec.payloadType,
                   config: ""
                 };
-                for (const key of Object.keys((_a = codec.parameters) != null ? _a : {})) {
+                for (const key of Object.keys(codec.parameters ?? {})) {
                   if (fmtp.config) {
                     fmtp.config += ";";
                   }
@@ -5234,7 +5214,7 @@
               this._mediaObject.rtcpRsize = "rtcp-rsize";
               const encoding = offerRtpParameters.encodings[0];
               const ssrc = encoding.ssrc;
-              const rtxSsrc = (_b = encoding.rtx) == null ? void 0 : _b.ssrc;
+              const rtxSsrc = encoding.rtx?.ssrc;
               this._mediaObject.ssrcs = [];
               this._mediaObject.ssrcGroups = [];
               if (ssrc && offerRtpParameters.rtcp.cname) {
@@ -5341,7 +5321,7 @@
             media: []
           };
           this._sdpObject.iceOptions = "ice2";
-          if (iceParameters == null ? void 0 : iceParameters.iceLite) {
+          if (iceParameters?.iceLite) {
             this._sdpObject.icelite = "ice-lite";
           }
           if (dtlsParameters) {
@@ -5390,7 +5370,6 @@
           return { idx: this._mediaSections.length };
         }
         send({ offerMediaObject, reuseMid, offerRtpParameters, answerRtpParameters, codecOptions }) {
-          var _a;
           const mediaSection = new MediaSection_1.AnswerMediaSection({
             iceParameters: this._iceParameters,
             iceCandidates: this._iceCandidates,
@@ -5404,7 +5383,7 @@
           const mediaObject = mediaSection.getObject();
           const ddCodec = mediaObject.rtp.find((rtp) => DependencyDescriptorCodecs.includes(rtp.codec.toLowerCase()));
           if (!ddCodec) {
-            mediaObject.ext = (_a = mediaObject.ext) == null ? void 0 : _a.filter((extmap) => extmap.uri !== "https://aomediacodec.github.io/av1-rtp-spec/#dependency-descriptor-rtp-header-extension");
+            mediaObject.ext = mediaObject.ext?.filter((extmap) => extmap.uri !== "https://aomediacodec.github.io/av1-rtp-spec/#dependency-descriptor-rtp-header-extension");
           }
           if (reuseMid) {
             this.replaceMediaSection(mediaSection, reuseMid);
@@ -5560,7 +5539,6 @@
       exports.addHeaderExtension = addHeaderExtension;
       var sdpTransform = require_lib3();
       function extractRtpCapabilities({ sdpObject }) {
-        var _a, _b, _c;
         const codecsMap = /* @__PURE__ */ new Map();
         const headerExtensionMap = /* @__PURE__ */ new Map();
         for (const m of sdpObject.media) {
@@ -5586,18 +5564,18 @@
             };
             codecsMap.set(codec.preferredPayloadType, codec);
           }
-          for (const fmtp of (_a = m.fmtp) != null ? _a : []) {
+          for (const fmtp of m.fmtp ?? []) {
             const parameters = sdpTransform.parseParams(fmtp.config);
             const codec = codecsMap.get(fmtp.payload);
             if (!codec) {
               continue;
             }
-            if (parameters == null ? void 0 : parameters.hasOwnProperty("profile-level-id")) {
+            if (parameters?.hasOwnProperty("profile-level-id")) {
               parameters["profile-level-id"] = String(parameters["profile-level-id"]);
             }
             codec.parameters = parameters;
           }
-          for (const fb of (_b = m.rtcpFb) != null ? _b : []) {
+          for (const fb of m.rtcpFb ?? []) {
             const feedback = {
               type: fb.type,
               parameter: fb.subtype
@@ -5619,7 +5597,7 @@
               }
             }
           }
-          for (const ext of (_c = m.ext) != null ? _c : []) {
+          for (const ext of m.ext ?? []) {
             if (ext["encrypt-uri"]) {
               continue;
             }
@@ -5638,14 +5616,13 @@
         return rtpCapabilities;
       }
       function extractDtlsParameters({ sdpObject }) {
-        var _a;
         let setup = sdpObject.setup;
         let fingerprint = sdpObject.fingerprint;
         if (!setup || !fingerprint) {
-          const mediaObject = ((_a = sdpObject.media) != null ? _a : []).find((m) => m.port !== 0);
+          const mediaObject = (sdpObject.media ?? []).find((m) => m.port !== 0);
           if (mediaObject) {
-            setup = setup != null ? setup : mediaObject.setup;
-            fingerprint = fingerprint != null ? fingerprint : mediaObject.fingerprint;
+            setup = setup ?? mediaObject.setup;
+            fingerprint = fingerprint ?? mediaObject.fingerprint;
           }
         }
         if (!setup) {
@@ -5680,25 +5657,23 @@
         return dtlsParameters;
       }
       function getCname({ offerMediaObject }) {
-        var _a;
-        const ssrcCnameLine = ((_a = offerMediaObject.ssrcs) != null ? _a : []).find((line) => line.attribute === "cname");
+        const ssrcCnameLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "cname");
         if (!ssrcCnameLine) {
           return "";
         }
         return ssrcCnameLine.value;
       }
       function applyCodecParameters({ offerRtpParameters, answerMediaObject }) {
-        var _a, _b, _c;
         for (const codec of offerRtpParameters.codecs) {
           const mimeType = codec.mimeType.toLowerCase();
           if (mimeType !== "audio/opus") {
             continue;
           }
-          const rtp = ((_a = answerMediaObject.rtp) != null ? _a : []).find((r) => r.payload === codec.payloadType);
+          const rtp = (answerMediaObject.rtp ?? []).find((r) => r.payload === codec.payloadType);
           if (!rtp) {
             continue;
           }
-          answerMediaObject.fmtp = (_b = answerMediaObject.fmtp) != null ? _b : [];
+          answerMediaObject.fmtp = answerMediaObject.fmtp ?? [];
           let fmtp = answerMediaObject.fmtp.find((f) => f.payload === codec.payloadType);
           if (!fmtp) {
             fmtp = { payload: codec.payloadType, config: "" };
@@ -5707,7 +5682,7 @@
           const parameters = sdpTransform.parseParams(fmtp.config);
           switch (mimeType) {
             case "audio/opus": {
-              const spropStereo = (_c = codec.parameters) == null ? void 0 : _c["sprop-stereo"];
+              const spropStereo = codec.parameters?.["sprop-stereo"];
               if (spropStereo !== void 0) {
                 parameters["stereo"] = Number(spropStereo) ? 1 : 0;
               }
@@ -5743,9 +5718,8 @@
       exports.getRtpEncodings = getRtpEncodings;
       exports.addLegacySimulcast = addLegacySimulcast;
       function getRtpEncodings({ offerMediaObject, codecs }) {
-        var _a, _b;
         const ssrcs = /* @__PURE__ */ new Set();
-        for (const line of (_a = offerMediaObject.ssrcs) != null ? _a : []) {
+        for (const line of offerMediaObject.ssrcs ?? []) {
           const ssrc = line.id;
           if (ssrc) {
             ssrcs.add(ssrc);
@@ -5755,7 +5729,7 @@
           throw new Error("no a=ssrc lines found");
         }
         const ssrcToRtxSsrc = /* @__PURE__ */ new Map();
-        for (const line of (_b = offerMediaObject.ssrcGroups) != null ? _b : []) {
+        for (const line of offerMediaObject.ssrcGroups ?? []) {
           if (line.semantics !== "FID") {
             continue;
           }
@@ -5782,18 +5756,17 @@
         return encodings;
       }
       function addLegacySimulcast({ offerMediaObject, numStreams }) {
-        var _a, _b, _c;
         if (numStreams <= 1) {
           throw new TypeError("numStreams must be greater than 1");
         }
-        const ssrcMsidLine = ((_a = offerMediaObject.ssrcs) != null ? _a : []).find((line) => line.attribute === "msid");
+        const ssrcMsidLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "msid");
         if (!ssrcMsidLine) {
           throw new Error("a=ssrc line with msid information not found");
         }
         const [streamId, trackId] = ssrcMsidLine.value.split(" ");
         const firstSsrc = Number(ssrcMsidLine.id);
         let firstRtxSsrc;
-        ((_b = offerMediaObject.ssrcGroups) != null ? _b : []).some((line) => {
+        (offerMediaObject.ssrcGroups ?? []).some((line) => {
           if (line.semantics !== "FID") {
             return false;
           }
@@ -5805,7 +5778,7 @@
             return false;
           }
         });
-        const ssrcCnameLine = ((_c = offerMediaObject.ssrcs) != null ? _c : []).find((line) => line.attribute === "cname");
+        const ssrcCnameLine = (offerMediaObject.ssrcs ?? []).find((line) => line.attribute === "cname");
         if (!ssrcCnameLine) {
           throw new Error("a=ssrc line with cname information not found");
         }
@@ -5867,9 +5840,8 @@
       exports.addHeaderExtensionSupport = addHeaderExtensionSupport;
       exports.getMsidStreamIdAndTrackId = getMsidStreamIdAndTrackId;
       function addNackSupportForOpus(rtpCapabilities) {
-        var _a, _b;
-        for (const codec of (_a = rtpCapabilities.codecs) != null ? _a : []) {
-          if ((codec.mimeType.toLowerCase() === "audio/opus" || codec.mimeType.toLowerCase() === "audio/multiopus") && !((_b = codec.rtcpFeedback) == null ? void 0 : _b.some((fb) => fb.type === "nack" && !fb.parameter))) {
+        for (const codec of rtpCapabilities.codecs ?? []) {
+          if ((codec.mimeType.toLowerCase() === "audio/opus" || codec.mimeType.toLowerCase() === "audio/multiopus") && !codec.rtcpFeedback?.some((fb) => fb.type === "nack" && !fb.parameter)) {
             if (!codec.rtcpFeedback) {
               codec.rtcpFeedback = [];
             }
@@ -5878,9 +5850,8 @@
         }
       }
       function addHeaderExtensionSupport(rtpCapabilities, headerExtension) {
-        var _a;
         let preferredId;
-        const existingHeaderExtension = (_a = rtpCapabilities.headerExtensions) == null ? void 0 : _a.find((exten) => exten.uri === headerExtension.uri);
+        const existingHeaderExtension = rtpCapabilities.headerExtensions?.find((exten) => exten.uri === headerExtension.uri);
         if (existingHeaderExtension) {
           if (existingHeaderExtension.kind === headerExtension.kind) {
             return;
@@ -6012,8 +5983,8 @@
             this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
           }
           this._pc = new RTCPeerConnection({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
             ...additionalSettings
@@ -6059,7 +6030,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -6146,7 +6117,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -6191,11 +6161,11 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             const offerMediaObject2 = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject: offerMediaObject2,
@@ -6216,7 +6186,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -6398,7 +6368,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -6418,7 +6387,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -6442,7 +6411,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -6450,14 +6418,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -6495,7 +6463,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -6598,7 +6566,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -6624,7 +6591,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -6760,8 +6727,8 @@
             this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
           }
           this._pc = new RTCPeerConnection({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
             ...additionalSettings
@@ -6804,7 +6771,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -6891,7 +6858,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -6925,14 +6891,14 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
           let hackVp9Svc = false;
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           let offerMediaObject;
-          if ((encodings == null ? void 0 : encodings.length) === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
+          if (encodings?.length === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
             logger.debug("send() | enabling legacy simulcast for VP9 SVC");
             hackVp9Svc = true;
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -6947,7 +6913,7 @@
             };
           }
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -6967,7 +6933,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -7161,7 +7127,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -7181,7 +7146,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -7205,7 +7170,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -7213,14 +7177,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -7247,7 +7211,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -7350,7 +7314,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -7376,7 +7339,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -7506,8 +7469,8 @@
           });
           this._getSendExtendedRtpCapabilities = getSendExtendedRtpCapabilities;
           this._pc = new RTCPeerConnection({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
             ...additionalSettings
@@ -7576,7 +7539,7 @@
                 } catch (error2) {
                 }
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -7687,7 +7650,7 @@
           if (!this._transportReady) {
             await this.setupTransport({ localDtlsRole: "client", localSdpObject });
           }
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
           await this._pc.setLocalDescription(offer);
           const localId = transceiver.mid;
@@ -7697,7 +7660,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -7921,7 +7884,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -7929,14 +7891,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -8230,8 +8192,8 @@
             this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
           }
           this._pc = new RTCPeerConnection({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
             ...additionalSettings
@@ -8280,7 +8242,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -8367,7 +8329,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -8399,11 +8360,11 @@
           let offerMediaObject;
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           if (encodings && encodings.length > 1) {
             logger.debug("send() | enabling legacy simulcast");
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -8417,7 +8378,7 @@
               sdp: sdpTransform.write(localSdpObject)
             };
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -8438,7 +8399,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
             offerMediaObject,
             codecs: sendingRtpParameters.codecs
@@ -8625,7 +8586,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -8645,7 +8605,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -8669,7 +8629,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -8677,14 +8636,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -8722,7 +8681,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -8824,7 +8783,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -8850,7 +8808,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -8986,8 +8944,8 @@
             this._forcedLocalDtlsRole = dtlsParameters.role === "server" ? "client" : "server";
           }
           this._pc = new RTCPeerConnection({
-            iceServers: iceServers != null ? iceServers : [],
-            iceTransportPolicy: iceTransportPolicy != null ? iceTransportPolicy : "all",
+            iceServers: iceServers ?? [],
+            iceTransportPolicy: iceTransportPolicy ?? "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
             ...additionalSettings
@@ -9030,7 +8988,7 @@
                 return nativeRtpCapabilities;
               } catch (error) {
                 try {
-                  pc == null ? void 0 : pc.close();
+                  pc?.close();
                 } catch (error2) {
                 }
                 pc = void 0;
@@ -9121,7 +9079,6 @@
           return this._pc.getStats();
         }
         async send({ track, streamId, encodings, codecOptions, headerExtensionOptions, codec, onRtpSender }) {
-          var _a, _b;
           this.assertNotClosed();
           this.assertSendDirection();
           logger.debug("send() [kind:%s, track.id:%s, streamId:%s]", track.kind, track.id, streamId);
@@ -9158,14 +9115,14 @@
           sendingRemoteRtpParameters.codecs = ortc.reduceCodecs(sendingRemoteRtpParameters.codecs, codec);
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
           let hackVp9Svc = false;
-          const layers = (0, scalabilityModes_1.parse)((encodings != null ? encodings : [{}])[0].scalabilityMode);
+          const layers = (0, scalabilityModes_1.parse)((encodings ?? [{}])[0].scalabilityMode);
           let offerMediaObject;
-          if ((encodings == null ? void 0 : encodings.length) === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
+          if (encodings?.length === 1 && layers.spatialLayers > 1 && sendingRtpParameters.codecs[0].mimeType.toLowerCase() === "video/vp9") {
             logger.debug("send() | enabling legacy simulcast for VP9 SVC");
             hackVp9Svc = true;
             localSdpObject = sdpTransform.parse(offer.sdp);
@@ -9179,7 +9136,7 @@
               sdp: sdpTransform.write(localSdpObject)
             };
           }
-          if (headerExtensionOptions == null ? void 0 : headerExtensionOptions.absCaptureTime) {
+          if (headerExtensionOptions?.absCaptureTime) {
             offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
             sdpCommonUtils.addHeaderExtension({
               offerMediaObject,
@@ -9193,7 +9150,7 @@
           }
           logger.debug("send() | calling pc.setLocalDescription() [offer:%o]", offer);
           await this._pc.setLocalDescription(offer);
-          let localId = (_b = transceiver.mid) != null ? _b : void 0;
+          let localId = transceiver.mid ?? void 0;
           if (!localId) {
             logger.warn("send() | missing transceiver.mid (bug in react-native-webrtc, using a workaround");
           }
@@ -9203,7 +9160,7 @@
           sendingRtpParameters.rtcp.cname = sdpCommonUtils.getCname({
             offerMediaObject
           });
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._sendStream.id} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._sendStream.id} ${track.id}`;
           if (!encodings) {
             sendingRtpParameters.encodings = sdpUnifiedPlanUtils.getRtpEncodings({
               offerMediaObject,
@@ -9401,7 +9358,6 @@
           return transceiver.sender.getStats();
         }
         async sendDataChannel({ ordered, maxPacketLifeTime, maxRetransmits, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertSendDirection();
           const options = {
@@ -9421,7 +9377,7 @@
             const offerMediaObject = localSdpObject.media.find((m) => m.type === "application");
             if (!this._transportReady) {
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -9445,7 +9401,6 @@
           return { dataChannel, sctpStreamParameters };
         }
         async receive(optionsList) {
-          var _a, _b, _c, _d, _e;
           this.assertNotClosed();
           this.assertRecvDirection();
           const results = [];
@@ -9453,14 +9408,14 @@
           for (const options of optionsList) {
             const { trackId, kind, rtpParameters, streamId } = options;
             logger.debug("receive() [trackId:%s, kind:%s]", trackId, kind);
-            const localId = (_a = rtpParameters.mid) != null ? _a : String(this._mapMidTransceiver.size);
+            const localId = rtpParameters.mid ?? String(this._mapMidTransceiver.size);
             mapLocalId.set(trackId, localId);
             const { msidStreamId } = ortcUtils.getMsidStreamIdAndTrackId(rtpParameters.msid);
             this._remoteSdp.receive({
               mid: localId,
               kind,
               offerRtpParameters: rtpParameters,
-              streamId: (_d = (_c = streamId != null ? streamId : msidStreamId) != null ? _c : (_b = rtpParameters.rtcp) == null ? void 0 : _b.cname) != null ? _d : "-",
+              streamId: streamId ?? msidStreamId ?? rtpParameters.rtcp?.cname ?? "-",
               trackId
             });
           }
@@ -9498,7 +9453,7 @@
           };
           if (!this._transportReady) {
             await this.setupTransport({
-              localDtlsRole: (_e = this._forcedLocalDtlsRole) != null ? _e : "client",
+              localDtlsRole: this._forcedLocalDtlsRole ?? "client",
               localSdpObject
             });
           }
@@ -9601,7 +9556,6 @@
           return transceiver.receiver.getStats();
         }
         async receiveDataChannel({ sctpStreamParameters, label, protocol }) {
-          var _a;
           this.assertNotClosed();
           this.assertRecvDirection();
           const { streamId, ordered, maxPacketLifeTime, maxRetransmits } = sctpStreamParameters;
@@ -9627,7 +9581,7 @@
             if (!this._transportReady) {
               const localSdpObject = sdpTransform.parse(answer.sdp);
               await this.setupTransport({
-                localDtlsRole: (_a = this._forcedLocalDtlsRole) != null ? _a : "client",
+                localDtlsRole: this._forcedLocalDtlsRole ?? "client",
                 localSdpObject
               });
             }
@@ -10072,8 +10026,8 @@
             return majorVersion;
           }
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/\b(?:Chrome|Chromium)\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/\b(?:Chrome|Chromium)\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getChromiumMajorVersion() | Chromium major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10091,8 +10045,8 @@
           logger.debug("getFirefoxMajorVersion() | this is React-Native => undefined");
           return void 0;
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/\bFirefox\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/\bFirefox\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getFirefoxMajorVersion() | Firefox major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10116,7 +10070,7 @@
           return void 0;
         }
         const match = userAgent.match(/AppleWebKit\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getMacOSWebKitMajorVersion() | WebKit major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10134,8 +10088,8 @@
           logger.debug("getIOSWebKitMajorVersion() | this is React-Native => undefined");
           return void 0;
         }
-        const match = userAgent == null ? void 0 : userAgent.match(/AppleWebKit\/(\w+)/i);
-        if (match == null ? void 0 : match[1]) {
+        const match = userAgent?.match(/AppleWebKit\/(\w+)/i);
+        if (match?.[1]) {
           const majorVersion = Number(match[1]);
           logger.debug(`getIOSWebKitMajorVersion() | WebKit major version based on User-Agent => ${majorVersion}`);
           return majorVersion;
@@ -10145,11 +10099,11 @@
       }
       function isIOS(userAgent, userAgentData) {
         logger.debug("isIOS()");
-        if ((userAgentData == null ? void 0 : userAgentData.platform) === "iOS") {
+        if (userAgentData?.platform === "iOS") {
           logger.debug("isIOS() | this is iOS based on NavigatorUAData.platform => true");
           return true;
         }
-        if (userAgentData == null ? void 0 : userAgentData.platform) {
+        if (userAgentData?.platform) {
           logger.debug("isIOS() | this is not iOS based on NavigatorUAData.platform => false");
           return false;
         }
@@ -10215,11 +10169,10 @@
           __publicField(this, "listeners", {});
         }
         addEventListener(type, callback, options) {
-          var _a;
           if (!callback) {
             return;
           }
-          this.listeners[type] = (_a = this.listeners[type]) != null ? _a : [];
+          this.listeners[type] = this.listeners[type] ?? [];
           this.listeners[type].push({
             callback: (
               // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -10298,10 +10251,9 @@
           __publicField(this, "cancelBubble", false);
           __publicField(this, "returnValue", true);
           __publicField(this, "srcElement", null);
-          var _a, _b;
           this.type = type;
-          this.bubbles = (_a = options.bubbles) != null ? _a : false;
-          this.cancelable = (_b = options.cancelable) != null ? _b : false;
+          this.bubbles = options.bubbles ?? false;
+          this.cancelable = options.cancelable ?? false;
         }
         preventDefault() {
           if (this.cancelable) {
@@ -10388,17 +10340,17 @@
           // Custom events.
           __privateAdd(this, _onenabledchange, null);
           __privateAdd(this, _onstopped, null);
-          __privateSet(this, _id, id != null ? id : (0, uuid_1.v4)());
+          __privateSet(this, _id, id ?? (0, uuid_1.v4)());
           __privateSet(this, _kind, kind);
-          __privateSet(this, _label, label != null ? label : "");
-          __privateSet(this, _contentHint, contentHint != null ? contentHint : "");
-          __privateSet(this, _enabled, enabled != null ? enabled : true);
-          __privateSet(this, _muted, muted != null ? muted : false);
-          __privateSet(this, _readyState, readyState != null ? readyState : "live");
-          __privateSet(this, _capabilities, capabilities != null ? capabilities : {});
-          __privateSet(this, _constraints, constraints != null ? constraints : {});
-          __privateSet(this, _settings, settings != null ? settings : {});
-          __privateSet(this, _data, data != null ? data : {});
+          __privateSet(this, _label, label ?? "");
+          __privateSet(this, _contentHint, contentHint ?? "");
+          __privateSet(this, _enabled, enabled ?? true);
+          __privateSet(this, _muted, muted ?? false);
+          __privateSet(this, _readyState, readyState ?? "live");
+          __privateSet(this, _capabilities, capabilities ?? {});
+          __privateSet(this, _constraints, constraints ?? {});
+          __privateSet(this, _settings, settings ?? {});
+          __privateSet(this, _data, data ?? {});
         }
         get id() {
           return __privateGet(this, _id);
@@ -10529,7 +10481,7 @@
          */
         clone({ id, data } = {}) {
           return new _FakeMediaStreamTrack({
-            id: id != null ? id : (0, uuid_1.v4)(),
+            id: id ?? (0, uuid_1.v4)(),
             kind: __privateGet(this, _kind),
             label: __privateGet(this, _label),
             contentHint: __privateGet(this, _contentHint),
@@ -10539,7 +10491,7 @@
             capabilities: (0, utils_1.clone)(__privateGet(this, _capabilities)),
             constraints: (0, utils_1.clone)(__privateGet(this, _constraints)),
             settings: (0, utils_1.clone)(__privateGet(this, _settings)),
-            data: data != null ? data : (0, utils_1.clone)(__privateGet(this, _data))
+            data: data ?? (0, utils_1.clone)(__privateGet(this, _data))
           });
         }
         getCapabilities() {
@@ -10622,11 +10574,10 @@
           __publicField(this, "listeners", {});
         }
         addEventListener(type, callback, options) {
-          var _a;
           if (!callback) {
             return;
           }
-          this.listeners[type] = (_a = this.listeners[type]) != null ? _a : [];
+          this.listeners[type] = this.listeners[type] ?? [];
           this.listeners[type].push({
             callback: typeof callback === "function" ? callback : callback.handleEvent,
             once: typeof options === "object" && options.once === true
@@ -10785,7 +10736,7 @@
           sendingRtpParameters.codecs = ortc.reduceCodecs(sendingRtpParameters.codecs, codec);
           const useRtx = sendingRtpParameters.codecs.some((_codec) => /.+\/rtx$/i.test(_codec.mimeType));
           sendingRtpParameters.mid = `mid-${utils.generateRandomNumber()}`;
-          sendingRtpParameters.msid = `${streamId != null ? streamId : "-"} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? "-"} ${track.id}`;
           if (!encodings) {
             encodings = [{}];
           }
@@ -10801,7 +10752,7 @@
             reducedSize: true,
             mux: true
           };
-          sendingRtpParameters.msid = `${streamId != null ? streamId : this._defaultSendStreamId} ${track.id}`;
+          sendingRtpParameters.msid = `${streamId ?? this._defaultSendStreamId} ${track.id}`;
           const localId = this._nextLocalId++;
           this._tracks.set(localId, track);
           return { localId: String(localId), rtpParameters: sendingRtpParameters };
@@ -11564,7 +11515,7 @@
         switch (codecMimeType) {
           case "audio/opus": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "audio",
               rtpParameters: utils.deepFreeze({
@@ -11610,7 +11561,7 @@
           }
           case "audio/ISAC": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "audio",
               rtpParameters: utils.deepFreeze({
@@ -11649,7 +11600,7 @@
           }
           case "video/VP8": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "video",
               rtpParameters: utils.deepFreeze({
@@ -11719,7 +11670,7 @@
           }
           case "video/H264": {
             return {
-              id: id != null ? id : generateFakeUuid(),
+              id: id ?? generateFakeUuid(),
               producerId: generateFakeUuid(),
               kind: "video",
               rtpParameters: utils.deepFreeze({
@@ -11801,7 +11752,7 @@
       }
       function generateDataConsumerRemoteParameters({ id } = {}) {
         return {
-          id: id != null ? id : generateFakeUuid(),
+          id: id ?? generateFakeUuid(),
           dataProducerId: generateFakeUuid(),
           sctpStreamParameters: utils.deepFreeze({
             streamId: 666,
@@ -11851,23 +11802,79 @@
   var require_bridge_entry = __commonJS({
     "MeetSpace/WebView/MediaHost/bridge-entry.js"() {
       var mediasoupClient = __toESM(require_lib5());
-      var CAMERA_VIDEO_CONSTRAINTS = {
+      var CAMERA_VIDEO_CONSTRAINTS_HD = {
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
+        frameRate: { ideal: 30, max: 30 }
+      };
+      var CAMERA_VIDEO_CONSTRAINTS_BALANCED = {
         width: { ideal: 1280, max: 1280 },
         height: { ideal: 720, max: 720 },
         frameRate: { ideal: 30, max: 30 }
       };
-      var SCREEN_VIDEO_CONSTRAINTS = {
+      var CAMERA_VIDEO_CONSTRAINTS = CAMERA_VIDEO_CONSTRAINTS_HD;
+      var MICROPHONE_AUDIO_CONSTRAINTS_HD = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: { ideal: 2, max: 2 },
+        sampleRate: { ideal: 48e3, max: 48e3 },
+        sampleSize: { ideal: 24, max: 24 },
+        latency: { ideal: 5e-3, max: 0.02 }
+      };
+      var MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: { ideal: 1, max: 2 },
+        sampleRate: { ideal: 48e3 },
+        sampleSize: { ideal: 16 },
+        latency: { ideal: 0.01 }
+      };
+      var SCREEN_VIDEO_CONSTRAINTS_HD = {
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
+        frameRate: { ideal: 30, max: 30 }
+      };
+      var SCREEN_VIDEO_CONSTRAINTS_BALANCED = {
         width: { ideal: 1280, max: 1280 },
         height: { ideal: 720, max: 720 },
         frameRate: { ideal: 30, max: 30 }
       };
+      var SCREEN_VIDEO_CONSTRAINTS = SCREEN_VIDEO_CONSTRAINTS_HD;
       var CAMERA_FALLBACK_CONSTRAINTS = [
-        CAMERA_VIDEO_CONSTRAINTS,
+        CAMERA_VIDEO_CONSTRAINTS_HD,
+        CAMERA_VIDEO_CONSTRAINTS_BALANCED,
+        {
+          width: { ideal: 1600, max: 1600 },
+          height: { ideal: 900, max: 900 },
+          frameRate: { ideal: 30, max: 30 }
+        },
+        {
+          width: { ideal: 1280, max: 1280 },
+          height: { ideal: 720, max: 720 },
+          frameRate: { ideal: 24, max: 30 }
+        },
         {
           width: { ideal: 960, max: 960 },
           height: { ideal: 540, max: 540 },
           frameRate: { ideal: 24, max: 30 }
         },
+        true
+      ];
+      var SCREEN_FALLBACK_CONSTRAINTS = [
+        SCREEN_VIDEO_CONSTRAINTS_HD,
+        SCREEN_VIDEO_CONSTRAINTS_BALANCED,
+        {
+          width: { ideal: 960, max: 960 },
+          height: { ideal: 540, max: 540 },
+          frameRate: { ideal: 24, max: 30 }
+        },
+        true
+      ];
+      var MICROPHONE_FALLBACK_CONSTRAINTS = [
+        MICROPHONE_AUDIO_CONSTRAINTS_HD,
+        MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK,
         true
       ];
       var MEDIA_PLAY_TIMEOUT_MS = 1500;
@@ -12151,6 +12158,40 @@
         }
         throw lastError || new Error("Could not start video source");
       }
+      async function openMicrophoneStreamWithFallback() {
+        let lastError = null;
+        for (const audioConstraints of MICROPHONE_FALLBACK_CONSTRAINTS) {
+          try {
+            return await navigator.mediaDevices.getUserMedia({
+              audio: audioConstraints,
+              video: false
+            });
+          } catch (error) {
+            lastError = error;
+            sendDiag("start_microphone.constraints_retry", {
+              message: error && error.message ? error.message : String(error)
+            });
+          }
+        }
+        throw lastError || new Error("Could not start audio source");
+      }
+      async function openScreenStreamWithFallback() {
+        let lastError = null;
+        for (const videoConstraints of SCREEN_FALLBACK_CONSTRAINTS) {
+          try {
+            return await navigator.mediaDevices.getDisplayMedia({
+              video: videoConstraints,
+              audio: false
+            });
+          } catch (error) {
+            lastError = error;
+            sendDiag("start_screen.constraints_retry", {
+              message: error && error.message ? error.message : String(error)
+            });
+          }
+        }
+        throw lastError || new Error("Could not start screen source");
+      }
       async function attachVideoTile(tileKey, stream, trackType, isLocal) {
         const normalizedTrackType = normalizeVideoTrackType(trackType);
         const tile = ensureVideoTile(tileKey, normalizedTrackType, isLocal);
@@ -12429,29 +12470,14 @@
               }
               stopProducer("micProducer");
               stopStream("micStream", "micTrack");
-              state.micStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: false,
-                  channelCount: { ideal: 1, max: 1 },
-                  sampleRate: { ideal: 48e3 },
-                  sampleSize: { ideal: 16 },
-                  latency: { ideal: 0.01 }
-                },
-                video: false
-              });
+              state.micStream = await openMicrophoneStreamWithFallback();
               const audioTracks = state.micStream.getAudioTracks();
               if (!audioTracks || audioTracks.length === 0) {
                 throw new Error("microphone stream has no audio track");
               }
               state.micTrack = audioTracks[0];
               state.micTrack.contentHint = "speech";
-              await applyTrackConstraintsSafe(state.micTrack, {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: false
-              });
+              await applyTrackConstraintsSafe(state.micTrack, MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK);
               const producer = await state.sendTransport.produce({
                 track: state.micTrack,
                 appData: {
@@ -12530,10 +12556,7 @@
               stopProducer("screenProducer");
               stopStream("screenStream", "screenTrack");
               removeVideoTile(LOCAL_SCREEN_TILE_KEY);
-              state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: false
-              });
+              state.screenStream = await openScreenStreamWithFallback();
               const videoTracks = state.screenStream.getVideoTracks();
               if (!videoTracks || videoTracks.length === 0) {
                 throw new Error("screen stream has no video track");

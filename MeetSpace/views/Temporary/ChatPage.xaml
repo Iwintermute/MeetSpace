@@ -6,7 +6,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:chat="using:MeetSpace.Client.Domain.Chat"
     xmlns:controls="using:MeetSpace.Views.UserControls"
-    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
     xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="{ThemeResource MicaDarkerBrush}"
@@ -213,10 +212,7 @@
                             IsEnabled="{x:Bind ViewModel.IsStartAudioCallEnabled, Mode=OneWay}"
                             Click="StartAudioCallButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <fa:FontAwesome
-                                    Width="14"
-                                    Height="14"
-                                    Icon="Solid_Phone" />
+                                <SymbolIcon Symbol="Phone" />
                                 <TextBlock Text="Аудио" />
                             </StackPanel>
                         </Button>
@@ -224,10 +220,7 @@
                             IsEnabled="{x:Bind ViewModel.IsStartVideoCallEnabled, Mode=OneWay}"
                             Click="StartVideoCallButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <fa:FontAwesome
-                                    Width="14"
-                                    Height="14"
-                                    Icon="Solid_Video" />
+                                <SymbolIcon Symbol="Video" />
                                 <TextBlock Text="Видео" />
                             </StackPanel>
                         </Button>
@@ -324,10 +317,7 @@
                         VerticalAlignment="Bottom"
                         Click="SendButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <fa:FontAwesome
-                                Width="14"
-                                Height="14"
-                                Icon="Solid_PaperPlane" />
+                            <SymbolIcon Symbol="Send" />
                             <TextBlock Text="Отправить" />
                         </StackPanel>
                     </Button>

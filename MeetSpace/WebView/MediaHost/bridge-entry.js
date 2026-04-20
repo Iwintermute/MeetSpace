@@ -1,22 +1,79 @@
 import * as mediasoupClient from 'mediasoup-client';
-const CAMERA_VIDEO_CONSTRAINTS = {
+const CAMERA_VIDEO_CONSTRAINTS_HD = {
+    width: { ideal: 1920, max: 1920 },
+    height: { ideal: 1080, max: 1080 },
+    frameRate: { ideal: 30, max: 30 }
+};
+const CAMERA_VIDEO_CONSTRAINTS_BALANCED = {
     width: { ideal: 1280, max: 1280 },
     height: { ideal: 720, max: 720 },
     frameRate: { ideal: 30, max: 30 }
+};
+const CAMERA_VIDEO_CONSTRAINTS = CAMERA_VIDEO_CONSTRAINTS_HD;
+
+const MICROPHONE_AUDIO_CONSTRAINTS_HD = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: { ideal: 2, max: 2 },
+    sampleRate: { ideal: 48000, max: 48000 },
+    sampleSize: { ideal: 24, max: 24 },
+    latency: { ideal: 0.005, max: 0.02 }
+};
+const MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: { ideal: 1, max: 2 },
+    sampleRate: { ideal: 48000 },
+    sampleSize: { ideal: 16 },
+    latency: { ideal: 0.01 }
 };
 
-const SCREEN_VIDEO_CONSTRAINTS = {
+const SCREEN_VIDEO_CONSTRAINTS_HD = {
+    width: { ideal: 1920, max: 1920 },
+    height: { ideal: 1080, max: 1080 },
+    frameRate: { ideal: 30, max: 30 }
+};
+const SCREEN_VIDEO_CONSTRAINTS_BALANCED = {
     width: { ideal: 1280, max: 1280 },
     height: { ideal: 720, max: 720 },
     frameRate: { ideal: 30, max: 30 }
 };
+const SCREEN_VIDEO_CONSTRAINTS = SCREEN_VIDEO_CONSTRAINTS_HD;
 const CAMERA_FALLBACK_CONSTRAINTS = [
-    CAMERA_VIDEO_CONSTRAINTS,
+    CAMERA_VIDEO_CONSTRAINTS_HD,
+    CAMERA_VIDEO_CONSTRAINTS_BALANCED,
+    {
+        width: { ideal: 1600, max: 1600 },
+        height: { ideal: 900, max: 900 },
+        frameRate: { ideal: 30, max: 30 }
+    },
+    {
+        width: { ideal: 1280, max: 1280 },
+        height: { ideal: 720, max: 720 },
+        frameRate: { ideal: 24, max: 30 }
+    },
     {
         width: { ideal: 960, max: 960 },
         height: { ideal: 540, max: 540 },
         frameRate: { ideal: 24, max: 30 }
     },
+    true
+];
+const SCREEN_FALLBACK_CONSTRAINTS = [
+    SCREEN_VIDEO_CONSTRAINTS_HD,
+    SCREEN_VIDEO_CONSTRAINTS_BALANCED,
+    {
+        width: { ideal: 960, max: 960 },
+        height: { ideal: 540, max: 540 },
+        frameRate: { ideal: 24, max: 30 }
+    },
+    true
+];
+const MICROPHONE_FALLBACK_CONSTRAINTS = [
+    MICROPHONE_AUDIO_CONSTRAINTS_HD,
+    MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK,
     true
 ];
 const MEDIA_PLAY_TIMEOUT_MS = 1500;
@@ -379,6 +436,46 @@ async function openCameraStreamWithFallback() {
 
     throw lastError || new Error('Could not start video source');
 }
+
+async function openMicrophoneStreamWithFallback() {
+    let lastError = null;
+
+    for (const audioConstraints of MICROPHONE_FALLBACK_CONSTRAINTS) {
+        try {
+            return await navigator.mediaDevices.getUserMedia({
+                audio: audioConstraints,
+                video: false
+            });
+        } catch (error) {
+            lastError = error;
+            sendDiag('start_microphone.constraints_retry', {
+                message: error && error.message ? error.message : String(error)
+            });
+        }
+    }
+
+    throw lastError || new Error('Could not start audio source');
+}
+
+async function openScreenStreamWithFallback() {
+    let lastError = null;
+
+    for (const videoConstraints of SCREEN_FALLBACK_CONSTRAINTS) {
+        try {
+            return await navigator.mediaDevices.getDisplayMedia({
+                video: videoConstraints,
+                audio: false
+            });
+        } catch (error) {
+            lastError = error;
+            sendDiag('start_screen.constraints_retry', {
+                message: error && error.message ? error.message : String(error)
+            });
+        }
+    }
+
+    throw lastError || new Error('Could not start screen source');
+}
 async function attachVideoTile(tileKey, stream, trackType, isLocal) {
     const normalizedTrackType = normalizeVideoTrackType(trackType);
     const tile = ensureVideoTile(tileKey, normalizedTrackType, isLocal);
@@ -727,19 +824,7 @@ async function handleCommand(message) {
                 }
                 stopProducer('micProducer');
                 stopStream('micStream', 'micTrack');
-
-                state.micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: false,
-                        channelCount: { ideal: 1, max: 1 },
-                        sampleRate: { ideal: 48000 },
-                        sampleSize: { ideal: 16 },
-                        latency: { ideal: 0.01 }
-                    },
-                    video: false
-                });
+                state.micStream = await openMicrophoneStreamWithFallback();
 
                 const audioTracks = state.micStream.getAudioTracks();
                 if (!audioTracks || audioTracks.length === 0) {
@@ -748,11 +833,7 @@ async function handleCommand(message) {
 
                 state.micTrack = audioTracks[0];
                 state.micTrack.contentHint = 'speech';
-                await applyTrackConstraintsSafe(state.micTrack, {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: false
-                });
+                await applyTrackConstraintsSafe(state.micTrack, MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK);
 
                 const producer = await state.sendTransport.produce({
                     track: state.micTrack,
@@ -854,11 +935,7 @@ async function handleCommand(message) {
                 stopProducer('screenProducer');
                 stopStream('screenStream', 'screenTrack');
                 removeVideoTile(LOCAL_SCREEN_TILE_KEY);
-
-                state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: false
-                });
+                state.screenStream = await openScreenStreamWithFallback();
 
                 const videoTracks = state.screenStream.getVideoTracks();
                 if (!videoTracks || videoTracks.length === 0) {

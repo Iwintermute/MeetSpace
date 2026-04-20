@@ -139,6 +139,7 @@
     <Compile Include="Controls\InteractiveImage.xaml.cs">
       <DependentUpon>InteractiveImage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Helpers\\IconGlyphs.cs" />
     <Compile Include="Helpers\SetttingsHelper.cs" />
     <Compile Include="Helpers\SQLFileHelper.cs" />
     <Compile Include="Helpers\UIHelper.cs" />
@@ -300,7 +301,6 @@
     <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers" Version="8.1.240916" />
     <PackageReference Include="CommunityToolkit.Uwp.Extensions" Version="8.2.241112-preview1" />
     <PackageReference Include="CommunityToolkit.Uwp.Media" Version="8.1.240916" />
-    <PackageReference Include="FontAwesome6.Fonts" Version="2.5.1" />
     <PackageReference Include="FishyFlip" Version="3.4.0-alpha.9" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
