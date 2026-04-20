@@ -5,6 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:chat="using:MeetSpace.Client.Domain.Chat"
+    xmlns:controls="using:MeetSpace.Views.UserControls"
+    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
     xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="{ThemeResource MicaDarkerBrush}"
@@ -12,7 +14,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="330" />
+            <ColumnDefinition Width="340" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -162,12 +164,10 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1" Background="#0E1621">
             <Grid.RowDefinitions>
                 <RowDefinition Height="72" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="{x:Bind ViewModel.MediaHostRowHeight, Mode=OneWay}" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -210,98 +210,41 @@
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                         <Button
-                            Content="Аудио"
                             IsEnabled="{x:Bind ViewModel.IsStartAudioCallEnabled, Mode=OneWay}"
-                            Click="StartAudioCallButton_Click" />
+                            Click="StartAudioCallButton_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <fa:FontAwesome
+                                    Width="14"
+                                    Height="14"
+                                    Icon="Solid_Phone" />
+                                <TextBlock Text="Аудио" />
+                            </StackPanel>
+                        </Button>
                         <Button
-                            Content="Видео"
                             IsEnabled="{x:Bind ViewModel.IsStartVideoCallEnabled, Mode=OneWay}"
-                            Click="StartVideoCallButton_Click" />
+                            Click="StartVideoCallButton_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <fa:FontAwesome
+                                    Width="14"
+                                    Height="14"
+                                    Icon="Solid_Video" />
+                                <TextBlock Text="Видео" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
-
-            <Border
+            <controls:DirectCallIncomingOverlay
                 Grid.Row="1"
                 Margin="12,8,12,0"
-                Padding="10,8"
-                Background="#2A3B52"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IncomingCallVisibility, Mode=OneWay}">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.IncomingCallText, Mode=OneWay}" />
-                    <Button Grid.Column="1" Content="Принять" Click="AcceptIncomingCallButton_Click" />
-                    <Button Grid.Column="2" Content="Отклонить" Click="DeclineIncomingCallButton_Click" />
-                </Grid>
-            </Border>
-
-            <Border
-                Grid.Row="2"
-                Margin="12,8,12,0"
-                Padding="10,8"
-                Background="#111A26"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.CallControlsVisibility, Mode=OneWay}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="{x:Bind ViewModel.CallStatusText, Mode=OneWay}" />
-                    <WrapGrid HorizontalAlignment="Left" Orientation="Horizontal">
-                        <Button
-                            Margin="0,0,8,8"
-                            Content="{x:Bind ViewModel.MicrophoneToggleButtonContent, Mode=OneWay}"
-                            IsEnabled="{x:Bind ViewModel.IsMicrophoneToggleEnabled, Mode=OneWay}"
-                            Click="ToggleMicrophoneButton_Click" />
-                        <Button
-                            Margin="0,0,8,8"
-                            Content="{x:Bind ViewModel.CameraToggleButtonContent, Mode=OneWay}"
-                            IsEnabled="{x:Bind ViewModel.IsCameraToggleEnabled, Mode=OneWay}"
-                            Click="ToggleCameraButton_Click" />
-                        <Button
-                            Margin="0,0,8,8"
-                            Content="{x:Bind ViewModel.ScreenShareToggleButtonContent, Mode=OneWay}"
-                            IsEnabled="{x:Bind ViewModel.IsScreenShareToggleEnabled, Mode=OneWay}"
-                            Click="ToggleScreenShareButton_Click" />
-                        <Button
-                            Margin="0,0,8,8"
-                            Content="Завершить звонок"
-                            IsEnabled="{x:Bind ViewModel.IsEndCallEnabled, Mode=OneWay}"
-                            Click="EndCallButton_Click" />
-                    </WrapGrid>
-                    <ListView
-                        ItemsSource="{x:Bind ViewModel.CallParticipants, Mode=OneWay}"
-                        SelectionMode="None"
-                        MaxHeight="120">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DirectCallParticipantViewItem">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasAudio}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasVideo}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasScreenShare}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </StackPanel>
-            </Border>
-
-            <Border
-                Grid.Row="3"
-                Margin="12,8,12,0"
-                Background="#05070B"
-                BorderBrush="#222D3A"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.MediaHostVisibility, Mode=OneWay}">
-                <Grid x:Name="MediaHostContainer" />
-            </Border>
+                Visibility="{x:Bind ViewModel.IncomingCallVisibility, Mode=OneWay}"
+                IncomingCallText="{x:Bind ViewModel.IncomingCallText, Mode=OneWay}"
+                AcceptAudioRequested="IncomingCallOverlay_AcceptAudioRequested"
+                AcceptVideoRequested="IncomingCallOverlay_AcceptVideoRequested"
+                DeclineRequested="IncomingCallOverlay_DeclineRequested" />
 
             <Grid
-                Grid.Row="4"
+                Grid.Row="2"
                 Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}">
                 <Border
                     HorizontalAlignment="Center"
@@ -315,22 +258,33 @@
 
             <ListView
                 x:Name="MessagesList"
-                Grid.Row="4"
-                ItemsSource="{x:Bind ViewModel.Messages, Mode=OneWay}"
+                Grid.Row="2"
+                ItemsSource="{x:Bind ViewModel.DisplayedMessages, Mode=OneWay}"
                 SelectionMode="None"
                 Visibility="{x:Bind ViewModel.MessagesVisibility, Mode=OneWay}"
                 Background="#0E1621"
                 BorderThickness="0">
                 <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="chat:ChatMessageItem">
-                        <Grid Padding="16,4">
+                    <DataTemplate x:DataType="vm:DirectChatMessageViewItem">
+                        <Grid Padding="14,6">
                             <Border
-                                MaxWidth="640"
+                                MaxWidth="720"
                                 Padding="12,8"
-                                Background="#2B5278"
+                                HorizontalAlignment="{x:Bind BubbleAlignment}"
+                                Background="{x:Bind BubbleBackground}"
                                 CornerRadius="14"
-                                HorizontalAlignment="Left">
+                                BorderBrush="#223446"
+                                BorderThickness="1">
                                 <StackPanel Spacing="4">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Opacity="0.86"
+                                        Text="{x:Bind SenderTitle}" />
+                                    <TextBlock
+                                        FontSize="11"
+                                        Opacity="0.66"
+                                        Text="{x:Bind SenderMeta}" />
                                     <TextBlock
                                         Text="{x:Bind Text}"
                                         TextWrapping="WrapWholeWords" />
@@ -338,7 +292,7 @@
                                         HorizontalAlignment="Right"
                                         FontSize="11"
                                         Opacity="0.7"
-                                        Text="{x:Bind DisplayTime}" />
+                                        Text="{x:Bind FooterText}" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -347,7 +301,7 @@
             </ListView>
 
             <Border
-                Grid.Row="5"
+                Grid.Row="3"
                 Padding="12"
                 Background="#17212B"
                 BorderBrush="{ThemeResource MicaBorderBrush}"
@@ -368,8 +322,15 @@
                     <Button
                         Grid.Column="1"
                         VerticalAlignment="Bottom"
-                        Content="Send"
-                        Click="SendButton_Click" />
+                        Click="SendButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <fa:FontAwesome
+                                Width="14"
+                                Height="14"
+                                Icon="Solid_PaperPlane" />
+                            <TextBlock Text="Отправить" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </Border>
         </Grid>

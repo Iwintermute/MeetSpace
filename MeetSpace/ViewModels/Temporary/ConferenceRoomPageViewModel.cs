@@ -737,4 +737,8 @@ public sealed class ConferenceParticipantTileViewItem
     public bool HasAudio { get; }
     public bool HasVideo { get; }
     public bool HasScreenShare { get; }
+    public string MediaSummary =>
+        (HasAudio ? "🎤 " : string.Empty) +
+        (HasVideo ? "📷 " : string.Empty) +
+        (HasScreenShare ? "🖥 " : string.Empty);
 }

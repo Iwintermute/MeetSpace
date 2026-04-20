@@ -1,7 +1,6 @@
 ﻿using MeetSpace.Client.Domain.Chat;
 using MeetSpace.ViewModels.Temporary;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
@@ -18,10 +17,8 @@ namespace MeetSpace.Views.Temporary;
 public sealed partial class ChatPage : Page
 {
     private CancellationTokenSource? _pageLifetimeCts;
-    private UwpWebViewAudioBridgeHost? _audioBridgeHost;
-    private WebView2? _mediaHostView;
-    private bool _audioBridgeReady;
     private bool _isSynchronizingDialogsSelection;
+    private bool _scrollRequestPending;
 
     public ChatPageViewModel ViewModel { get; }
 
@@ -33,8 +30,9 @@ public sealed partial class ChatPage : Page
         InitializeComponent();
 
         ViewModel.NavigateToLoginRequested += ViewModel_NavigateToLoginRequested;
+        ViewModel.NavigateToDirectCallRequested += ViewModel_NavigateToDirectCallRequested;
         ViewModel.FilteredDialogs.CollectionChanged += FilteredDialogs_CollectionChanged;
-        ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+        ViewModel.DisplayedMessages.CollectionChanged += DisplayedMessages_CollectionChanged;
 
         Loaded += ChatPage_Loaded;
         Unloaded += ChatPage_Unloaded;
@@ -45,11 +43,10 @@ public sealed partial class ChatPage : Page
         _pageLifetimeCts?.Cancel();
         _pageLifetimeCts?.Dispose();
         _pageLifetimeCts = new CancellationTokenSource();
-        _audioBridgeReady = false;
 
         await ViewModel.ActivateAsync(Dispatcher);
         SyncSelectedDialogInList();
-        ScrollMessagesToEnd();
+        RequestScrollMessagesToEnd();
     }
 
     private void ChatPage_Unloaded(object sender, RoutedEventArgs e)
@@ -59,30 +56,6 @@ public sealed partial class ChatPage : Page
         _pageLifetimeCts = null;
 
         ViewModel.Deactivate();
-
-        _audioBridgeReady = false;
-
-        try
-        {
-            _audioBridgeHost?.Dispose();
-        }
-        catch
-        {
-        }
-
-        _audioBridgeHost = null;
-
-        try
-        {
-            if (_mediaHostView != null)
-            {
-                MediaHostContainer.Children.Clear();
-                _mediaHostView = null;
-            }
-        }
-        catch
-        {
-        }
     }
 
     private async void ViewModel_NavigateToLoginRequested(object? sender, EventArgs e)
@@ -93,21 +66,58 @@ public sealed partial class ChatPage : Page
         });
     }
 
+    private async void ViewModel_NavigateToDirectCallRequested(object? sender, DirectCallNavigationRequest request)
+    {
+        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+        {
+            Frame?.Navigate(typeof(DirectCallPage), request);
+        });
+    }
+
     private void FilteredDialogs_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         SyncSelectedDialogInList();
     }
 
-    private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void DisplayedMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        ScrollMessagesToEnd();
+        RequestScrollMessagesToEnd();
     }
 
-    private void ScrollMessagesToEnd()
+    private void RequestScrollMessagesToEnd()
     {
-        var count = ViewModel.Messages.Count;
-        if (count > 0)
-            MessagesList.ScrollIntoView(ViewModel.Messages[count - 1]);
+        if (_scrollRequestPending)
+            return;
+
+        _scrollRequestPending = true;
+        _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+        {
+            _scrollRequestPending = false;
+            TryScrollMessagesToEnd();
+        });
+    }
+
+    private void TryScrollMessagesToEnd()
+    {
+        if (!IsLoaded || MessagesList == null || MessagesList.ActualHeight <= 0)
+            return;
+
+        var count = ViewModel.DisplayedMessages.Count;
+        if (count <= 0)
+            return;
+
+        var lastItem = ViewModel.DisplayedMessages[count - 1];
+        if (!MessagesList.Items.Contains(lastItem))
+            return;
+
+        try
+        {
+            MessagesList.UpdateLayout();
+            MessagesList.ScrollIntoView(lastItem);
+        }
+        catch
+        {
+        }
     }
 
     private void SyncSelectedDialogInList()
@@ -143,53 +153,16 @@ public sealed partial class ChatPage : Page
         }
     }
 
-    private async Task EnsureAudioBridgeReadyAsync(CancellationToken cancellationToken)
-    {
-        if (_audioBridgeReady)
-            return;
-
-        EnsureMediaHostViewCreated();
-
-        if (_mediaHostView == null)
-            throw new InvalidOperationException("MediaHostView was not created.");
-
-        try
-        {
-            _audioBridgeHost?.Dispose();
-        }
-        catch
-        {
-        }
-
-        _audioBridgeHost = new UwpWebViewAudioBridgeHost(_mediaHostView);
-        await ViewModel.AttachAudioHostAsync(_audioBridgeHost, cancellationToken);
-        _audioBridgeReady = true;
-    }
-
-    private void EnsureMediaHostViewCreated()
-    {
-        if (_mediaHostView != null)
-            return;
-
-        var webView = new WebView2
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch
-        };
-
-        MediaHostContainer.Children.Clear();
-        MediaHostContainer.Children.Add(webView);
-        _mediaHostView = webView;
-    }
-
     private CancellationToken CurrentToken => _pageLifetimeCts?.Token ?? CancellationToken.None;
 
     private async void DialogsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isSynchronizingDialogsSelection)
             return;
+
         await ViewModel.SelectDialogAsync(DialogsList.SelectedItem as ChatDialogItem);
         SyncSelectedDialogInList();
+        RequestScrollMessagesToEnd();
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e)
@@ -232,47 +205,26 @@ public sealed partial class ChatPage : Page
 
     private async void StartAudioCallButton_Click(object sender, RoutedEventArgs e)
     {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
         await ViewModel.StartDirectAudioCallAsync(CurrentToken);
     }
 
     private async void StartVideoCallButton_Click(object sender, RoutedEventArgs e)
     {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
         await ViewModel.StartDirectVideoCallAsync(CurrentToken);
     }
 
-    private async void AcceptIncomingCallButton_Click(object sender, RoutedEventArgs e)
+    private async void IncomingCallOverlay_AcceptAudioRequested(object sender, EventArgs e)
     {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
         await ViewModel.AcceptIncomingCallAsync(false, CurrentToken);
     }
 
-    private async void DeclineIncomingCallButton_Click(object sender, RoutedEventArgs e)
+    private async void IncomingCallOverlay_AcceptVideoRequested(object sender, EventArgs e)
+    {
+        await ViewModel.AcceptIncomingCallAsync(true, CurrentToken);
+    }
+
+    private async void IncomingCallOverlay_DeclineRequested(object sender, EventArgs e)
     {
         await ViewModel.DeclineIncomingCallAsync(CurrentToken);
-    }
-
-    private async void ToggleMicrophoneButton_Click(object sender, RoutedEventArgs e)
-    {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
-        await ViewModel.ToggleMicrophoneAsync(CurrentToken);
-    }
-
-    private async void ToggleCameraButton_Click(object sender, RoutedEventArgs e)
-    {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
-        await ViewModel.ToggleCameraAsync(CurrentToken);
-    }
-
-    private async void ToggleScreenShareButton_Click(object sender, RoutedEventArgs e)
-    {
-        await EnsureAudioBridgeReadyAsync(CurrentToken);
-        await ViewModel.ToggleScreenShareAsync(CurrentToken);
-    }
-
-    private async void EndCallButton_Click(object sender, RoutedEventArgs e)
-    {
-        await ViewModel.EndCurrentCallAsync(CurrentToken);
     }
 }

@@ -19,6 +19,7 @@ public sealed partial class ConferenceRoomPage : Page
     private UwpWebViewAudioBridgeHost? _audioBridgeHost;
     private WebView2? _mediaHostView;
     private bool _audioBridgeReady;
+    private bool _scrollRequestPending;
 
     public ConferenceRoomPageViewModel ViewModel { get; }
 
@@ -141,9 +142,43 @@ public sealed partial class ConferenceRoomPage : Page
 
     private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RequestScrollMessagesToEnd();
+    }
+
+    private void RequestScrollMessagesToEnd()
+    {
+        if (_scrollRequestPending)
+            return;
+
+        _scrollRequestPending = true;
+        _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+        {
+            _scrollRequestPending = false;
+            TryScrollMessagesToEnd();
+        });
+    }
+
+    private void TryScrollMessagesToEnd()
+    {
+        if (!IsLoaded || MessagesList == null || MessagesList.ActualHeight <= 0)
+            return;
+
         var count = ViewModel.Messages.Count;
-        if (count > 0)
-            MessagesList.ScrollIntoView(ViewModel.Messages[count - 1]);
+        if (count <= 0)
+            return;
+
+        var lastItem = ViewModel.Messages[count - 1];
+        if (!MessagesList.Items.Contains(lastItem))
+            return;
+
+        try
+        {
+            MessagesList.UpdateLayout();
+            MessagesList.ScrollIntoView(lastItem);
+        }
+        catch
+        {
+        }
     }
 
     private void EnsureMediaHostViewCreated()

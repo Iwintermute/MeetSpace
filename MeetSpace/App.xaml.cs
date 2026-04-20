@@ -47,6 +47,7 @@ sealed partial class App : Application
             services.AddSingleton<IAudioCallEngine, WebViewAudioCallEngine>();
             services.AddTransient<ChatPageViewModel>();
             services.AddTransient<ConferenceRoomPageViewModel>();
+            services.AddTransient<DirectCallPageViewModel>();
             services.AddTransient<MeetingsHomePageViewModel>();
         });
 

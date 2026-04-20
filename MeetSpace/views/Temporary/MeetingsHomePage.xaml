@@ -30,12 +30,22 @@
                 <Button
                     x:Name="MeetingsTabButton"
                     HorizontalAlignment="Stretch"
-                    Content="Встречи" />
+                    Click="MeetingsTabButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SymbolIcon Symbol="Video" />
+                        <TextBlock Text="Встречи" />
+                    </StackPanel>
+                </Button>
 
                 <Button
                     x:Name="CallsTabButton"
                     HorizontalAlignment="Stretch"
-                    Content="Вызовы" />
+                    Click="CallsTabButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SymbolIcon Symbol="Message" />
+                        <TextBlock Text="Личные сообщения" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
             
         </Border>
@@ -69,8 +79,11 @@
 
                     <Button
                         x:Name="NewMeetingButton"
-                        Content="Новая встреча"
                         Click="NewMeetingButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Add" />
+                            <TextBlock Text="Новая встреча" />
+                        </StackPanel>
                         <Button.Flyout>
                             <MenuFlyout>
                                 <MenuFlyoutItem
@@ -91,8 +104,12 @@
 
                     <Button
                         x:Name="JoinMeetingButton"
-                        Content="Присоединиться"
-                        Click="JoinMeetingButton_Click" />
+                        Click="JoinMeetingButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Forward" />
+                            <TextBlock Text="Присоединиться" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
                 <Border

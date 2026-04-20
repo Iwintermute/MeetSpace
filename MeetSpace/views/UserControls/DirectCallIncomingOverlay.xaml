@@ -1,0 +1,65 @@
+﻿<UserControl
+    x:Class="MeetSpace.Views.UserControls.DirectCallIncomingOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
+    mc:Ignorable="d">
+    <Border
+        Padding="12,10"
+        Background="#2A3B52"
+        CornerRadius="10"
+        BorderBrush="#324E6D"
+        BorderThickness="1">
+        <Grid ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="2">
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Входящий звонок" />
+                <TextBlock
+                    Opacity="0.9"
+                    Text="{x:Bind IncomingCallText, Mode=OneWay}" />
+            </StackPanel>
+            <StackPanel
+                Grid.Column="1"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button
+                    Click="AcceptAudioButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_Phone" />
+                        <TextBlock Text="Аудио" />
+                    </StackPanel>
+                </Button>
+                <Button
+                    Click="AcceptVideoButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_Video" />
+                        <TextBlock Text="Видео" />
+                    </StackPanel>
+                </Button>
+                <Button
+                    Click="DeclineButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_PhoneSlash" />
+                        <TextBlock Text="Отклонить" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

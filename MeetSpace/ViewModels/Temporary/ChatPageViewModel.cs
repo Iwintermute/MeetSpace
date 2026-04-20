@@ -16,8 +16,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media;
 
 namespace MeetSpace.ViewModels.Temporary;
 
@@ -97,6 +99,7 @@ public sealed class ChatPageViewModel : ObservableObject
     public ObservableCollection<ChatDialogItem> Dialogs { get; } = new();
     public ObservableCollection<ChatDialogItem> FilteredDialogs { get; } = new();
     public ObservableCollection<ChatMessageItem> Messages { get; } = new();
+    public ObservableCollection<DirectChatMessageViewItem> DisplayedMessages { get; } = new();
     public ObservableCollection<DirectUserSearchItem> UserSearchResults { get; } = new();
     public ObservableCollection<DirectCallParticipantViewItem> CallParticipants { get; } = new();
 
@@ -269,6 +272,7 @@ public sealed class ChatPageViewModel : ObservableObject
     }
 
     public event EventHandler? NavigateToLoginRequested;
+    public event EventHandler<DirectCallNavigationRequest>? NavigateToDirectCallRequested;
 
     public async Task ActivateAsync(CoreDispatcher dispatcher)
     {
@@ -492,23 +496,29 @@ public sealed class ChatPageViewModel : ObservableObject
 
         var callId = _incomingCallId!;
         var callerUserId = _incomingCallerUserId;
+        var callerTitle = ResolveUserLabel(
+            callerUserId,
+            ResolveDialogTitleByPeer(callerUserId),
+            null);
         ClearIncomingCall();
 
         if (!string.IsNullOrWhiteSpace(callerUserId))
             await OpenDirectDialogAsync(callerUserId).ConfigureAwait(false);
 
-        var result = await _callCoordinator.AcceptAndJoinDirectCallAsync(callId, cancellationToken).ConfigureAwait(false);
-        if (result.IsFailure)
-        {
-            await RunOnUiThreadAsync(() =>
-            {
-                ApplyError(result.Error?.Message ?? "Не удалось принять звонок.");
-            }).ConfigureAwait(false);
+        if (cancellationToken.IsCancellationRequested)
             return;
-        }
 
-        if (withVideo)
-            await ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
+        await RunOnUiThreadAsync(() =>
+        {
+            NavigateToDirectCallRequested?.Invoke(
+                this,
+                new DirectCallNavigationRequest(
+                    callId,
+                    callerUserId,
+                    callerTitle,
+                    isIncoming: true,
+                    autoEnableCamera: withVideo));
+        }).ConfigureAwait(false);
     }
 
     public async Task DeclineIncomingCallAsync(CancellationToken cancellationToken = default)
@@ -646,10 +656,20 @@ public sealed class ChatPageViewModel : ObservableObject
 
     private async Task StartDirectCallAsync(string mode, bool startVideoAfterJoin, CancellationToken cancellationToken)
     {
-        if (SelectedDialog == null || string.IsNullOrWhiteSpace(SelectedDialog.PeerId))
+        var selectedDialog = SelectedDialog;
+        if (selectedDialog == null)
             return;
 
-        var targetUserId = SelectedDialog.PeerId!;
+        var targetUserId = ResolveTargetUserIdForSelectedDialog();
+        if (string.IsNullOrWhiteSpace(targetUserId))
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError("Не удалось определить пользователя для звонка.");
+            }).ConfigureAwait(false);
+            return;
+        }
+
         var createResult = await _callCoordinator.StartDirectCallAsync(targetUserId, mode, cancellationToken).ConfigureAwait(false);
         if (createResult.IsFailure)
         {
@@ -660,19 +680,22 @@ public sealed class ChatPageViewModel : ObservableObject
             return;
         }
 
-        var callId = createResult.Value!;
-        var joinResult = await _callCoordinator.JoinDirectCallMediaAsync(callId, cancellationToken).ConfigureAwait(false);
-        if (joinResult.IsFailure)
+        await RunOnUiThreadAsync(() =>
         {
-            await RunOnUiThreadAsync(() =>
-            {
-                ApplyError(joinResult.Error?.Message ?? "Не удалось подключить медиа.");
-            }).ConfigureAwait(false);
-            return;
-        }
+            var counterpartTitle = ResolveUserLabel(
+                targetUserId,
+                selectedDialog.Title,
+                selectedDialog.Subtitle);
 
-        if (startVideoAfterJoin)
-            await ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
+            NavigateToDirectCallRequested?.Invoke(
+                this,
+                new DirectCallNavigationRequest(
+                    createResult.Value!,
+                    targetUserId,
+                    counterpartTitle,
+                    isIncoming: false,
+                    autoEnableCamera: startVideoAfterJoin));
+        }).ConfigureAwait(false);
     }
 
     private async Task<bool> EnsureAuthorizedAsync()
@@ -771,7 +794,10 @@ public sealed class ChatPageViewModel : ObservableObject
 
             await RunOnUiThreadAsync(() =>
             {
-                var callerTitle = ResolveUserLabel(callerUserId, callerUserId);
+                var callerTitle = ResolveUserLabel(
+                    callerUserId,
+                    ResolveDialogTitleByPeer(callerUserId),
+                    null);
                 _incomingCallId = callId;
                 _incomingCallerUserId = callerUserId;
                 IncomingCallText = string.IsNullOrWhiteSpace(callerUserId)
@@ -838,7 +864,7 @@ public sealed class ChatPageViewModel : ObservableObject
         {
             dialog.Title = ResolveUserLabel(dialog.PeerId, dialog.Title);
             _dialogMap[dialog.ConversationId] = dialog;
-            RememberUserLabel(dialog.PeerId, dialog.Title, null);
+            RememberUserLabel(dialog.PeerId, dialog.Title, dialog.Subtitle);
         }
 
         if (SelectedDialog != null)
@@ -938,9 +964,146 @@ public sealed class ChatPageViewModel : ObservableObject
         };
     }
 
+    private string? ResolveTargetUserIdForSelectedDialog()
+    {
+        if (SelectedDialog == null)
+            return null;
+
+        var selectedPeerId = SelectedDialog.PeerId;
+        if (!string.IsNullOrWhiteSpace(selectedPeerId) && !LooksLikePeerSessionId(selectedPeerId))
+            return selectedPeerId;
+
+        var conversationId = SelectedDialog.ConversationId;
+        var selfUserId = _authStore.Current.UserId;
+        foreach (var message in _chatStore.Current.Messages
+                     .Where(x => x.IsDirect && string.Equals(x.ConversationId, conversationId, StringComparison.Ordinal))
+                     .OrderByDescending(x => x.SentAtUtc))
+        {
+            if (message.IsOwn)
+            {
+                if (!string.IsNullOrWhiteSpace(message.TargetId) && !LooksLikePeerSessionId(message.TargetId))
+                    return message.TargetId;
+
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(message.SenderUserId))
+                return message.SenderUserId;
+
+            if (!string.IsNullOrWhiteSpace(message.SenderPeerId) &&
+                !LooksLikePeerSessionId(message.SenderPeerId) &&
+                !string.Equals(message.SenderPeerId, selfUserId, StringComparison.Ordinal))
+            {
+                return message.SenderPeerId;
+            }
+        }
+
+        return selectedPeerId;
+    }
+
+    private static bool LooksLikePeerSessionId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return value.StartsWith("peer_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string ResolveDialogSubtitle(ChatDialogItem dialog)
+    {
+        if (!string.IsNullOrWhiteSpace(dialog.Subtitle) &&
+            !string.Equals(dialog.Subtitle, "Личный чат", StringComparison.OrdinalIgnoreCase))
+        {
+            return dialog.Subtitle;
+        }
+
+        var targetUserId = ResolveTargetUserIdForSelectedDialog();
+        if (!string.IsNullOrWhiteSpace(targetUserId))
+            return "ID: " + targetUserId;
+
+        if (!string.IsNullOrWhiteSpace(dialog.PeerId))
+            return "ID: " + dialog.PeerId;
+
+        return "Личный чат";
+    }
+
+    private string? ResolveDialogTitleByPeer(string? peerId)
+    {
+        if (string.IsNullOrWhiteSpace(peerId))
+            return null;
+
+        var dialog = _dialogMap.Values.FirstOrDefault(x =>
+            string.Equals(x.PeerId, peerId, StringComparison.Ordinal));
+
+        if (dialog == null || string.IsNullOrWhiteSpace(dialog.Title))
+            return null;
+
+        return dialog.Title;
+    }
+
+    private DirectChatMessageViewItem CreateDisplayedMessageItem(ChatMessageItem item)
+    {
+        var senderTitle = ResolveMessageSenderTitle(item);
+        var senderMeta = ResolveMessageSenderMeta(item, senderTitle);
+        var statusText = item.IsOwn ? item.DisplayStatus : string.Empty;
+
+        return new DirectChatMessageViewItem(
+            senderTitle,
+            senderMeta,
+            item.Text,
+            item.DisplayTime,
+            statusText,
+            item.IsOwn);
+    }
+
+    private string ResolveMessageSenderTitle(ChatMessageItem item)
+    {
+        if (item.IsOwn)
+            return "Вы";
+
+        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) && !LooksLikeTechnicalId(item.SenderDisplayName))
+            return item.SenderDisplayName;
+
+        if (!string.IsNullOrWhiteSpace(item.SenderEmail) && item.SenderEmail.Contains("@"))
+            return item.SenderEmail;
+
+        if (!string.IsNullOrWhiteSpace(item.SenderUserId))
+            return ResolveUserLabel(item.SenderUserId, ResolveDialogTitleByPeer(item.SenderUserId), item.SenderEmail);
+
+        return ResolveUserLabel(item.SenderPeerId, ResolveDialogTitleByPeer(item.SenderPeerId), item.SenderEmail);
+    }
+
+    private string ResolveMessageSenderMeta(ChatMessageItem item, string senderTitle)
+    {
+        if (item.IsOwn)
+        {
+            if (!string.IsNullOrWhiteSpace(_authStore.Current.Email))
+                return _authStore.Current.Email!;
+
+            if (!string.IsNullOrWhiteSpace(_authStore.Current.UserId))
+                return _authStore.Current.UserId!;
+
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.SenderEmail) &&
+            !string.Equals(item.SenderEmail, senderTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return item.SenderEmail;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.SenderUserId) &&
+            !string.Equals(item.SenderUserId, senderTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return item.SenderUserId;
+        }
+
+        return string.Empty;
+    }
+
     private void UpdateCallActionAvailability()
     {
-        var hasDialog = SelectedDialog != null && !string.IsNullOrWhiteSpace(SelectedDialog.PeerId);
+        var hasDialog = !string.IsNullOrWhiteSpace(ResolveTargetUserIdForSelectedDialog());
         var callState = _callStore.Current;
         var hasActiveDirectCall = callState.Kind == CallKind.Direct &&
                                   callState.Stage != CallConnectionStage.Idle &&
@@ -967,12 +1130,14 @@ public sealed class ChatPageViewModel : ObservableObject
     private void RebuildMessages(ChatViewState state)
     {
         Messages.Clear();
+        DisplayedMessages.Clear();
 
         if (SelectedDialog == null)
             return;
 
         var selectedConversationId = SelectedDialog.ConversationId;
         var selectedPeerId = SelectedDialog.PeerId;
+        var selectedTargetUserId = ResolveTargetUserIdForSelectedDialog();
 
         var items = state.Messages
             .Where(x =>
@@ -982,7 +1147,14 @@ public sealed class ChatPageViewModel : ObservableObject
                     (!string.IsNullOrWhiteSpace(selectedPeerId) &&
                      (
                         string.Equals(x.TargetId, selectedPeerId, StringComparison.Ordinal) ||
-                        string.Equals(x.SenderPeerId, selectedPeerId, StringComparison.Ordinal)
+                        string.Equals(x.SenderPeerId, selectedPeerId, StringComparison.Ordinal) ||
+                        string.Equals(x.SenderUserId, selectedPeerId, StringComparison.Ordinal)
+                     )) ||
+                    (!string.IsNullOrWhiteSpace(selectedTargetUserId) &&
+                     (
+                        string.Equals(x.TargetId, selectedTargetUserId, StringComparison.Ordinal) ||
+                        string.Equals(x.SenderPeerId, selectedTargetUserId, StringComparison.Ordinal) ||
+                        string.Equals(x.SenderUserId, selectedTargetUserId, StringComparison.Ordinal)
                      ))
                 ))
             .OrderBy(x => x.SentAtUtc)
@@ -990,7 +1162,10 @@ public sealed class ChatPageViewModel : ObservableObject
             .ToList();
 
         foreach (var item in items)
+        {
             Messages.Add(item);
+            DisplayedMessages.Add(CreateDisplayedMessageItem(item));
+        }
     }
 
     private void UpdateSelectedDialogPresentation()
@@ -1010,10 +1185,10 @@ public sealed class ChatPageViewModel : ObservableObject
         ActiveDialogTitle = string.IsNullOrWhiteSpace(SelectedDialog.Title)
             ? "Без названия"
             : SelectedDialog.Title;
-
-        ActiveDialogSubtitle = string.IsNullOrWhiteSpace(SelectedDialog.Subtitle)
+        var resolvedSubtitle = ResolveDialogSubtitle(SelectedDialog);
+        ActiveDialogSubtitle = string.IsNullOrWhiteSpace(resolvedSubtitle)
             ? "Личный чат"
-            : SelectedDialog.Subtitle;
+            : resolvedSubtitle;
 
         ActiveDialogAvatarText = SelectedDialog.AvatarText;
 
@@ -1195,6 +1370,64 @@ public sealed class ChatPageViewModel : ObservableObject
     }
 }
 
+public sealed class DirectCallNavigationRequest
+{
+    public DirectCallNavigationRequest(
+        string callId,
+        string? counterpartUserId,
+        string counterpartTitle,
+        bool isIncoming,
+        bool autoEnableCamera)
+    {
+        CallId = callId;
+        CounterpartUserId = counterpartUserId;
+        CounterpartTitle = counterpartTitle;
+        IsIncoming = isIncoming;
+        AutoEnableCamera = autoEnableCamera;
+    }
+
+    public string CallId { get; }
+    public string? CounterpartUserId { get; }
+    public string CounterpartTitle { get; }
+    public bool IsIncoming { get; }
+    public bool AutoEnableCamera { get; }
+}
+
+public sealed class DirectChatMessageViewItem
+{
+    private static readonly SolidColorBrush OwnBubbleBrush = new(Color.FromArgb(0xFF, 0x2B, 0x52, 0x78));
+    private static readonly SolidColorBrush RemoteBubbleBrush = new(Color.FromArgb(0xFF, 0x1E, 0x2C, 0x3A));
+
+    public DirectChatMessageViewItem(
+        string senderTitle,
+        string senderMeta,
+        string text,
+        string timeText,
+        string deliveryStatusText,
+        bool isOwn)
+    {
+        SenderTitle = senderTitle;
+        SenderMeta = senderMeta;
+        Text = text;
+        TimeText = timeText;
+        DeliveryStatusText = deliveryStatusText;
+        IsOwn = isOwn;
+    }
+
+    public string SenderTitle { get; }
+    public string SenderMeta { get; }
+    public string Text { get; }
+    public string TimeText { get; }
+    public string DeliveryStatusText { get; }
+    public bool IsOwn { get; }
+
+    public HorizontalAlignment BubbleAlignment => IsOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+    public SolidColorBrush BubbleBackground => IsOwn ? OwnBubbleBrush : RemoteBubbleBrush;
+    public string FooterText => string.IsNullOrWhiteSpace(DeliveryStatusText)
+        ? TimeText
+        : TimeText + " • " + DeliveryStatusText;
+}
+
 public sealed class DirectCallParticipantViewItem
 {
     public DirectCallParticipantViewItem(
@@ -1213,4 +1446,8 @@ public sealed class DirectCallParticipantViewItem
     public bool HasAudio { get; }
     public bool HasVideo { get; }
     public bool HasScreenShare { get; }
+    public string MediaSummary =>
+        (HasAudio ? "🎤 " : string.Empty) +
+        (HasVideo ? "📷 " : string.Empty) +
+        (HasScreenShare ? "🖥 " : string.Empty);
 }

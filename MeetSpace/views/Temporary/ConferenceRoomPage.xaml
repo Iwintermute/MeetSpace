@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:fa="http://schemas.fontawesome.com/icons/fonts"
     xmlns:local="using:MeetSpace.Views.Temporary"
     xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
@@ -72,12 +73,17 @@
                         MaxHeight="130">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:ConferenceParticipantTileViewItem">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Grid Padding="4,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
                                     <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasAudio}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasVideo}" />
-                                    <TextBlock Opacity="0.75" Text="{x:Bind HasScreenShare}" />
-                                </StackPanel>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Opacity="0.75"
+                                        Text="{x:Bind MediaSummary}" />
+                                </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
@@ -181,23 +187,54 @@
                 <Button
                     x:Name="MicrophoneButton"
                     IsEnabled="{x:Bind ViewModel.IsMicrophoneButtonEnabled, Mode=OneWay}"
-                    Content="{x:Bind ViewModel.MicrophoneButtonContent, Mode=OneWay}"
-                    Click="MicrophoneButton_Click" />
+                    Click="MicrophoneButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_Microphone" />
+                        <TextBlock Text="{x:Bind ViewModel.MicrophoneButtonContent, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
 
                 <Button
                     x:Name="CameraButton"
                     IsEnabled="{x:Bind ViewModel.IsCameraButtonEnabled, Mode=OneWay}"
-                    Content="{x:Bind ViewModel.CameraButtonContent, Mode=OneWay}"
-                    Click="CameraButton_Click" />
+                    Click="CameraButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_Video" />
+                        <TextBlock Text="{x:Bind ViewModel.CameraButtonContent, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
 
                 <Button
                     x:Name="ScreenShareButton"
                     IsEnabled="{x:Bind ViewModel.IsScreenShareButtonEnabled, Mode=OneWay}"
-                    Content="{x:Bind ViewModel.ScreenShareButtonContent, Mode=OneWay}"
-                    Click="ScreenShareButton_Click" />
+                    Click="ScreenShareButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <SymbolIcon Symbol="Share" />
+                        <TextBlock Text="{x:Bind ViewModel.ScreenShareButtonContent, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
 
-                <Button Content="Чат" Click="OpenChatButton_Click" />
-                <Button Content="Завершить" Click="LeaveConferenceButton_Click" />
+                <Button Click="OpenChatButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <SymbolIcon Symbol="Message" />
+                        <TextBlock Text="Чат" />
+                    </StackPanel>
+                </Button>
+                <Button Click="LeaveConferenceButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <fa:FontAwesome
+                            Width="14"
+                            Height="14"
+                            Icon="Solid_PhoneSlash" />
+                        <TextBlock Text="Завершить" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Grid>

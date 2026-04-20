@@ -79,6 +79,18 @@ public sealed partial class MeetingsHomePage : Page
         });
     }
 
+    private void MeetingsTabButton_Click(object sender, RoutedEventArgs e)
+    {
+    }
+
+    private async void CallsTabButton_Click(object sender, RoutedEventArgs e)
+    {
+        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+        {
+            Frame?.Navigate(typeof(ChatPage));
+        });
+    }
+
     private void NewMeetingButton_Click(object sender, RoutedEventArgs e)
     {
     }
