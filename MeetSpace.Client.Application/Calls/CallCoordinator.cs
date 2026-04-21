@@ -145,15 +145,41 @@ public sealed class CallCoordinator : IDisposable
                 return Result.Failure(new Error("call.not_connected", "Call is not connected."));
 
             var nextState = !_callStore.Current.LocalMedia.MicrophoneEnabled;
-            if (_localProducerByTrackType.TryGetValue("microphone", out var producerId) &&
-                !string.IsNullOrWhiteSpace(_sessionId))
+            var hasSession = !string.IsNullOrWhiteSpace(_sessionId);
+            if (nextState)
             {
-                var trackControlResult = nextState
-                    ? await ResumeTrackAsync(_kind, _sessionId!, producerId, cancellationToken).ConfigureAwait(false)
-                    : await PauseTrackAsync(_kind, _sessionId!, producerId, cancellationToken).ConfigureAwait(false);
+                if (hasSession && _localProducerByTrackType.TryGetValue("microphone", out var existingProducerId))
+                {
+                    var resumeResult = await ResumeTrackAsync(_kind, _sessionId!, existingProducerId, cancellationToken).ConfigureAwait(false);
+                    if (resumeResult.IsFailure && !IsProducerMissingError(resumeResult.Error))
+                        return Result.Failure(resumeResult.Error!);
 
-                if (trackControlResult.IsFailure)
-                    return Result.Failure(trackControlResult.Error!);
+                    if (resumeResult.IsFailure)
+                    {
+                        _localProducerByTrackType.Remove("microphone");
+                        _localProducerIds.Remove(existingProducerId);
+                        var startResult = await StartTrackAsync(CallMediaTrackType.Audio, cancellationToken).ConfigureAwait(false);
+                        if (startResult.IsFailure)
+                            return startResult;
+                    }
+                }
+                else if (hasSession)
+                {
+                    var startResult = await StartTrackAsync(CallMediaTrackType.Audio, cancellationToken).ConfigureAwait(false);
+                    if (startResult.IsFailure)
+                        return startResult;
+                }
+            }
+            else if (hasSession && _localProducerByTrackType.TryGetValue("microphone", out var producerId))
+            {
+                var pauseResult = await PauseTrackAsync(_kind, _sessionId!, producerId, cancellationToken).ConfigureAwait(false);
+                if (pauseResult.IsFailure && !IsProducerMissingError(pauseResult.Error))
+                    return Result.Failure(pauseResult.Error!);
+                if (pauseResult.IsFailure)
+                {
+                    _localProducerByTrackType.Remove("microphone");
+                    _localProducerIds.Remove(producerId);
+                }
             }
             await _audioEngine.SetMicrophoneEnabledAsync(nextState, cancellationToken).ConfigureAwait(false);
             _callStore.SetMicrophoneEnabled(nextState);
@@ -265,8 +291,13 @@ public sealed class CallCoordinator : IDisposable
                 _localProducerByTrackType.TryGetValue("screen", out var screenProducerId))
             {
                 var closeResult = await CloseTrackAsync(_kind, _sessionId!, screenProducerId, cancellationToken).ConfigureAwait(false);
-                if (closeResult.IsFailure)
+                if (closeResult.IsFailure && !IsProducerMissingError(closeResult.Error))
                     return Result.Failure(closeResult.Error!);
+                if (closeResult.IsFailure)
+                {
+                    _localProducerByTrackType.Remove("screen");
+                    _localProducerIds.Remove(screenProducerId);
+                }
             }
 
             await _audioEngine.SetScreenShareEnabledAsync(false, cancellationToken).ConfigureAwait(false);
@@ -389,6 +420,14 @@ public sealed class CallCoordinator : IDisposable
 
             _callStore.SetStage(
                 CallConnectionStage.JoiningRoom,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+
+            _callStore.SetStage(
+                CallConnectionStage.TransportOpening,
                 _conversationId,
                 _roomId,
                 _sendTransportId,

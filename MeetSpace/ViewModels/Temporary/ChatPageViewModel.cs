@@ -704,16 +704,28 @@ public sealed class ChatPageViewModel : ObservableObject
         if (!auth.IsAuthenticated || string.IsNullOrWhiteSpace(auth.UserId))
             return false;
 
-        var result = await _realtimeStartupService
-            .EnsureConnectedAsync(_options.DefaultRealtimeEndpoint)
-            .ConfigureAwait(false);
+        try
+        {
+            var result = await _realtimeStartupService
+                .EnsureConnectedAsync(_options.DefaultRealtimeEndpoint)
+                .ConfigureAwait(false);
 
-        if (result.IsFailure)
+            if (result.IsFailure)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    ApplyError(result.Error?.Message ?? "Не удалось подключить realtime.");
+                }).ConfigureAwait(false);
+                return false;
+            }
+        }
+        catch (Exception ex)
         {
             await RunOnUiThreadAsync(() =>
             {
-                ApplyError(result.Error?.Message ?? "Не удалось подключить realtime.");
+                ApplyError(ex.Message);
             }).ConfigureAwait(false);
+            return false;
         }
 
         return true;
@@ -929,7 +941,10 @@ public sealed class ChatPageViewModel : ObservableObject
         CallStatusText = BuildCallStatusText(state);
 
         CallParticipants.Clear();
-        foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
+        foreach (var participant in state.Participants
+                     .OrderBy(
+                         x => UserFacingIdentityFormatter.ResolveParticipantLabel(x.PeerId, x.UserId),
+                         StringComparer.OrdinalIgnoreCase))
         {
             var participantTitle = ResolveUserLabel(participant.PeerId, participant.UserId);
             RememberUserLabel(participant.PeerId, participant.UserId, null);
@@ -1061,7 +1076,8 @@ public sealed class ChatPageViewModel : ObservableObject
         if (item.IsOwn)
             return "Вы";
 
-        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) && !LooksLikeTechnicalId(item.SenderDisplayName))
+        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(item.SenderDisplayName))
             return item.SenderDisplayName;
 
         if (!string.IsNullOrWhiteSpace(item.SenderEmail) && item.SenderEmail.Contains("@"))
@@ -1235,11 +1251,17 @@ public sealed class ChatPageViewModel : ObservableObject
 
     private string ResolveUserLabel(string? userId, string? preferredLabel, string? fallbackEmail = null)
     {
-        if (!string.IsNullOrWhiteSpace(preferredLabel) && !LooksLikeTechnicalId(preferredLabel!))
+        if (!string.IsNullOrWhiteSpace(preferredLabel) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(preferredLabel))
+        {
             return preferredLabel!;
+        }
 
-        if (!string.IsNullOrWhiteSpace(fallbackEmail) && fallbackEmail!.Contains("@"))
+        if (!string.IsNullOrWhiteSpace(fallbackEmail) &&
+            fallbackEmail!.Contains("@", StringComparison.Ordinal))
+        {
             return fallbackEmail!;
+        }
 
         if (!string.IsNullOrWhiteSpace(userId) &&
             _knownUserLabels.TryGetValue(userId, out var known) &&
@@ -1248,44 +1270,7 @@ public sealed class ChatPageViewModel : ObservableObject
             return known;
         }
 
-        if (!string.IsNullOrWhiteSpace(userId))
-        {
-            if (userId.Contains("@"))
-                return userId;
-
-            if (!LooksLikeTechnicalId(userId))
-                return userId;
-        }
-
-        return "Пользователь";
-    }
-
-    private static bool LooksLikeTechnicalId(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return true;
-
-        var value = raw.Trim();
-        if (value.Contains("@"))
-            return false;
-
-        if (value.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
-            value.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (value.Contains('-') && value.Length >= 16)
-            return true;
-
-        var digits = value.Count(char.IsDigit);
-        if (digits >= value.Length / 2 && value.Length >= 10)
-            return true;
-
-        if (value.Length >= 24)
-            return true;
-
-        return false;
+        return UserFacingIdentityFormatter.ResolveUserLabel(userId, preferredLabel, fallbackEmail);
     }
 
     private void ApplyError(string? error)

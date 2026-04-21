@@ -144,9 +144,10 @@ public sealed class DirectCallPageViewModel : ObservableObject
 
         _callId = request.CallId ?? string.Empty;
         _counterpartUserId = request.CounterpartUserId;
-        _counterpartTitle = string.IsNullOrWhiteSpace(request.CounterpartTitle)
-            ? "Пользователь"
-            : request.CounterpartTitle;
+        _counterpartTitle = UserFacingIdentityFormatter.ResolveUserLabel(
+            request.CounterpartUserId,
+            request.CounterpartTitle,
+            null);
         _incomingCallMode = request.IsIncoming;
         _autoEnableCamera = request.AutoEnableCamera;
         _startAttempted = false;
@@ -194,7 +195,7 @@ public sealed class DirectCallPageViewModel : ObservableObject
                 await _callCoordinator.EndDirectCallAsync(_callId, "page_unload", CancellationToken.None).ConfigureAwait(false);
             }
         }
-        catch
+        catch (Exception ex)
         {
         }
     }
@@ -364,7 +365,11 @@ public sealed class DirectCallPageViewModel : ObservableObject
 
     private void ApplyIdentity()
     {
-        CallTitle = string.IsNullOrWhiteSpace(_counterpartTitle) ? "Личный звонок" : _counterpartTitle;
+        CallTitle = UserFacingIdentityFormatter.ResolveUserLabel(
+            _counterpartUserId,
+            _counterpartTitle,
+            null,
+            "Личный звонок");
         var fallbackSubtitle = !string.IsNullOrWhiteSpace(_counterpartUserId) &&
                                _counterpartUserId!.Contains("@", StringComparison.Ordinal)
             ? _counterpartUserId
@@ -408,7 +413,7 @@ public sealed class DirectCallPageViewModel : ObservableObject
             IsMicrophoneButtonEnabled = false;
             IsCameraButtonEnabled = false;
             IsScreenShareButtonEnabled = false;
-            IsEndCallEnabled = _startAttempted;
+            IsEndCallEnabled = false;
 
             MicrophoneButtonContent = "Микрофон";
             CameraButtonContent = "Камера";
@@ -428,7 +433,10 @@ public sealed class DirectCallPageViewModel : ObservableObject
         };
 
         Participants.Clear();
-        foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
+        foreach (var participant in state.Participants
+                     .OrderBy(
+                         x => UserFacingIdentityFormatter.ResolveParticipantLabel(x.PeerId, x.UserId),
+                         StringComparer.OrdinalIgnoreCase))
         {
             var title = UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
             Participants.Add(new DirectCallParticipantViewItem(
@@ -457,10 +465,20 @@ public sealed class DirectCallPageViewModel : ObservableObject
                 .EnsureConnectedAsync(_options.DefaultRealtimeEndpoint)
                 .ConfigureAwait(false);
             if (result.IsFailure)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    StatusDetailsText = result.Error?.Message ?? "Не удалось подключить realtime.";
+                }).ConfigureAwait(false);
                 return false;
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            await RunOnUiThreadAsync(() =>
+            {
+                StatusDetailsText = ex.Message;
+            }).ConfigureAwait(false);
             return false;
         }
 

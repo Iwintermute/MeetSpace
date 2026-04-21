@@ -393,15 +393,27 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
 
         if (!auth.IsAuthenticated || string.IsNullOrWhiteSpace(auth.UserId))
             return false;
-
         try
         {
-            await _realtimeStartupService
+            var result = await _realtimeStartupService
                 .EnsureConnectedAsync(_options.DefaultRealtimeEndpoint)
                 .ConfigureAwait(false);
+            if (result.IsFailure)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    SetStatusMessage(result.Error?.Message ?? "Не удалось подключить realtime.");
+                }).ConfigureAwait(false);
+                return false;
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            await RunOnUiThreadAsync(() =>
+            {
+                SetStatusMessage(ex.Message);
+            }).ConfigureAwait(false);
+            return false;
         }
 
         return true;
