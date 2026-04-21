@@ -38,7 +38,7 @@ public sealed class DirectCallPageViewModel : ObservableObject
     private string _callTitle = "Личный звонок";
     private string _callSubtitle = string.Empty;
     private string _callStatusText = "Ожидание подключения…";
-    private string _statusDetailsText = string.Empty;
+    private string _statusDetailsText = "Защищенное соединение";
     private string _microphoneButtonContent = "Микрофон выкл";
     private string _cameraButtonContent = "Камера выкл";
     private string _screenShareButtonContent = "Экран выкл";
@@ -365,12 +365,10 @@ public sealed class DirectCallPageViewModel : ObservableObject
     private void ApplyIdentity()
     {
         CallTitle = string.IsNullOrWhiteSpace(_counterpartTitle) ? "Личный звонок" : _counterpartTitle;
-
-        var fallbackSubtitle = !string.IsNullOrWhiteSpace(_counterpartUserId)
-            ? "ID: " + _counterpartUserId
-            : string.IsNullOrWhiteSpace(_sessionStore.Current.SelfPeerId)
-                ? string.Empty
-                : "peer: " + _sessionStore.Current.SelfPeerId;
+        var fallbackSubtitle = !string.IsNullOrWhiteSpace(_counterpartUserId) &&
+                               _counterpartUserId!.Contains("@", StringComparison.Ordinal)
+            ? _counterpartUserId
+            : "Личный защищенный звонок";
 
         CallSubtitle = fallbackSubtitle;
     }
@@ -432,7 +430,7 @@ public sealed class DirectCallPageViewModel : ObservableObject
         Participants.Clear();
         foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
         {
-            var title = ResolveParticipantTitle(participant.PeerId, participant.UserId);
+            var title = UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
             Participants.Add(new DirectCallParticipantViewItem(
                 title,
                 participant.HasAudio,
@@ -446,50 +444,6 @@ public sealed class DirectCallPageViewModel : ObservableObject
         }
     }
 
-    private string ResolveParticipantTitle(string? peerId, string? userId)
-    {
-        if (!string.IsNullOrWhiteSpace(userId) && !LooksLikeTechnicalId(userId!))
-            return userId!;
-
-        if (!string.IsNullOrWhiteSpace(userId) && userId!.Contains("@"))
-            return userId!;
-
-        if (!string.IsNullOrWhiteSpace(peerId) && !LooksLikeTechnicalId(peerId))
-            return peerId!;
-
-        if (!string.IsNullOrWhiteSpace(userId))
-            return "ID: " + userId;
-
-        if (!string.IsNullOrWhiteSpace(peerId))
-            return "peer: " + peerId;
-
-        return "Участник";
-    }
-
-    private static bool LooksLikeTechnicalId(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return true;
-
-        var normalized = value.Trim();
-        if (normalized.Contains("@"))
-            return false;
-
-        if (normalized.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
-            normalized.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (normalized.Length >= 24)
-            return true;
-
-        if (normalized.Contains('-') && normalized.Length >= 16)
-            return true;
-
-        var digits = normalized.Count(char.IsDigit);
-        return digits >= normalized.Length / 2 && normalized.Length >= 10;
-    }
 
     private async Task<bool> EnsureAuthorizedAsync()
     {

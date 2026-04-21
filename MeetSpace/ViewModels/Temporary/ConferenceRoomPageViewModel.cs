@@ -34,9 +34,10 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     private bool _isActive;
     private string _conferenceId = string.Empty;
 
-    private string _authorizedUserText = "Авторизованный пользователь";
-    private string _authorizedUserMetaText = "peer / conference";
+    private string _authorizedUserText = "Вы";
+    private string _authorizedUserMetaText = "Защищенное соединение";
     private string _callStatusText = string.Empty;
+    private string _participantsSummaryText = "В звонке: только вы";
     private string _microphoneButtonContent = "Подключить аудио";
     private string _cameraButtonContent = "Камера выкл";
     private string _screenShareButtonContent = "Экран выкл";
@@ -68,44 +69,6 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         _options = options;
     }
 
-    private static string ResolveParticipantLabel(string? peerId, string? userId)
-    {
-        if (!string.IsNullOrWhiteSpace(userId) && !LooksLikeTechnicalId(userId!))
-            return userId!;
-
-        if (!string.IsNullOrWhiteSpace(userId) && userId!.Contains("@"))
-            return userId!;
-
-        if (!string.IsNullOrWhiteSpace(peerId) && !LooksLikeTechnicalId(peerId))
-            return peerId;
-
-        return "Участник";
-    }
-
-    private static bool LooksLikeTechnicalId(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return true;
-
-        var normalized = value.Trim();
-        if (normalized.Contains("@"))
-            return false;
-
-        if (normalized.StartsWith("peer_", StringComparison.OrdinalIgnoreCase) ||
-            normalized.StartsWith("user_", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (normalized.Length >= 24)
-            return true;
-
-        if (normalized.Contains('-') && normalized.Length >= 16)
-            return true;
-
-        var digits = normalized.Count(char.IsDigit);
-        return digits >= normalized.Length / 2 && normalized.Length >= 10;
-    }
 
     public ObservableCollection<ConferenceChatMessageViewItem> Messages { get; } = new();
     public ObservableCollection<ConferenceParticipantTileViewItem> Participants { get; } = new();
@@ -126,6 +89,11 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     {
         get => _callStatusText;
         private set => SetProperty(ref _callStatusText, value);
+    }
+    public string ParticipantsSummaryText
+    {
+        get => _participantsSummaryText;
+        private set => SetProperty(ref _participantsSummaryText, value);
     }
 
     public string MicrophoneButtonContent
@@ -213,7 +181,7 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         {
             await RunOnUiThreadAsync(() =>
             {
-                SetStatusMessage("peer не назначен");
+                SetStatusMessage("Не удалось подготовить защищённую сессию.");
             }).ConfigureAwait(false);
 
             return;
@@ -239,7 +207,7 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
 
         await RunOnUiThreadAsync(() =>
         {
-            SetStatusMessage("Не удалось подключить аудио");
+            SetStatusMessage("Не удалось подключить аудио. Попробуйте ещё раз.");
         }).ConfigureAwait(false);
     }
 
@@ -385,7 +353,7 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     public void SetStatusMessage(string? message)
     {
         if (!string.IsNullOrWhiteSpace(message))
-            AuthorizedUserMetaText = message!;
+            AuthorizedUserMetaText = NormalizeUserFacingStatus(message!);
     }
 
     private async Task<bool> EnsureConferenceCallJoinedAsync(CancellationToken cancellationToken)
@@ -547,19 +515,10 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
     {
         var displayName = !string.IsNullOrWhiteSpace(auth.Email)
             ? auth.Email
-            : auth.UserId ?? "Авторизованный пользователь";
+            : "Вы";
 
         AuthorizedUserText = displayName;
-
-        var peer = !string.IsNullOrWhiteSpace(session.SelfPeerId)
-            ? session.SelfPeerId
-            : "peer не назначен";
-
-        var stage = _callStore.Current.Stage.ToString();
-
-        AuthorizedUserMetaText = string.IsNullOrWhiteSpace(_conferenceId)
-            ? peer + " • " + stage
-            : peer + " • " + _conferenceId + " • " + stage;
+        AuthorizedUserMetaText = BuildConnectionHint(_callStore.Current.Stage, session);
     }
 
     private void ApplyCallState(CallSessionState state)
@@ -618,16 +577,64 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         };
 
         Participants.Clear();
-        foreach (var participant in state.Participants.OrderBy(x => x.PeerId, StringComparer.Ordinal))
+        var genericParticipantIndex = 0;
+        foreach (var participant in state.Participants.OrderBy(x => UserFacingIdentityFormatter.ResolveParticipantLabel(x.PeerId, x.UserId), StringComparer.OrdinalIgnoreCase))
         {
+            var title = UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
+            if (string.Equals(title, "Участник", StringComparison.Ordinal))
+            {
+                genericParticipantIndex++;
+                title = $"Участник {genericParticipantIndex}";
+            }
             Participants.Add(new ConferenceParticipantTileViewItem(
-                ResolveParticipantLabel(participant.PeerId, participant.UserId),
+                title,
                 participant.HasAudio,
                 participant.HasVideo,
                 participant.HasScreenShare));
         }
 
+        var remoteParticipants = state.Participants.Count;
+        var totalParticipants = remoteParticipants + (state.Stage == CallConnectionStage.Connected ? 1 : 0);
+        ParticipantsSummaryText = totalParticipants <= 1
+            ? "В звонке: только вы"
+            : $"В звонке: {totalParticipants} участника";
+
         ApplyIdentity(_authStore.Current, _sessionStore.Current);
+    }
+
+    private static string BuildConnectionHint(CallConnectionStage stage, SessionState session)
+    {
+        var sessionReady = !string.IsNullOrWhiteSpace(session.SelfPeerId);
+        var stageLabel = stage switch
+        {
+            CallConnectionStage.Connected => "Конференция активна",
+            CallConnectionStage.JoiningRoom => "Подключение к конференции",
+            CallConnectionStage.TransportOpening => "Подготовка медиа-канала",
+            CallConnectionStage.Negotiating => "Согласование параметров звонка",
+            CallConnectionStage.Publishing => "Запуск аудио и видео",
+            CallConnectionStage.Faulted => "Требуется переподключение",
+            _ => "Ожидание подключения"
+        };
+
+        return sessionReady
+            ? stageLabel
+            : "Инициализация защищённого соединения";
+    }
+
+    private static string NormalizeUserFacingStatus(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return "Защищенное соединение";
+
+        var normalized = message.Trim();
+        if (normalized.IndexOf("peer", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            normalized.IndexOf("session", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            normalized.IndexOf("transport", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "Проверьте соединение и повторите попытку.";
+        }
+
+        return normalized;
     }
 
     private void ApplyChatState(ChatViewState state)
@@ -660,7 +667,8 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return "Вы";
         }
 
-        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) && !LooksLikeTechnicalId(item.SenderDisplayName))
+        if (!string.IsNullOrWhiteSpace(item.SenderDisplayName) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(item.SenderDisplayName))
             return item.SenderDisplayName;
 
         if (!string.IsNullOrWhiteSpace(item.SenderEmail) && item.SenderEmail.Contains("@"))
@@ -670,17 +678,17 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             string.Equals(x.PeerId, item.SenderPeerId, StringComparison.Ordinal));
 
         if (participant != null)
-            return ResolveParticipantLabel(participant.PeerId, participant.UserId);
+            return UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
         if (!string.IsNullOrWhiteSpace(item.SenderUserId))
         {
             participant = _callStore.Current.Participants.FirstOrDefault(x =>
                 string.Equals(x.UserId, item.SenderUserId, StringComparison.Ordinal));
 
             if (participant != null)
-                return ResolveParticipantLabel(participant.PeerId, participant.UserId);
+                return UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
         }
 
-        return ResolveParticipantLabel(item.SenderPeerId, item.SenderUserId);
+        return UserFacingIdentityFormatter.ResolveParticipantLabel(item.SenderPeerId, item.SenderUserId);
     }
 
     private void RaiseNavigateToLogin()

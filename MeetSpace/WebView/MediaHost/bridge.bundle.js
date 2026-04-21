@@ -11878,6 +11878,7 @@
         true
       ];
       var MEDIA_PLAY_TIMEOUT_MS = 1500;
+      var BRIDGE_DIAGNOSTICS_ENABLED = false;
       var LOCAL_CAMERA_TILE_KEY = "local:camera";
       var LOCAL_SCREEN_TILE_KEY = "local:screen";
       var state = {
@@ -11946,6 +11947,9 @@
         }
       }
       function sendDiag(step, extra) {
+        if (!BRIDGE_DIAGNOSTICS_ENABLED) {
+          return;
+        }
         try {
           post({
             kind: "bridge_diag",
@@ -12057,14 +12061,42 @@
           state.focusedTileKey = tileKey || null;
         syncTileLayout();
       }
-      function toggleTileFocus(tileKey) {
+      function canUseFullscreenApi() {
+        return typeof document !== "undefined" && typeof document.exitFullscreen === "function";
+      }
+      async function requestGridFullscreen() {
+        const grid = getMediaGridElement();
+        if (!grid || typeof grid.requestFullscreen !== "function")
+          return false;
+        if (document.fullscreenElement === grid)
+          return true;
+        try {
+          await grid.requestFullscreen();
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+      async function exitGridFullscreen() {
+        if (!canUseFullscreenApi())
+          return;
+        if (!document.fullscreenElement)
+          return;
+        try {
+          await document.exitFullscreen();
+        } catch (_) {
+        }
+      }
+      async function toggleMediaStageFocus(tileKey) {
         if (!tileKey)
           return;
         if (state.focusedTileKey === tileKey) {
           setFocusedTile(null);
+          await exitGridFullscreen();
           return;
         }
         setFocusedTile(tileKey);
+        await requestGridFullscreen();
       }
       function getTrackTypeLabel(trackType) {
         switch (trackType) {
@@ -12104,10 +12136,10 @@
           label.className = "media-tile-label";
           container.appendChild(video);
           container.appendChild(label);
-          container.addEventListener("dblclick", (event) => {
+          container.addEventListener("dblclick", async (event) => {
             if (typeof event.button === "number" && event.button !== 0)
               return;
-            toggleTileFocus(tileKey);
+            await toggleMediaStageFocus(tileKey);
           });
           strip.appendChild(container);
           tile = {
@@ -12198,10 +12230,12 @@
         tile.stream = stream;
         tile.video.srcObject = stream;
         await playMediaElementSafe(tile.video);
-        if (normalizedTrackType === "screen")
+        if (normalizedTrackType === "screen") {
           setFocusedTile(tileKey);
-        else
+          void requestGridFullscreen();
+        } else {
           syncTileLayout();
+        }
       }
       function removeVideoTile(tileKey) {
         const tile = state.videoTiles.get(tileKey);
@@ -12220,8 +12254,12 @@
         } catch (_) {
         }
         state.videoTiles.delete(tileKey);
-        if (state.focusedTileKey === tileKey)
+        if (state.focusedTileKey === tileKey) {
           state.focusedTileKey = null;
+          if (document.fullscreenElement) {
+            void exitGridFullscreen();
+          }
+        }
         syncTileLayout();
       }
       function removeAllVideoTiles() {
@@ -12799,8 +12837,6 @@
             kind: "host_ready",
             payload: {
               transport: hasWebView2Host() ? "webview2" : hasLegacyHost() ? "legacy" : "unknown",
-              href: window.location.href,
-              isSecureContext: window.isSecureContext,
               hasMediaDevices: !!navigator.mediaDevices,
               hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
             }
@@ -12824,6 +12860,14 @@
         } catch (_) {
         }
       });
+      if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+        document.addEventListener("fullscreenchange", () => {
+          if (!document.fullscreenElement && state.focusedTileKey && !state.videoTiles.has(state.focusedTileKey)) {
+            state.focusedTileKey = null;
+          }
+          syncTileLayout();
+        });
+      }
       registerBridge();
       if (document.readyState === "complete") {
         setTimeout(notifyHostReady, 0);

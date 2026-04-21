@@ -21,29 +21,40 @@
         }
 
         #media-grid {
+            position: relative;
             width: 100%;
             height: 100%;
             box-sizing: border-box;
             padding: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: block;
+        }
+
+        #media-grid:fullscreen {
+            padding: 12px;
+            background: #000;
         }
 
         .media-stage {
             display: none;
-            flex: 1 1 auto;
-            min-height: 0;
+            position: absolute;
+            inset: 8px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #020406;
         }
 
         .media-strip {
-            flex: 1 1 auto;
-            min-height: 0;
+            position: absolute;
+            inset: 8px;
             display: grid;
             gap: 8px;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            grid-auto-rows: minmax(140px, 1fr);
-            align-content: start;
+            grid-auto-rows: minmax(160px, 1fr);
+            align-content: stretch;
+        }
+
+        .media-strip:empty {
+            display: none;
         }
 
         #media-grid[data-has-focus='true'] .media-stage {
@@ -51,17 +62,27 @@
         }
 
         #media-grid[data-has-focus='true'] .media-strip {
-            flex: 0 0 28%;
-            min-height: 132px;
-            max-height: 36%;
+            inset: auto 16px 16px 16px;
+            max-height: 28%;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(2, 6, 12, 0.72);
+            backdrop-filter: blur(4px);
             overflow-y: auto;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             grid-auto-rows: minmax(120px, 1fr);
         }
 
+        #media-grid:fullscreen[data-has-focus='true'] .media-strip {
+            inset: auto 20px 20px 20px;
+            max-height: 24%;
+        }
+
         .media-stage .media-tile {
             width: 100%;
             height: 100%;
+            border-radius: 0;
+            border: none;
         }
 
         .media-tile {
@@ -86,6 +107,7 @@
         }
         .media-stage .media-video {
             object-fit: contain;
+            background: #000;
         }
 
         .media-tile[data-track-type='screen'] .media-video {

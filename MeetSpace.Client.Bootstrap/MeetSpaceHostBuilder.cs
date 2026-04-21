@@ -31,7 +31,12 @@ public static class MeetSpaceHostBuilder
             SupabaseUrl: "https://mtbbcaykjomycovrxdya.supabase.co",
             SupabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10YmJjYXlram9teWNvdnJ4ZHlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDkyODUsImV4cCI6MjA5MDQ4NTI4NX0.AKhEpGPBoiLDfUqAu1-MUgvDDrYlw_M0N_wHdXS9Cx4",
             DefaultRealtimeEndpoint: "ws://127.0.0.1:9002",
-            DefaultDeviceId: "uwp-desktop");
+            DefaultDeviceId: "uwp-desktop",
+            CallRuntime: new CallRuntimeOptions(
+                ServerPhaseTimeoutSeconds: 15,
+                BridgePhaseTimeoutSeconds: 12,
+                BackgroundSyncIntervalSeconds: 4,
+                ConferenceMembersRefreshIntervalSeconds: 15));
 
         return Build(options, configureServices);
     }

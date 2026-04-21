@@ -2,14 +2,14 @@
 using MeetSpace.Client.App.Session;
 using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Domain.Conference;
+using MeetSpace.Client.Shared.Configuration;
 using MeetSpace.Client.Shared.Results;
 
 namespace MeetSpace.Client.App.Calls;
 
 public sealed class CallCoordinator : IDisposable
 {
-    private static readonly TimeSpan ServerPhaseTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan BridgePhaseTimeout = TimeSpan.FromSeconds(12);
+    private static readonly CallRuntimeOptions DefaultCallRuntime = new();
 
     private readonly IConferenceMediaFeatureClient _conferenceMediaClient;
     private readonly IDirectCallFeatureClient _directCallClient;
@@ -18,6 +18,10 @@ public sealed class CallCoordinator : IDisposable
     private readonly CallStore _callStore;
     private readonly ConferenceStore _conferenceStore;
     private readonly SessionStore _sessionStore;
+    private readonly TimeSpan _serverPhaseTimeout;
+    private readonly TimeSpan _bridgePhaseTimeout;
+    private readonly TimeSpan _backgroundSyncInterval;
+    private readonly TimeSpan _conferenceMembersRefreshInterval;
 
     private readonly SemaphoreSlim _sync = new(1, 1);
     private readonly SemaphoreSlim _remoteSync = new(1, 1);
@@ -47,7 +51,8 @@ public sealed class CallCoordinator : IDisposable
         IAudioCallEngine audioEngine,
         CallStore callStore,
         ConferenceStore conferenceStore,
-        SessionStore sessionStore)
+        SessionStore sessionStore,
+        ClientRuntimeOptions runtimeOptions)
     {
         _conferenceMediaClient = conferenceMediaClient;
         _directCallClient = directCallClient;
@@ -56,6 +61,11 @@ public sealed class CallCoordinator : IDisposable
         _callStore = callStore;
         _conferenceStore = conferenceStore;
         _sessionStore = sessionStore;
+        var callRuntime = runtimeOptions.CallRuntime ?? DefaultCallRuntime;
+        _serverPhaseTimeout = TimeSpan.FromSeconds(ClampSeconds(callRuntime.ServerPhaseTimeoutSeconds, 5, 120));
+        _bridgePhaseTimeout = TimeSpan.FromSeconds(ClampSeconds(callRuntime.BridgePhaseTimeoutSeconds, 5, 120));
+        _backgroundSyncInterval = TimeSpan.FromSeconds(ClampSeconds(callRuntime.BackgroundSyncIntervalSeconds, 1, 30));
+        _conferenceMembersRefreshInterval = TimeSpan.FromSeconds(ClampSeconds(callRuntime.ConferenceMembersRefreshIntervalSeconds, 3, 120));
 
         _conferenceStore.StateChanged += ConferenceStore_StateChanged;
         _audioEngine.TransportConnectRequired += AudioEngine_TransportConnectRequired;
@@ -387,7 +397,7 @@ public sealed class CallCoordinator : IDisposable
 
             var sendTransport = await RunPhaseAsync(
                 "open_send_transport",
-                ServerPhaseTimeout,
+                _serverPhaseTimeout,
                 ct => OpenTransportAsync(kind, sessionId, _sendTransportId!, ct),
                 token).ConfigureAwait(false);
 
@@ -405,7 +415,7 @@ public sealed class CallCoordinator : IDisposable
 
             var recvTransport = await RunPhaseAsync(
                 "open_recv_transport",
-                ServerPhaseTimeout,
+                _serverPhaseTimeout,
                 ct => OpenTransportAsync(kind, sessionId, _recvTransportId!, ct),
                 token).ConfigureAwait(false);
 
@@ -433,19 +443,19 @@ public sealed class CallCoordinator : IDisposable
 
             await RunPhaseAsync(
                 "bridge_load_device",
-                BridgePhaseTimeout,
+                _bridgePhaseTimeout,
                 ct => _audioEngine.LoadDeviceAsync(sendTransport.Value!.RouterRtpCapabilitiesJson, ct),
                 token).ConfigureAwait(false);
 
             await RunPhaseAsync(
                 "bridge_create_send_transport",
-                BridgePhaseTimeout,
+                _bridgePhaseTimeout,
                 ct => _audioEngine.CreateSendTransportAsync(sendTransport.Value!, ct),
                 token).ConfigureAwait(false);
 
             await RunPhaseAsync(
                 "bridge_create_recv_transport",
-                BridgePhaseTimeout,
+                _bridgePhaseTimeout,
                 ct => _audioEngine.CreateRecvTransportAsync(recvTransport.Value!, ct),
                 token).ConfigureAwait(false);
 
@@ -459,7 +469,7 @@ public sealed class CallCoordinator : IDisposable
 
             var startAudioResult = await RunPhaseAsync(
                 "bridge_start_microphone",
-                BridgePhaseTimeout,
+                _bridgePhaseTimeout,
                 ct => StartTrackAsync(CallMediaTrackType.Audio, ct),
                 token).ConfigureAwait(false);
 
@@ -692,6 +702,7 @@ public sealed class CallCoordinator : IDisposable
         _backgroundLoopCts = new CancellationTokenSource();
 
         var token = _backgroundLoopCts.Token;
+        var nextMembersRefreshAt = DateTimeOffset.MinValue;
 
         _ = Task.Run(async () =>
         {
@@ -699,8 +710,13 @@ public sealed class CallCoordinator : IDisposable
             {
                 try
                 {
-                    if (_kind == CallKind.Conference && !string.IsNullOrWhiteSpace(_conversationId))
+                    if (_kind == CallKind.Conference &&
+                        !string.IsNullOrWhiteSpace(_conversationId) &&
+                        DateTimeOffset.UtcNow >= nextMembersRefreshAt)
+                    {
                         _ = _conferenceClient.ListMembersAsync(_conversationId, token);
+                        nextMembersRefreshAt = DateTimeOffset.UtcNow.Add(_conferenceMembersRefreshInterval);
+                    }
 
                     await SyncRemoteConsumersAsync(token).ConfigureAwait(false);
                 }
@@ -710,13 +726,22 @@ public sealed class CallCoordinator : IDisposable
 
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    await Task.Delay(_backgroundSyncInterval, token).ConfigureAwait(false);
                 }
                 catch
                 {
                 }
             }
         }, token);
+    }
+
+    private static int ClampSeconds(int value, int min, int max)
+    {
+        if (value < min)
+            return min;
+        if (value > max)
+            return max;
+        return value;
     }
 
     private async Task AudioEngine_TransportConnectRequired(TransportConnectRequest request)

@@ -77,6 +77,7 @@ const MICROPHONE_FALLBACK_CONSTRAINTS = [
     true
 ];
 const MEDIA_PLAY_TIMEOUT_MS = 1500;
+const BRIDGE_DIAGNOSTICS_ENABLED = false;
 
 const LOCAL_CAMERA_TILE_KEY = 'local:camera';
 const LOCAL_SCREEN_TILE_KEY = 'local:screen';
@@ -163,6 +164,9 @@ function sendBridgeError(requestId, where, error) {
 }
 
 function sendDiag(step, extra) {
+    if (!BRIDGE_DIAGNOSTICS_ENABLED) {
+        return;
+    }
     try {
         post({
             kind: 'bridge_diag',
@@ -311,17 +315,53 @@ function setFocusedTile(tileKey) {
 
     syncTileLayout();
 }
+function canUseFullscreenApi() {
+    return typeof document !== 'undefined' &&
+        typeof document.exitFullscreen === 'function';
+}
 
-function toggleTileFocus(tileKey) {
+async function requestGridFullscreen() {
+    const grid = getMediaGridElement();
+    if (!grid || typeof grid.requestFullscreen !== 'function')
+        return false;
+
+    if (document.fullscreenElement === grid)
+        return true;
+
+    try {
+        await grid.requestFullscreen();
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+async function exitGridFullscreen() {
+    if (!canUseFullscreenApi())
+        return;
+
+    if (!document.fullscreenElement)
+        return;
+
+    try {
+        await document.exitFullscreen();
+    } catch (_) {
+    }
+}
+
+
+async function toggleMediaStageFocus(tileKey) {
     if (!tileKey)
         return;
 
     if (state.focusedTileKey === tileKey) {
         setFocusedTile(null);
+        await exitGridFullscreen();
         return;
     }
 
     setFocusedTile(tileKey);
+    await requestGridFullscreen();
 }
 
 function getTrackTypeLabel(trackType) {
@@ -370,12 +410,11 @@ function ensureVideoTile(tileKey, trackType, isLocal) {
 
         container.appendChild(video);
         container.appendChild(label);
-        container.addEventListener('dblclick', (event) =>
+        container.addEventListener('dblclick', async (event) =>
         {
             if (typeof event.button === 'number' && event.button !== 0)
                 return;
-
-            toggleTileFocus(tileKey);
+            await toggleMediaStageFocus(tileKey);
         });
         strip.appendChild(container);
 
@@ -484,10 +523,12 @@ async function attachVideoTile(tileKey, stream, trackType, isLocal) {
 
     await playMediaElementSafe(tile.video);
 
-    if (normalizedTrackType === 'screen')
+    if (normalizedTrackType === 'screen') {
         setFocusedTile(tileKey);
-    else
+        void requestGridFullscreen();
+    } else {
         syncTileLayout();
+    }
 }
 
 function removeVideoTile(tileKey) {
@@ -510,9 +551,12 @@ function removeVideoTile(tileKey) {
     }
 
     state.videoTiles.delete(tileKey);
-
-    if (state.focusedTileKey === tileKey)
+    if (state.focusedTileKey === tileKey) {
         state.focusedTileKey = null;
+        if (document.fullscreenElement) {
+            void exitGridFullscreen();
+        }
+    }
 
     syncTileLayout();
 }
@@ -1244,8 +1288,6 @@ function notifyHostReady() {
                 transport: hasWebView2Host()
                     ? 'webview2'
                     : (hasLegacyHost() ? 'legacy' : 'unknown'),
-                href: window.location.href,
-                isSecureContext: window.isSecureContext,
                 hasMediaDevices: !!navigator.mediaDevices,
                 hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
             }
@@ -1280,6 +1322,16 @@ window.addEventListener('unhandledrejection', (event) => {
     } catch (_) {
     }
 });
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && state.focusedTileKey && !state.videoTiles.has(state.focusedTileKey)) {
+            state.focusedTileKey = null;
+        }
+
+        syncTileLayout();
+    });
+}
 
 registerBridge();
 

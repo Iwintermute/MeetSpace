@@ -5,7 +5,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetSpace.Views.Temporary"
-    xmlns:vm="using:MeetSpace.ViewModels.Temporary"
     mc:Ignorable="d"
     Background="#05070B">
 
@@ -41,12 +40,14 @@
                             Text="{x:Bind ViewModel.AuthorizedUserText, Mode=OneWay}" />
                         <TextBlock
                             x:Name="AuthorizedUserMetaTextBlock"
-                            Opacity="0.8"
+                            Margin="0,2,0,0"
+                            FontSize="12"
+                            Opacity="0.78"
                             Text="{x:Bind ViewModel.AuthorizedUserMetaText, Mode=OneWay}" />
                         <TextBlock
                             Margin="0,4,0,0"
                             FontSize="12"
-                            Opacity="0.8"
+                            Opacity="0.84"
                             Text="{x:Bind ViewModel.CallStatusText, Mode=OneWay}" />
                     </StackPanel>
                 </Border>
@@ -65,27 +66,10 @@
                     Padding="8"
                     Background="#121C28"
                     CornerRadius="8">
-                    <ListView
-                        x:Name="ParticipantsList"
-                        ItemsSource="{x:Bind ViewModel.Participants, Mode=OneWay}"
-                        SelectionMode="None"
-                        MaxHeight="130">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ConferenceParticipantTileViewItem">
-                                <Grid Padding="4,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
-                                    <TextBlock
-                                        Grid.Column="1"
-                                        Opacity="0.75"
-                                        Text="{x:Bind MediaSummary}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <TextBlock
+                        FontSize="12"
+                        Opacity="0.86"
+                        Text="{x:Bind ViewModel.ParticipantsSummaryText, Mode=OneWay}" />
                 </Border>
             </Grid>
 
