@@ -45,6 +45,8 @@ public sealed class ChatPageViewModel : ObservableObject
     private ChatDialogItem? _selectedDialog;
     private string? _incomingCallId;
     private string? _incomingCallerUserId;
+    private string? _incomingCallerDisplayName;
+    private string? _incomingCallerEmail;
     private string _activeDialogTitle = "Выберите чат";
     private string _activeDialogSubtitle = "Слева выберите диалог";
     private string _activeDialogAvatarText = "?";
@@ -496,10 +498,12 @@ public sealed class ChatPageViewModel : ObservableObject
 
         var callId = _incomingCallId!;
         var callerUserId = _incomingCallerUserId;
+        var callerDisplayName = _incomingCallerDisplayName;
+        var callerEmail = _incomingCallerEmail;
         var callerTitle = ResolveUserLabel(
             callerUserId,
-            ResolveDialogTitleByPeer(callerUserId),
-            null);
+            callerDisplayName ?? ResolveDialogTitleByPeer(callerUserId),
+            callerEmail);
         ClearIncomingCall();
 
         if (!string.IsNullOrWhiteSpace(callerUserId))
@@ -790,6 +794,10 @@ public sealed class ChatPageViewModel : ObservableObject
                 ?? payload?.GetString("callId", "call_id");
             var callerUserId = envelope.GetString("callerUserId")
                 ?? payload?.GetString("callerUserId", "caller_user_id");
+            var callerDisplayName = envelope.GetString("callerDisplayName")
+                ?? payload?.GetString("callerDisplayName", "caller_display_name");
+            var callerEmail = envelope.GetString("callerEmail")
+                ?? payload?.GetString("callerEmail", "caller_email");
             var targetUserId = envelope.GetString("targetUserId")
                 ?? payload?.GetString("targetUserId", "target_user_id");
 
@@ -808,10 +816,12 @@ public sealed class ChatPageViewModel : ObservableObject
             {
                 var callerTitle = ResolveUserLabel(
                     callerUserId,
-                    ResolveDialogTitleByPeer(callerUserId),
-                    null);
+                    callerDisplayName ?? ResolveDialogTitleByPeer(callerUserId),
+                    callerEmail);
                 _incomingCallId = callId;
                 _incomingCallerUserId = callerUserId;
+                _incomingCallerDisplayName = callerDisplayName;
+                _incomingCallerEmail = callerEmail;
                 IncomingCallText = string.IsNullOrWhiteSpace(callerUserId)
                     ? "Входящий звонок"
                     : "Входящий звонок от " + callerTitle;
@@ -939,6 +949,10 @@ public sealed class ChatPageViewModel : ObservableObject
         IsScreenShareToggleEnabled = isConnected;
 
         CallStatusText = BuildCallStatusText(state);
+        var selectedDialogFallbackTitle = ResolveUserLabel(
+            ResolveTargetUserIdForSelectedDialog(),
+            SelectedDialog?.Title,
+            SelectedDialog?.Subtitle);
 
         CallParticipants.Clear();
         foreach (var participant in state.Participants
@@ -947,6 +961,14 @@ public sealed class ChatPageViewModel : ObservableObject
                          StringComparer.OrdinalIgnoreCase))
         {
             var participantTitle = ResolveUserLabel(participant.PeerId, participant.UserId);
+            if ((UserFacingIdentityFormatter.LooksLikeTechnicalId(participantTitle) ||
+                 string.Equals(participantTitle, "Пользователь", StringComparison.OrdinalIgnoreCase)) &&
+                !string.IsNullOrWhiteSpace(selectedDialogFallbackTitle) &&
+                !UserFacingIdentityFormatter.LooksLikeTechnicalId(selectedDialogFallbackTitle) &&
+                !string.Equals(selectedDialogFallbackTitle, "Пользователь", StringComparison.OrdinalIgnoreCase))
+            {
+                participantTitle = selectedDialogFallbackTitle;
+            }
             RememberUserLabel(participant.PeerId, participant.UserId, null);
             CallParticipants.Add(new DirectCallParticipantViewItem(
                 participantTitle,
@@ -1020,24 +1042,35 @@ public sealed class ChatPageViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(value))
             return false;
-
-        return value.StartsWith("peer_", StringComparison.OrdinalIgnoreCase);
+        return value.StartsWith("peer", StringComparison.OrdinalIgnoreCase);
     }
 
     private string ResolveDialogSubtitle(ChatDialogItem dialog)
     {
         if (!string.IsNullOrWhiteSpace(dialog.Subtitle) &&
-            !string.Equals(dialog.Subtitle, "Личный чат", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(dialog.Subtitle, "Личный чат", StringComparison.OrdinalIgnoreCase) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(dialog.Subtitle))
         {
             return dialog.Subtitle;
         }
 
         var targetUserId = ResolveTargetUserIdForSelectedDialog();
         if (!string.IsNullOrWhiteSpace(targetUserId))
-            return "ID: " + targetUserId;
+        {
+            var targetTitle = ResolveUserLabel(targetUserId, ResolveDialogTitleByPeer(targetUserId));
+            if (!string.IsNullOrWhiteSpace(targetTitle) &&
+                !UserFacingIdentityFormatter.LooksLikeTechnicalId(targetTitle) &&
+                !string.Equals(targetTitle, "Пользователь", StringComparison.OrdinalIgnoreCase))
+            {
+                return targetTitle;
+            }
+        }
 
-        if (!string.IsNullOrWhiteSpace(dialog.PeerId))
-            return "ID: " + dialog.PeerId;
+        if (!string.IsNullOrWhiteSpace(dialog.Title) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(dialog.Title))
+        {
+            return dialog.Title;
+        }
 
         return "Личный чат";
     }
@@ -1096,9 +1129,6 @@ public sealed class ChatPageViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(_authStore.Current.Email))
                 return _authStore.Current.Email!;
 
-            if (!string.IsNullOrWhiteSpace(_authStore.Current.UserId))
-                return _authStore.Current.UserId!;
-
             return string.Empty;
         }
 
@@ -1108,11 +1138,6 @@ public sealed class ChatPageViewModel : ObservableObject
             return item.SenderEmail;
         }
 
-        if (!string.IsNullOrWhiteSpace(item.SenderUserId) &&
-            !string.Equals(item.SenderUserId, senderTitle, StringComparison.OrdinalIgnoreCase))
-        {
-            return item.SenderUserId;
-        }
 
         return string.Empty;
     }
@@ -1287,6 +1312,8 @@ public sealed class ChatPageViewModel : ObservableObject
     {
         _incomingCallId = null;
         _incomingCallerUserId = null;
+        _incomingCallerDisplayName = null;
+        _incomingCallerEmail = null;
         IncomingCallText = string.Empty;
         IncomingCallVisibility = Visibility.Collapsed;
     }

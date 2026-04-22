@@ -66,12 +66,31 @@ internal static class UserFacingIdentityFormatter
         {
             return true;
         }
+        if ((normalized.StartsWith("peer", StringComparison.OrdinalIgnoreCase) ||
+             normalized.StartsWith("user", StringComparison.OrdinalIgnoreCase)) &&
+            normalized.Length >= 6)
+        {
+            return true;
+        }
 
         if (GuidLikeRegex.IsMatch(normalized))
             return true;
 
         if (MostlyHexTokenRegex.IsMatch(normalized))
             return true;
+
+        if ((normalized.Contains('_') || normalized.Contains('-')) &&
+            normalized.Length >= 8 &&
+            normalized.Any(char.IsDigit))
+        {
+            return true;
+        }
+
+        if (normalized.Length >= 10 &&
+            normalized.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-'))
+        {
+            return true;
+        }
 
         var digits = normalized.Count(char.IsDigit);
         return digits >= normalized.Length / 2 && normalized.Length >= 12;

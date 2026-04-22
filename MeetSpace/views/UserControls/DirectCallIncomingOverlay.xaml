@@ -7,9 +7,9 @@
     mc:Ignorable="d">
     <Border
         Padding="12,10"
-        Background="#2A3B52"
+        Background="{ThemeResource MicaDarkerBrush}"
         CornerRadius="10"
-        BorderBrush="#324E6D"
+        BorderBrush="{ThemeResource MicaDarkerBrush}"
         BorderThickness="1">
         <Grid ColumnSpacing="10">
             <Grid.ColumnDefinitions>

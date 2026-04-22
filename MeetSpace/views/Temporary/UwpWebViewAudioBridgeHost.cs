@@ -73,6 +73,8 @@ namespace MeetSpace.Views.Temporary
 
                 _webView.CoreWebView2.PermissionRequested -= CoreWebView2_PermissionRequested;
                 _webView.CoreWebView2.PermissionRequested += CoreWebView2_PermissionRequested;
+                _webView.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
+                _webView.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
 
                 _webView.NavigationCompleted -= WebView_NavigationCompleted;
                 _webView.NavigationCompleted += WebView_NavigationCompleted;
@@ -127,6 +129,13 @@ namespace MeetSpace.Views.Temporary
             CoreWebView2PermissionRequestedEventArgs args)
         {
             args.State = CoreWebView2PermissionState.Allow;
+            args.Handled = true;
+        }
+
+        private void CoreWebView2_NewWindowRequested(
+            CoreWebView2 sender,
+            CoreWebView2NewWindowRequestedEventArgs args)
+        {
             args.Handled = true;
         }
 
@@ -252,6 +261,7 @@ namespace MeetSpace.Views.Temporary
                     _webView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
                     _webView.CoreWebView2.ProcessFailed -= CoreWebView2_ProcessFailed;
                     _webView.CoreWebView2.PermissionRequested -= CoreWebView2_PermissionRequested;
+                    _webView.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
                 }
             }
             catch

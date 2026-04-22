@@ -177,11 +177,11 @@ public sealed partial class ChatPage : Page
         ViewModel.ApplyDialogsFilter(sender?.Text);
     }
 
-    private void ResetSearchButton_Click(object sender, RoutedEventArgs e)
-    {
-        DialogsSearchBox.Text = string.Empty;
-        ViewModel.ApplyDialogsFilter(string.Empty);
-    }
+    //private void ResetSearchButton_Click(object sender, RoutedEventArgs e)
+    //{
+    //    DialogsSearchBox.Text = string.Empty;
+    //    ViewModel.ApplyDialogsFilter(string.Empty);
+    //}
 
     private async void SearchUsersButton_Click(object sender, RoutedEventArgs e)
     {

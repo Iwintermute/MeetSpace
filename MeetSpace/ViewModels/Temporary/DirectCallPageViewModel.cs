@@ -438,20 +438,43 @@ public sealed class DirectCallPageViewModel : ObservableObject
                          x => UserFacingIdentityFormatter.ResolveParticipantLabel(x.PeerId, x.UserId),
                          StringComparer.OrdinalIgnoreCase))
         {
-            var title = UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
+            var title = ResolveParticipantTitle(participant);
             Participants.Add(new DirectCallParticipantViewItem(
                 title,
                 participant.HasAudio,
                 participant.HasVideo,
                 participant.HasScreenShare));
         }
-
-        if (Participants.Count == 0 && !string.IsNullOrWhiteSpace(_counterpartTitle))
+        if (Participants.Count == 0)
         {
-            Participants.Add(new DirectCallParticipantViewItem(_counterpartTitle, false, false, false));
+            var fallbackTitle = !string.IsNullOrWhiteSpace(_counterpartTitle) &&
+                                !UserFacingIdentityFormatter.LooksLikeTechnicalId(_counterpartTitle) &&
+                                !string.Equals(_counterpartTitle, "Пользователь", StringComparison.OrdinalIgnoreCase)
+                ? _counterpartTitle
+                : "Собеседник";
+
+            Participants.Add(new DirectCallParticipantViewItem(fallbackTitle, false, false, false));
         }
     }
 
+    private string ResolveParticipantTitle(RemoteParticipantState participant)
+    {
+        var resolved = UserFacingIdentityFormatter.ResolveParticipantLabel(participant.PeerId, participant.UserId);
+        if (!string.Equals(resolved, "Участник", StringComparison.OrdinalIgnoreCase) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(resolved))
+        {
+            return resolved;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_counterpartTitle) &&
+            !UserFacingIdentityFormatter.LooksLikeTechnicalId(_counterpartTitle) &&
+            !string.Equals(_counterpartTitle, "Пользователь", StringComparison.OrdinalIgnoreCase))
+        {
+            return _counterpartTitle;
+        }
+
+        return "Собеседник";
+    }
 
     private async Task<bool> EnsureAuthorizedAsync()
     {

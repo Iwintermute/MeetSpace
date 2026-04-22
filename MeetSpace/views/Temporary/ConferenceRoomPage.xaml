@@ -6,7 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetSpace.Views.Temporary"
     mc:Ignorable="d"
-    Background="#05070B">
+    Background="{ThemeResource MicaDarkerBrush}">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -30,7 +30,7 @@
                 <Border
                     Grid.Row="0"
                     Padding="10,8"
-                    Background="#131C28"
+                    Background="{ThemeResource MicaDarkerBrush}"
                     CornerRadius="8">
                     <StackPanel>
                         <TextBlock
@@ -54,8 +54,8 @@
 
                 <Border
                     Grid.Row="1"
-                    Background="#0A1119"
-                    BorderBrush="#223043"
+                    Background="{ThemeResource MicaDarkerBrush}"
+                    BorderBrush="{ThemeResource MicaDarkerBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
                     <Grid x:Name="MediaHostContainer" />
@@ -64,7 +64,7 @@
                 <Border
                     Grid.Row="2"
                     Padding="8"
-                    Background="#121C28"
+                    Background="{ThemeResource MicaDarkerBrush}"
                     CornerRadius="8">
                     <TextBlock
                         FontSize="12"
@@ -76,7 +76,7 @@
             <Border
                 x:Name="ChatPanel"
                 Grid.Column="1"
-                Background="#171A1F"
+                Background="{ThemeResource MicaDarkerBrush}"
                 BorderBrush="#22000000"
                 BorderThickness="1"
                 Visibility="{x:Bind ViewModel.ChatPanelVisibility, Mode=OneWay}">

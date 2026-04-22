@@ -888,11 +888,11 @@
                 <HyperlinkButton
                     HorizontalAlignment="Center"
                     Content="Send feedback in GitHub"
-                    NavigateUri="https://github.com/FireCubeStudios/DarkSky" />
+                    NavigateUri="https://github.com/Iwintermute/MeetSpace" />
                 <HyperlinkButton
                     HorizontalAlignment="Center"
                     Content="Join the Discord"
-                    NavigateUri="https://discord.com/invite/3WYcKat" />
+                    NavigateUri="https://discord.com/" />
             </StackPanel>
         </StackPanel>
         <materials:AuroraLite />

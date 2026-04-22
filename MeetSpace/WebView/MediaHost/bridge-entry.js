@@ -5,8 +5,8 @@ const CAMERA_VIDEO_CONSTRAINTS_HD = {
     frameRate: { ideal: 30, max: 30 }
 };
 const CAMERA_VIDEO_CONSTRAINTS_BALANCED = {
-    width: { ideal: 1280, max: 1280 },
-    height: { ideal: 720, max: 720 },
+    width: { ideal: 1920, max: 1920 },
+    height: { ideal: 1080, max: 1080 },
     frameRate: { ideal: 30, max: 30 }
 };
 const CAMERA_VIDEO_CONSTRAINTS = CAMERA_VIDEO_CONSTRAINTS_HD;
@@ -45,18 +45,18 @@ const CAMERA_FALLBACK_CONSTRAINTS = [
     CAMERA_VIDEO_CONSTRAINTS_HD,
     CAMERA_VIDEO_CONSTRAINTS_BALANCED,
     {
-        width: { ideal: 1600, max: 1600 },
-        height: { ideal: 900, max: 900 },
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
         frameRate: { ideal: 30, max: 30 }
     },
     {
-        width: { ideal: 1280, max: 1280 },
-        height: { ideal: 720, max: 720 },
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
         frameRate: { ideal: 24, max: 30 }
     },
     {
-        width: { ideal: 960, max: 960 },
-        height: { ideal: 540, max: 540 },
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
         frameRate: { ideal: 24, max: 30 }
     },
     true
@@ -65,8 +65,8 @@ const SCREEN_FALLBACK_CONSTRAINTS = [
     SCREEN_VIDEO_CONSTRAINTS_HD,
     SCREEN_VIDEO_CONSTRAINTS_BALANCED,
     {
-        width: { ideal: 960, max: 960 },
-        height: { ideal: 540, max: 540 },
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
         frameRate: { ideal: 24, max: 30 }
     },
     true
