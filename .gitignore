@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/MeetSpace/Assets/LogoAsset.scale-200.png
+/MeetSpace/Assets/LogoAsset.scale-400.png
