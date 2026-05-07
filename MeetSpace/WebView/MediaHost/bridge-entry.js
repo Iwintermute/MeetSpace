@@ -15,20 +15,39 @@ const MICROPHONE_AUDIO_CONSTRAINTS_HD = {
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
-    channelCount: { ideal: 2, max: 2 },
-    sampleRate: { ideal: 48000, max: 48000 },
-    sampleSize: { ideal: 24, max: 24 },
-    latency: { ideal: 0.005, max: 0.02 }
+    channelCount: { ideal: 1 },
+    sampleRate: { ideal: 48000 },
+    sampleSize: { ideal: 16 }
 };
 const MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK = {
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
-    channelCount: { ideal: 1, max: 2 },
+    channelCount: { ideal: 1 },
     sampleRate: { ideal: 48000 },
-    sampleSize: { ideal: 16 },
-    latency: { ideal: 0.01 }
+    sampleSize: { ideal: 16 }
 };
+const MICROPHONE_PRODUCER_CODEC_OPTIONS = {
+    opusStereo: false,
+    opusFec: true,
+    opusDtx: true,
+    opusMaxPlaybackRate: 48000,
+    opusMaxAverageBitrate: 128000,
+    opusPtime: 20
+};
+
+const CAMERA_SIMULCAST_ENCODINGS = [
+    { scaleResolutionDownBy: 4, maxBitrate: 500000 },
+    { scaleResolutionDownBy: 2, maxBitrate: 1500000 },
+    { scaleResolutionDownBy: 1, maxBitrate: 5000000 }
+];
+const CAMERA_SINGLE_LAYER_ENCODING = [
+    { maxBitrate: 3500000, maxFramerate: 30 }
+];
+
+const SCREEN_PRODUCER_ENCODING = [
+    { maxBitrate: 5000000, maxFramerate: 30 }
+];
 
 const SCREEN_VIDEO_CONSTRAINTS_HD = {
     width: { ideal: 1920, max: 1920 },
@@ -104,7 +123,9 @@ const state = {
     stripContainer: null,
     focusedTileKey: null,
     pendingConnect: new Map(),
-    pendingProduce: new Map()
+    pendingProduce: new Map(),
+    pendingMediaStarts: new Map(),
+    pendingMediaToggles: new Map()
 };
 
 function hasWebView2Host() {
@@ -160,6 +181,147 @@ function sendBridgeError(requestId, where, error) {
             }
         });
     } catch (_) {
+    }
+}
+
+function isConstraintError(error) {
+    if (!error)
+        return false;
+
+    const name = error.name || '';
+    return name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError';
+}
+
+function isScreenSelectionCancelled(error) {
+    if (!error)
+        return false;
+
+    const name = error.name || '';
+    return name === 'AbortError' || name === 'NotAllowedError';
+}
+function isMediaSourceBusyError(error) {
+    if (!error)
+        return false;
+
+    const name = error.name || '';
+    return name === 'NotReadableError' || name === 'TrackStartError';
+}
+
+function delay(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+async function ensureCapturePromptFocus() {
+    try {
+        window.focus();
+    } catch (_) {
+    }
+
+    if (typeof document !== 'undefined') {
+        try {
+            if (typeof document.hasFocus === 'function' && !document.hasFocus())
+                await delay(120);
+        } catch (_) {
+        }
+
+        try {
+            if (document.visibilityState && document.visibilityState !== 'visible')
+                await delay(120);
+        } catch (_) {
+        }
+    }
+
+    await delay(60);
+}
+
+function stopTracksInStream(stream) {
+    if (!stream || typeof stream.getTracks !== 'function')
+        return;
+
+    try {
+        stream.getTracks().forEach((track) => {
+            try {
+                track.stop();
+            } catch (_) {
+            }
+        });
+    } catch (_) {
+    }
+}
+
+function isLiveTrack(track) {
+    return !!track && track.readyState === 'live';
+}
+
+function createTrackStartError(message) {
+    const error = new Error(message || 'Media track did not become active.');
+    error.name = 'TrackStartError';
+    return error;
+}
+
+function ensureLiveCaptureTrack(stream, kind) {
+    if (!stream)
+        throw createTrackStartError('Capture stream is unavailable.');
+
+    const track = kind === 'audio'
+        ? stream.getAudioTracks()[0]
+        : stream.getVideoTracks()[0];
+
+    if (!isLiveTrack(track)) {
+        stopTracksInStream(stream);
+        throw createTrackStartError(
+            kind === 'audio'
+                ? 'Microphone track did not become active.'
+                : 'Video capture track did not become active.');
+    }
+
+    return track;
+}
+
+function normalizeMediaStartError(scope, error) {
+    if (!error)
+        return new Error(`Could not start ${scope}.`);
+
+    const name = error.name || '';
+    if (scope === 'screen' && isScreenSelectionCancelled(error))
+        return new Error('Screen sharing was cancelled.');
+    if (name === 'NotAllowedError')
+        return new Error(`Permission denied for ${scope}.`);
+    if (name === 'NotFoundError')
+        return new Error(`${scope} source is unavailable.`);
+    if (name === 'NotReadableError' || name === 'TrackStartError')
+        return scope === 'screen'
+            ? new Error('Screen capture could not be started by WebView. Open screen share again and choose a source from the system picker.')
+            : new Error(`${scope} source is busy or blocked by another app.`);
+    if (name === 'InvalidStateError')
+        return new Error(`${scope} cannot be started in the current state.`);
+
+    return error instanceof Error
+        ? error
+        : new Error(typeof error === 'string' ? error : `Could not start ${scope}.`);
+}
+
+async function applyTrackConstraintsWithFallback(track, fallbackConstraints, diagEventName) {
+    if (!track || typeof track.applyConstraints !== 'function')
+        return;
+
+    for (const constraints of fallbackConstraints) {
+        if (!constraints || constraints === true)
+            continue;
+
+        try {
+            await track.applyConstraints(constraints);
+            return;
+        } catch (error) {
+            sendDiag(diagEventName, {
+                message: error && error.message ? error.message : String(error)
+            });
+
+            if (!isConstraintError(error))
+                return;
+        }
     }
 }
 
@@ -263,6 +425,137 @@ function resolveConsumeKind(kind, trackType) {
     }
 
     return 'audio';
+}
+
+function normalizeCodecMimeType(codec) {
+    if (!codec || !codec.mimeType)
+        return '';
+
+    return codec.mimeType.toString().trim().toLowerCase();
+}
+
+function getDeviceVideoCodecs() {
+    if (!state.device || !state.device.rtpCapabilities || !Array.isArray(state.device.rtpCapabilities.codecs))
+        return [];
+
+    return state.device.rtpCapabilities.codecs.filter((codec) => {
+        const mimeType = normalizeCodecMimeType(codec);
+        return mimeType.startsWith('video/');
+    });
+}
+
+function pickPreferredVideoCodec(preferredMimeTypes) {
+    const codecs = getDeviceVideoCodecs();
+    if (!Array.isArray(preferredMimeTypes) || preferredMimeTypes.length === 0)
+        return null;
+
+    for (const preferredMimeType of preferredMimeTypes) {
+        const normalizedPreferred = (preferredMimeType || '').toString().trim().toLowerCase();
+        if (!normalizedPreferred)
+            continue;
+
+        const codec = codecs.find((item) => normalizeCodecMimeType(item) === normalizedPreferred);
+        if (codec)
+            return codec;
+    }
+
+    return null;
+}
+
+function buildCameraProducerProfiles() {
+    const profiles = [];
+    const dedupe = new Set();
+    const pushProfile = (label, codec, encodings) => {
+        const mimeType = normalizeCodecMimeType(codec) || 'auto';
+        const encodingMode = Array.isArray(encodings) && encodings.length > 1 ? 'simulcast' : 'single';
+        const key = `${mimeType}:${encodingMode}`;
+        if (dedupe.has(key))
+            return;
+
+        dedupe.add(key);
+        profiles.push({ label, codec, encodings });
+    };
+
+    const vp8Codec = pickPreferredVideoCodec(['video/vp8']);
+    const h264Codec = pickPreferredVideoCodec(['video/h264']);
+    const vp9Codec = pickPreferredVideoCodec(['video/vp9']);
+    if (vp8Codec)
+        pushProfile('vp8-simulcast', vp8Codec, CAMERA_SIMULCAST_ENCODINGS);
+    if (h264Codec)
+        pushProfile('h264-simulcast', h264Codec, CAMERA_SIMULCAST_ENCODINGS);
+    if (vp9Codec)
+        pushProfile('vp9-single', vp9Codec, CAMERA_SINGLE_LAYER_ENCODING);
+    pushProfile('auto-simulcast', null, CAMERA_SIMULCAST_ENCODINGS);
+    pushProfile('auto-single', null, CAMERA_SINGLE_LAYER_ENCODING);
+
+    return profiles;
+}
+
+function buildScreenProducerProfiles() {
+    const profiles = [];
+    const dedupe = new Set();
+    const pushProfile = (label, codec) => {
+        const mimeType = normalizeCodecMimeType(codec) || 'auto';
+        if (dedupe.has(mimeType))
+            return;
+
+        dedupe.add(mimeType);
+        profiles.push({
+            label,
+            codec,
+            encodings: SCREEN_PRODUCER_ENCODING
+        });
+    };
+
+    const vp9Codec = pickPreferredVideoCodec(['video/vp9']);
+    const vp8Codec = pickPreferredVideoCodec(['video/vp8']);
+    const h264Codec = pickPreferredVideoCodec(['video/h264']);
+    if (vp9Codec)
+        pushProfile('vp9-single', vp9Codec);
+    if (vp8Codec)
+        pushProfile('vp8-single', vp8Codec);
+    if (h264Codec)
+        pushProfile('h264-single', h264Codec);
+    pushProfile('auto-single', null);
+
+    return profiles;
+}
+
+function buildVideoProducerOptions(track, payload, trackType, profile) {
+    const options = {
+        track,
+        encodings: profile.encodings,
+        codecOptions: {
+            videoGoogleStartBitrate: 2000
+        },
+        appData: {
+            serverProducerId: payload.serverProducerId,
+            trackType
+        }
+    };
+
+    if (profile.codec)
+        options.codec = profile.codec;
+
+    return options;
+}
+
+async function produceVideoWithFallback(track, payload, trackType, profiles, diagScope) {
+    let lastError = null;
+    for (const profile of profiles) {
+        try {
+            const options = buildVideoProducerOptions(track, payload, trackType, profile);
+            return await state.sendTransport.produce(options);
+        } catch (error) {
+            lastError = error;
+            sendDiag(`${diagScope}.profile_failed`, {
+                profile: profile.label,
+                message: error && error.message ? error.message : String(error)
+            });
+        }
+    }
+
+    throw lastError || new Error(`Could not start ${trackType}.`);
 }
 
 function ensureMediaLayout() {
@@ -457,63 +750,100 @@ async function playMediaElementSafe(element, timeoutMs = MEDIA_PLAY_TIMEOUT_MS) 
 }
 
 async function openCameraStreamWithFallback() {
-    let lastError = null;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+        });
+        const videoTrack = ensureLiveCaptureTrack(stream, 'video');
+        await applyTrackConstraintsWithFallback(
+            videoTrack,
+            CAMERA_FALLBACK_CONSTRAINTS,
+            'start_camera.constraints_retry');
 
-    for (const videoConstraints of CAMERA_FALLBACK_CONSTRAINTS) {
-        try {
-            return await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: videoConstraints
-            });
-        } catch (error) {
-            lastError = error;
-            sendDiag('start_camera.constraints_retry', {
-                message: error && error.message ? error.message : String(error)
-            });
-        }
+        return stream;
+    } catch (error) {
+        throw normalizeMediaStartError('camera', error);
     }
-
-    throw lastError || new Error('Could not start video source');
 }
 
 async function openMicrophoneStreamWithFallback() {
-    let lastError = null;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false
+        });
+        const audioTrack = ensureLiveCaptureTrack(stream, 'audio');
+        await applyTrackConstraintsWithFallback(
+            audioTrack,
+            MICROPHONE_FALLBACK_CONSTRAINTS,
+            'start_microphone.constraints_retry');
 
-    for (const audioConstraints of MICROPHONE_FALLBACK_CONSTRAINTS) {
-        try {
-            return await navigator.mediaDevices.getUserMedia({
-                audio: audioConstraints,
-                video: false
-            });
-        } catch (error) {
-            lastError = error;
-            sendDiag('start_microphone.constraints_retry', {
-                message: error && error.message ? error.message : String(error)
-            });
-        }
+        return stream;
+    } catch (error) {
+        throw normalizeMediaStartError('microphone', error);
     }
-
-    throw lastError || new Error('Could not start audio source');
 }
 
 async function openScreenStreamWithFallback() {
     let lastError = null;
-
-    for (const videoConstraints of SCREEN_FALLBACK_CONSTRAINTS) {
-        try {
-            return await navigator.mediaDevices.getDisplayMedia({
-                video: videoConstraints,
+    const displayMediaOptions = [
+        {
+            mode: 'monitor-hint',
+            constraints: {
+                video: {
+                    displaySurface: 'monitor'
+                },
                 audio: false
-            });
+            }
+        },
+        {
+            mode: 'plain-video',
+            constraints: {
+                video: true,
+                audio: false
+            }
+        }
+    ];
+
+    for (let attempt = 0; attempt < displayMediaOptions.length; attempt++) {
+        const option = displayMediaOptions[attempt];
+        try {
+            await ensureCapturePromptFocus();
+            const stream = await navigator.mediaDevices.getDisplayMedia(option.constraints);
+
+            const videoTrack = ensureLiveCaptureTrack(stream, 'video');
+            await applyTrackConstraintsWithFallback(
+                videoTrack,
+                SCREEN_FALLBACK_CONSTRAINTS,
+                'start_screen.constraints_retry');
+
+            return stream;
         } catch (error) {
             lastError = error;
-            sendDiag('start_screen.constraints_retry', {
+            sendDiag('start_screen.capture_attempt_failed', {
+                mode: option.mode,
                 message: error && error.message ? error.message : String(error)
             });
+            if (error && error.name === 'TypeError')
+                continue;
+
+            if (isScreenSelectionCancelled(error))
+                break;
+
+            if (isMediaSourceBusyError(error))
+                await delay(350);
         }
     }
 
-    throw lastError || new Error('Could not start screen source');
+    throw normalizeMediaStartError('screen', lastError);
+}
+
+async function resetLocalScreenCaptureState() {
+    stopProducer('screenProducer');
+    stopStream('screenStream', 'screenTrack');
+    removeVideoTile(LOCAL_SCREEN_TILE_KEY);
+    await delay(120);
 }
 async function attachVideoTile(tileKey, stream, trackType, isLocal) {
     const normalizedTrackType = normalizeVideoTrackType(trackType);
@@ -639,13 +969,190 @@ function stopProducer(name) {
 function stopStream(streamName, trackName) {
     const stream = state[streamName];
     if (stream) {
-        try {
-            stream.getTracks().forEach(track => track.stop());
-        } catch (_) {
-        }
+        stopTracksInStream(stream);
     }
     state[streamName] = null;
     state[trackName] = null;
+}
+
+function bindMicrophoneTrackLifecycle(track) {
+    if (!track)
+        return;
+
+    track.onended = () => {
+        stopStream('micStream', 'micTrack');
+    };
+}
+
+function bindCameraTrackLifecycle(track) {
+    if (!track)
+        return;
+
+    track.onended = () => {
+        stopStream('cameraStream', 'cameraTrack');
+        removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+    };
+}
+
+function bindScreenTrackLifecycle(track) {
+    if (!track)
+        return;
+
+    track.onended = () => {
+        stopStream('screenStream', 'screenTrack');
+        removeVideoTile(LOCAL_SCREEN_TILE_KEY);
+
+        if (state.screenProducer && !state.screenProducer.closed && !state.screenProducer.paused) {
+            Promise.resolve(state.screenProducer.pause()).catch(() => {
+            });
+        }
+    };
+}
+
+function wireLocalProducerLifecycle(producerKey, onInvalidated) {
+    const producer = state[producerKey];
+    if (!producer)
+        return;
+
+    const invalidate = () => {
+        if (state[producerKey] !== producer)
+            return;
+
+        state[producerKey] = null;
+        if (typeof onInvalidated === 'function')
+            onInvalidated();
+    };
+
+    producer.on('transportclose', invalidate);
+    producer.on('close', invalidate);
+}
+
+async function runMediaToggleGuard(operationKey, operation) {
+    const inFlight = state.pendingMediaToggles.get(operationKey);
+    if (inFlight)
+        return await inFlight;
+
+    const guardedPromise = (async () => {
+        try {
+            return await operation();
+        } finally {
+            state.pendingMediaToggles.delete(operationKey);
+        }
+    })();
+
+    state.pendingMediaToggles.set(operationKey, guardedPromise);
+    return await guardedPromise;
+}
+
+async function ensureMicrophoneTrackForProducer() {
+    if (isLiveTrack(state.micTrack) && state.micStream)
+        return;
+
+    const previousStream = state.micStream;
+    const replacementStream = await openMicrophoneStreamWithFallback();
+    const replacementTracks = replacementStream.getAudioTracks();
+    if (!replacementTracks || replacementTracks.length === 0) {
+        stopTracksInStream(replacementStream);
+        throw new Error('microphone stream has no audio track');
+    }
+
+    const replacementTrack = replacementTracks[0];
+    replacementTrack.contentHint = 'speech';
+    bindMicrophoneTrackLifecycle(replacementTrack);
+
+    try {
+        if (state.micProducer && typeof state.micProducer.replaceTrack === 'function')
+            await state.micProducer.replaceTrack({ track: replacementTrack });
+    } catch (error) {
+        stopTracksInStream(replacementStream);
+        throw error;
+    }
+
+    state.micStream = replacementStream;
+    state.micTrack = replacementTrack;
+    if (previousStream && previousStream !== replacementStream)
+        stopTracksInStream(previousStream);
+}
+
+async function ensureCameraTrackForProducer() {
+    if (isLiveTrack(state.cameraTrack) && state.cameraStream)
+        return;
+
+    const previousStream = state.cameraStream;
+    const replacementStream = await openCameraStreamWithFallback();
+    const replacementTracks = replacementStream.getVideoTracks();
+    if (!replacementTracks || replacementTracks.length === 0) {
+        stopTracksInStream(replacementStream);
+        throw new Error('camera stream has no video track');
+    }
+
+    const replacementTrack = replacementTracks[0];
+    replacementTrack.contentHint = 'motion';
+    await applyTrackConstraintsSafe(replacementTrack, CAMERA_VIDEO_CONSTRAINTS);
+    bindCameraTrackLifecycle(replacementTrack);
+
+    try {
+        if (state.cameraProducer && typeof state.cameraProducer.replaceTrack === 'function')
+            await state.cameraProducer.replaceTrack({ track: replacementTrack });
+    } catch (error) {
+        stopTracksInStream(replacementStream);
+        throw error;
+    }
+
+    state.cameraStream = replacementStream;
+    state.cameraTrack = replacementTrack;
+    await attachVideoTile(LOCAL_CAMERA_TILE_KEY, replacementStream, 'camera', true);
+    if (previousStream && previousStream !== replacementStream)
+        stopTracksInStream(previousStream);
+}
+
+async function ensureScreenTrackForProducer() {
+    if (isLiveTrack(state.screenTrack) && state.screenStream)
+        return;
+
+    const previousStream = state.screenStream;
+    const replacementStream = await openScreenStreamWithFallback();
+    const replacementTracks = replacementStream.getVideoTracks();
+    if (!replacementTracks || replacementTracks.length === 0) {
+        stopTracksInStream(replacementStream);
+        throw new Error('screen stream has no video track');
+    }
+
+    const replacementTrack = replacementTracks[0];
+    replacementTrack.contentHint = 'detail';
+    await applyTrackConstraintsSafe(replacementTrack, SCREEN_VIDEO_CONSTRAINTS);
+    bindScreenTrackLifecycle(replacementTrack);
+
+    try {
+        if (state.screenProducer && typeof state.screenProducer.replaceTrack === 'function')
+            await state.screenProducer.replaceTrack({ track: replacementTrack });
+    } catch (error) {
+        stopTracksInStream(replacementStream);
+        throw error;
+    }
+
+    state.screenStream = replacementStream;
+    state.screenTrack = replacementTrack;
+    await attachVideoTile(LOCAL_SCREEN_TILE_KEY, replacementStream, 'screen', true);
+    if (previousStream && previousStream !== replacementStream)
+        stopTracksInStream(previousStream);
+}
+
+async function runMediaStartGuard(operationKey, operation) {
+    const inFlight = state.pendingMediaStarts.get(operationKey);
+    if (inFlight)
+        return await inFlight;
+
+    const guardedPromise = (async () => {
+        try {
+            return await operation();
+        } finally {
+            state.pendingMediaStarts.delete(operationKey);
+        }
+    })();
+
+    state.pendingMediaStarts.set(operationKey, guardedPromise);
+    return await guardedPromise;
 }
 
 async function closeAll() {
@@ -681,6 +1188,8 @@ async function closeAll() {
     state.recvTransport = null;
     state.pendingConnect.clear();
     state.pendingProduce.clear();
+    state.pendingMediaStarts.clear();
+    state.pendingMediaToggles.clear();
 }
 
 function wireSendTransport(transport) {
@@ -866,40 +1375,47 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('mediaDevices.getUserMedia is unavailable');
                 }
-                stopProducer('micProducer');
-                stopStream('micStream', 'micTrack');
-                state.micStream = await openMicrophoneStreamWithFallback();
+                const started = await runMediaStartGuard('microphone', async () => {
+                    stopProducer('micProducer');
+                    stopStream('micStream', 'micTrack');
 
-                const audioTracks = state.micStream.getAudioTracks();
-                if (!audioTracks || audioTracks.length === 0) {
-                    throw new Error('microphone stream has no audio track');
-                }
+                    try {
+                        state.micStream = await openMicrophoneStreamWithFallback();
 
-                state.micTrack = audioTracks[0];
-                state.micTrack.contentHint = 'speech';
-                await applyTrackConstraintsSafe(state.micTrack, MICROPHONE_AUDIO_CONSTRAINTS_FALLBACK);
+                        const audioTracks = state.micStream.getAudioTracks();
+                        if (!audioTracks || audioTracks.length === 0)
+                            throw new Error('microphone stream has no audio track');
 
-                const producer = await state.sendTransport.produce({
-                    track: state.micTrack,
-                    appData: {
-                        serverProducerId: payload.serverProducerId,
-                        trackType: 'microphone'
+                        state.micTrack = audioTracks[0];
+                        state.micTrack.contentHint = 'speech';
+                        bindMicrophoneTrackLifecycle(state.micTrack);
+
+                        const producer = await state.sendTransport.produce({
+                            track: state.micTrack,
+                            codecOptions: MICROPHONE_PRODUCER_CODEC_OPTIONS,
+                            appData: {
+                                serverProducerId: payload.serverProducerId,
+                                trackType: 'microphone'
+                            }
+                        });
+
+                        state.micProducer = producer;
+                        wireLocalProducerLifecycle('micProducer', () => {
+                            stopStream('micStream', 'micTrack');
+                        });
+
+                        return { producerId: producer.id };
+                    } catch (error) {
+                        stopProducer('micProducer');
+                        stopStream('micStream', 'micTrack');
+                        throw normalizeMediaStartError('microphone', error);
                     }
                 });
 
-                state.micProducer = producer;
-
-                producer.on('transportclose', () => {
-                    state.micProducer = null;
-                });
-
                 sendDiag('start_microphone.ok', {
-                    producerId: producer.id
+                    producerId: started.producerId
                 });
-
-                sendResponse(requestId, true, {
-                    producerId: producer.id
-                });
+                sendResponse(requestId, true, started);
                 return;
             }
 
@@ -915,43 +1431,51 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('mediaDevices.getUserMedia is unavailable');
                 }
+                const started = await runMediaStartGuard('camera', async () => {
+                    stopProducer('cameraProducer');
+                    stopStream('cameraStream', 'cameraTrack');
+                    removeVideoTile(LOCAL_CAMERA_TILE_KEY);
 
-                stopProducer('cameraProducer');
-                stopStream('cameraStream', 'cameraTrack');
-                removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+                    try {
+                        state.cameraStream = await openCameraStreamWithFallback();
 
-                state.cameraStream = await openCameraStreamWithFallback();
+                        const videoTracks = state.cameraStream.getVideoTracks();
+                        if (!videoTracks || videoTracks.length === 0)
+                            throw new Error('camera stream has no video track');
 
-                const videoTracks = state.cameraStream.getVideoTracks();
-                if (!videoTracks || videoTracks.length === 0) {
-                    throw new Error('camera stream has no video track');
-                }
+                        state.cameraTrack = videoTracks[0];
+                        state.cameraTrack.contentHint = 'motion';
+                        await applyTrackConstraintsSafe(state.cameraTrack, CAMERA_VIDEO_CONSTRAINTS);
+                        bindCameraTrackLifecycle(state.cameraTrack);
+                        await attachVideoTile(LOCAL_CAMERA_TILE_KEY, state.cameraStream, 'camera', true);
 
-                state.cameraTrack = videoTracks[0];
-                state.cameraTrack.contentHint = 'motion';
-                await applyTrackConstraintsSafe(state.cameraTrack, CAMERA_VIDEO_CONSTRAINTS);
-                await attachVideoTile(LOCAL_CAMERA_TILE_KEY, state.cameraStream, 'camera', true);
+                        const producer = await produceVideoWithFallback(
+                            state.cameraTrack,
+                            payload,
+                            'camera',
+                            buildCameraProducerProfiles(),
+                            'start_camera.produce');
 
-                const producer = await state.sendTransport.produce({
-                    track: state.cameraTrack,
-                    appData: {
-                        serverProducerId: payload.serverProducerId,
-                        trackType: 'camera'
+                        state.cameraProducer = producer;
+                        wireLocalProducerLifecycle('cameraProducer', () => {
+                            stopStream('cameraStream', 'cameraTrack');
+                            removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+                        });
+
+                        return { producerId: producer.id };
+                    } catch (error) {
+                        stopProducer('cameraProducer');
+                        stopStream('cameraStream', 'cameraTrack');
+                        removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+                        throw normalizeMediaStartError('camera', error);
                     }
                 });
 
-                state.cameraProducer = producer;
-                producer.on('transportclose', () => {
-                    state.cameraProducer = null;
-                });
-
                 sendDiag('start_camera.ok', {
-                    producerId: producer.id
+                    producerId: started.producerId
                 });
 
-                sendResponse(requestId, true, {
-                    producerId: producer.id
-                });
+                sendResponse(requestId, true, started);
                 return;
             }
 
@@ -962,6 +1486,7 @@ async function handleCommand(message) {
                 sendResponse(requestId, true, {});
                 return;
             }
+
 
             case 'start_screen': {
                 sendDiag('start_screen.begin');
@@ -975,112 +1500,143 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
                     throw new Error('mediaDevices.getDisplayMedia is unavailable');
                 }
+                const started = await runMediaStartGuard('screen', async () => {
+                    await resetLocalScreenCaptureState();
 
-                stopProducer('screenProducer');
-                stopStream('screenStream', 'screenTrack');
-                removeVideoTile(LOCAL_SCREEN_TILE_KEY);
-                state.screenStream = await openScreenStreamWithFallback();
+                    try {
+                        state.screenStream = await openScreenStreamWithFallback();
 
-                const videoTracks = state.screenStream.getVideoTracks();
-                if (!videoTracks || videoTracks.length === 0) {
-                    throw new Error('screen stream has no video track');
-                }
+                        const videoTracks = state.screenStream.getVideoTracks();
+                        if (!videoTracks || videoTracks.length === 0)
+                            throw new Error('screen stream has no video track');
 
-                state.screenTrack = videoTracks[0];
-                state.screenTrack.contentHint = 'detail';
-                await applyTrackConstraintsSafe(state.screenTrack, SCREEN_VIDEO_CONSTRAINTS);
-                await attachVideoTile(LOCAL_SCREEN_TILE_KEY, state.screenStream, 'screen', true);
-                state.screenTrack.onended = () => {
-                    stopProducer('screenProducer');
-                    stopStream('screenStream', 'screenTrack');
-                    removeVideoTile(LOCAL_SCREEN_TILE_KEY);
-                };
+                        state.screenTrack = videoTracks[0];
+                        state.screenTrack.contentHint = 'detail';
+                        await applyTrackConstraintsSafe(state.screenTrack, SCREEN_VIDEO_CONSTRAINTS);
+                        bindScreenTrackLifecycle(state.screenTrack);
+                        await attachVideoTile(LOCAL_SCREEN_TILE_KEY, state.screenStream, 'screen', true);
 
-                const producer = await state.sendTransport.produce({
-                    track: state.screenTrack,
-                    appData: {
-                        serverProducerId: payload.serverProducerId,
-                        trackType: 'screen'
+                        const producer = await produceVideoWithFallback(
+                            state.screenTrack,
+                            payload,
+                            'screen',
+                            buildScreenProducerProfiles(),
+                            'start_screen.produce');
+
+                        state.screenProducer = producer;
+                        wireLocalProducerLifecycle('screenProducer', () => {
+                            stopStream('screenStream', 'screenTrack');
+                            removeVideoTile(LOCAL_SCREEN_TILE_KEY);
+                        });
+
+                        return { producerId: producer.id };
+                    } catch (error) {
+                        await resetLocalScreenCaptureState();
+                        throw normalizeMediaStartError('screen', error);
                     }
                 });
 
-                state.screenProducer = producer;
-                producer.on('transportclose', () => {
-                    state.screenProducer = null;
-                });
-
                 sendDiag('start_screen.ok', {
-                    producerId: producer.id
+                    producerId: started.producerId
                 });
 
-                sendResponse(requestId, true, {
-                    producerId: producer.id
-                });
+                sendResponse(requestId, true, started);
                 return;
             }
 
             case 'stop_screen': {
-                stopProducer('screenProducer');
-                stopStream('screenStream', 'screenTrack');
-                removeVideoTile(LOCAL_SCREEN_TILE_KEY);
+                await resetLocalScreenCaptureState();
                 sendResponse(requestId, true, {});
                 return;
             }
 
             case 'set_microphone_enabled': {
                 const enabled = !!payload.enabled;
-
-                if (state.micTrack) {
-                    state.micTrack.enabled = enabled;
-                }
-
-                if (state.micProducer) {
+                const responsePayload = await runMediaToggleGuard('microphone', async () => {
                     if (enabled) {
-                        await state.micProducer.resume();
-                    } else {
-                        await state.micProducer.pause();
-                    }
-                }
+                        if (!state.micProducer || state.micProducer.closed)
+                            throw new Error('microphone producer is not active');
 
-                sendResponse(requestId, true, { enabled });
+                        await ensureMicrophoneTrackForProducer();
+                        if (state.micTrack)
+                            state.micTrack.enabled = true;
+
+                        if (state.micProducer.paused)
+                            await state.micProducer.resume();
+
+                        return { enabled: true };
+                    }
+
+                    if (state.micTrack)
+                        state.micTrack.enabled = false;
+
+                    if (state.micProducer && !state.micProducer.closed && !state.micProducer.paused)
+                        await state.micProducer.pause();
+
+                    return { enabled: false };
+                });
+
+                sendResponse(requestId, true, responsePayload);
                 return;
             }
 
             case 'set_camera_enabled': {
                 const enabled = !!payload.enabled;
-
-                if (state.cameraTrack) {
-                    state.cameraTrack.enabled = enabled;
-                }
-
-                if (state.cameraProducer) {
+                const responsePayload = await runMediaToggleGuard('camera', async () => {
                     if (enabled) {
-                        await state.cameraProducer.resume();
-                    } else {
-                        await state.cameraProducer.pause();
-                    }
-                }
+                        if (!state.cameraProducer || state.cameraProducer.closed)
+                            throw new Error('camera producer is not active');
 
-                sendResponse(requestId, true, { enabled });
+                        await ensureCameraTrackForProducer();
+                        if (state.cameraTrack)
+                            state.cameraTrack.enabled = true;
+
+                        if (state.cameraProducer.paused)
+                            await state.cameraProducer.resume();
+
+                        return { enabled: true };
+                    }
+
+                    if (state.cameraTrack)
+                        state.cameraTrack.enabled = false;
+
+                    if (state.cameraProducer && !state.cameraProducer.closed && !state.cameraProducer.paused)
+                        await state.cameraProducer.pause();
+
+                    return { enabled: false };
+                });
+
+                sendResponse(requestId, true, responsePayload);
                 return;
             }
 
             case 'set_screen_enabled': {
                 const enabled = !!payload.enabled;
-
-                if (state.screenTrack) {
-                    state.screenTrack.enabled = enabled;
-                }
-
-                if (state.screenProducer) {
+                const responsePayload = await runMediaToggleGuard('screen', async () => {
                     if (enabled) {
-                        await state.screenProducer.resume();
-                    } else {
-                        await state.screenProducer.pause();
-                    }
-                }
+                        if (!state.screenProducer || state.screenProducer.closed)
+                            throw new Error('screen producer is not active');
 
-                sendResponse(requestId, true, { enabled });
+                        await ensureScreenTrackForProducer();
+                        if (state.screenTrack)
+                            state.screenTrack.enabled = true;
+
+                        if (state.screenProducer.paused)
+                            await state.screenProducer.resume();
+
+                        return { enabled: true };
+                    }
+
+                    if (state.screenTrack)
+                        state.screenTrack.enabled = false;
+
+                    if (state.screenProducer && !state.screenProducer.closed && !state.screenProducer.paused)
+                        await state.screenProducer.pause();
+
+                    return { enabled: false };
+                });
+
+                sendResponse(requestId, true, responsePayload);
                 return;
             }
 
@@ -1334,6 +1890,7 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
 }
 
 registerBridge();
+window.__meetspaceForceHostReady = notifyHostReady;
 
 if (document.readyState === 'complete') {
     setTimeout(notifyHostReady, 0);

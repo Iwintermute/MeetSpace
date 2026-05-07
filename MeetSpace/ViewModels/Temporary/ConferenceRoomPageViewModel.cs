@@ -7,6 +7,8 @@ using MeetSpace.Client.App.Session;
 using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Domain.Chat;
 using MeetSpace.Client.Shared.Configuration;
+using MeetSpace.Client.Shared.Results;
+using MeetSpace.Client.Shared.Results;
 using MeetSpace.Views.Temporary;
 using System;
 using System.Collections.ObjectModel;
@@ -286,8 +288,13 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return;
 
         var toggleResult = await _callCoordinator.ToggleMicrophoneAsync(cancellationToken).ConfigureAwait(false);
-        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (toggleResult.IsFailure)
         {
+            if (IsBridgeDisposedFailure(toggleResult.Error))
+                throw new InvalidOperationException(toggleResult.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 SetStatusMessage(toggleResult.Error?.Message ?? "mic toggle failed");
@@ -302,8 +309,13 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return;
 
         var toggleResult = await _callCoordinator.ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
-        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (toggleResult.IsFailure)
         {
+            if (IsBridgeDisposedFailure(toggleResult.Error))
+                throw new InvalidOperationException(toggleResult.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 SetStatusMessage(toggleResult.Error?.Message ?? "camera toggle failed");
@@ -318,8 +330,15 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return;
 
         var toggleResult = await _callCoordinator.ToggleScreenShareAsync(cancellationToken).ConfigureAwait(false);
-        if (toggleResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (toggleResult.IsFailure)
         {
+            if (IsBridgeDisposedFailure(toggleResult.Error))
+                throw new InvalidOperationException(toggleResult.Error?.Message ?? "Audio bridge host was disposed.");
+            if (IsScreenShareCancelledFailure(toggleResult.Error))
+                throw new InvalidOperationException(toggleResult.Error?.Message ?? "Screen sharing was cancelled.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 SetStatusMessage(toggleResult.Error?.Message ?? "screen toggle failed");
@@ -362,8 +381,6 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
             return false;
 
         var stage = _callStore.Current.Stage;
-        if (stage == CallConnectionStage.Connected)
-            return true;
 
         if (stage == CallConnectionStage.JoiningRoom ||
             stage == CallConnectionStage.TransportOpening ||
@@ -372,11 +389,16 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         {
             return false;
         }
-
-        _ = _conferenceCoordinator.ListMembersAsync(_conferenceId, cancellationToken);
+        if (stage != CallConnectionStage.Connected)
+            _ = _conferenceCoordinator.ListMembersAsync(_conferenceId, cancellationToken);
         var joinResult = await _callCoordinator.JoinAudioAsync(_conferenceId, cancellationToken).ConfigureAwait(false);
-        if (joinResult.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (joinResult.IsFailure)
         {
+            if (IsBridgeDisposedFailure(joinResult.Error))
+                throw new InvalidOperationException(joinResult.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return false;
             await RunOnUiThreadAsync(() =>
             {
                 SetStatusMessage(joinResult.Error?.Message ?? "audio start failed");
@@ -647,6 +669,38 @@ public sealed class ConferenceRoomPageViewModel : ObservableObject
         }
 
         return normalized;
+    }
+
+    private static bool IsBridgeDisposedFailure(Error? error)
+    {
+        if (error == null)
+            return false;
+
+        if (string.Equals(error.Code, "call.bridge_disposed", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return ContainsIgnoreCase(error.Message, "disposed") ||
+               ContainsIgnoreCase(error.Message, "reinitialization") ||
+               ContainsIgnoreCase(error.Message, "reinitialize");
+    }
+
+    private static bool IsScreenShareCancelledFailure(Error? error)
+    {
+        if (error == null)
+            return false;
+
+        return ContainsIgnoreCase(error.Message, "screen sharing was cancelled") ||
+               ContainsIgnoreCase(error.Message, "cancelled") ||
+               ContainsIgnoreCase(error.Message, "canceled") ||
+               ContainsIgnoreCase(error.Message, "permission denied for screen") ||
+               ContainsIgnoreCase(error.Message, "notallowederror") ||
+               ContainsIgnoreCase(error.Message, "aborterror");
+    }
+
+    private static bool ContainsIgnoreCase(string? value, string fragment)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private void ApplyChatState(ChatViewState state)

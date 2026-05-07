@@ -38,20 +38,60 @@ public sealed class ProtocolJsonSerializer
             foreach (var property in root.EnumerateObject())
                 extensions[property.Name] = property.Value.Clone();
 
-            var type = GetString(root, "type", "messageType", "message_type", "kind", "event");
-            var objectName = GetString(root, "object", "obj", "feature");
-            var agent = GetString(root, "agent", "module");
-            var action = GetString(root, "action", "operation", "op");
+            var requestNode = TryGetObjectProperty(root, "request");
+            var resultNode = TryGetObjectProperty(root, "result");
+            var errorNode = TryGetObjectProperty(root, "error");
+
+            var type = GetString(root, "type", "messageType", "message_type", "event");
+            var objectName =
+                GetString(root, "object", "obj", "feature") ??
+                (requestNode.HasValue ? GetString(requestNode.Value, "object", "obj", "feature") : null);
+            var agent =
+                GetString(root, "agent", "module") ??
+                (requestNode.HasValue ? GetString(requestNode.Value, "agent", "module") : null);
+            var action =
+                GetString(root, "action", "operation", "op") ??
+                (requestNode.HasValue ? GetString(requestNode.Value, "action", "operation", "op") : null);
             var peer = GetString(root, "peer", "peerId", "peer_id");
             var ok = GetBoolean(root, "ok", "success", "accepted");
             var message =
                 GetString(root, "message", "reason", "error", "statusText", "status_text") ??
                 TryExtractNestedMessage(root);
 
+            if (resultNode.HasValue)
+            {
+                ok ??= GetBoolean(resultNode.Value, "ok", "success", "accepted");
+                message ??= GetString(resultNode.Value, "message", "reason", "error", "statusText", "status_text");
+
+                if (!extensions.ContainsKey("data") &&
+                    TryGetProperty(resultNode.Value, "data", out var resultData))
+                {
+                    extensions["data"] = resultData.Clone();
+                }
+            }
+
+            if (errorNode.HasValue)
+            {
+                message ??= GetString(errorNode.Value, "message", "reason", "error", "statusText", "status_text");
+                if (!extensions.ContainsKey("error"))
+                    extensions["error"] = errorNode.Value.Clone();
+                if (!ok.HasValue)
+                    ok = false;
+            }
+
             if (string.IsNullOrWhiteSpace(type))
             {
-                if (ok.HasValue || HasAny(root, "requestId", "clientRequestId", "correlationId"))
+                var kind = GetString(root, "kind");
+                if (string.Equals(kind, "response", StringComparison.OrdinalIgnoreCase) &&
+                    (ok.HasValue || HasAny(root, "requestId", "clientRequestId", "correlationId")))
+                {
                     type = ProtocolMessageTypes.DispatchResult;
+                }
+                else if (!string.IsNullOrWhiteSpace(kind) &&
+                         !string.Equals(kind, "response", StringComparison.OrdinalIgnoreCase))
+                {
+                    type = kind;
+                }
             }
 
             return new FeatureResponseEnvelope
@@ -83,6 +123,37 @@ public sealed class ProtocolJsonSerializer
             }
         }
 
+        return false;
+    }
+
+    private static JsonElement? TryGetObjectProperty(JsonElement element, string name)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (property.Value.ValueKind != JsonValueKind.Object)
+                return null;
+
+            return property.Value;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            value = property.Value;
+            return true;
+        }
+
+        value = default;
         return false;
     }
 

@@ -331,7 +331,14 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
         {
             var root = GetPayloadRoot(response.Value!);
             var producers = ParseProducers(root);
-            var peers = ParsePeerList(root, "memberPeerIds", "member_peer_ids", "activePeerIds", "active_peer_ids");
+            var peers = ParsePeerList(
+                root,
+                "participantPeerIds",
+                "participant_peer_ids",
+                "memberPeerIds",
+                "member_peer_ids",
+                "activePeerIds",
+                "active_peer_ids");
             var roomId = root.GetString("roomId", "room_id", "sessionId", "session_id") ?? callId;
 
             var snapshot = new MediaStatsSnapshot(

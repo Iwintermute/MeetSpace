@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
@@ -15,13 +16,18 @@ namespace MeetSpace.Views.Temporary
         private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(10);
         private static readonly string HostName = "appassets.meetspace";
         private static readonly Uri MediaHostUri = new Uri("https://" + HostName + "/index.html");
+        private static int _runtimeFlagsConfigured;
 
         private readonly WebView2 _webView;
         private bool _initialized;
         private bool _disposed;
         private TaskCompletionSource<bool>? _navigationTcs;
+        private EventInfo? _screenCaptureStartingEvent;
+        private Delegate? _screenCaptureStartingHandler;
+        private MethodInfo? _screenCaptureStartingCallbackMethod;
 
         public event EventHandler<string>? MessageReceived;
+        public bool IsDisposed => _disposed;
 
         public UwpWebViewAudioBridgeHost(WebView2 webView)
         {
@@ -34,6 +40,7 @@ namespace MeetSpace.Views.Temporary
 
             if (_initialized)
                 return;
+            EnsureWebViewRuntimeFlagsConfigured();
 
             await RunOnUiAsync(async () =>
             {
@@ -52,7 +59,7 @@ namespace MeetSpace.Views.Temporary
                     throw new InvalidOperationException("CoreWebView2 is null after EnsureCoreWebView2Async.");
 
                 _webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
-                _webView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
+                _webView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = true;
                 _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
 
                 var mediaHostFolder = Path.Combine(
@@ -73,8 +80,7 @@ namespace MeetSpace.Views.Temporary
 
                 _webView.CoreWebView2.PermissionRequested -= CoreWebView2_PermissionRequested;
                 _webView.CoreWebView2.PermissionRequested += CoreWebView2_PermissionRequested;
-                _webView.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
-                _webView.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
+                TryAttachScreenCaptureStartingHandler();
 
                 _webView.NavigationCompleted -= WebView_NavigationCompleted;
                 _webView.NavigationCompleted += WebView_NavigationCompleted;
@@ -100,6 +106,22 @@ namespace MeetSpace.Views.Temporary
             }).ConfigureAwait(false);
 
             await navigationTcs.Task.ConfigureAwait(false);
+            await RunOnUiAsync(async () =>
+            {
+                if (_webView.CoreWebView2 == null)
+                    return;
+
+                try
+                {
+                    await _webView.CoreWebView2.ExecuteScriptAsync(
+                        "try{if(window.__meetspaceForceHostReady){window.__meetspaceForceHostReady();}true;}catch(_){false;}")
+                        .AsTask()
+                        .ConfigureAwait(true);
+                }
+                catch
+                {
+                }
+            }).ConfigureAwait(false);
             _initialized = true;
         }
 
@@ -128,16 +150,125 @@ namespace MeetSpace.Views.Temporary
             CoreWebView2 sender,
             CoreWebView2PermissionRequestedEventArgs args)
         {
-            args.State = CoreWebView2PermissionState.Allow;
-            args.Handled = true;
+            if (args.PermissionKind == CoreWebView2PermissionKind.Microphone ||
+                args.PermissionKind == CoreWebView2PermissionKind.Camera)
+            {
+                args.State = CoreWebView2PermissionState.Allow;
+                args.Handled = true;
+                return;
+            }
+
+            args.Handled = false;
+        }
+        private void TryAttachScreenCaptureStartingHandler()
+        {
+            if (_webView.CoreWebView2 == null || _screenCaptureStartingHandler != null)
+                return;
+
+            try
+            {
+                var eventInfo = _webView.CoreWebView2.GetType().GetEvent("ScreenCaptureStarting");
+                if (eventInfo == null || eventInfo.EventHandlerType == null)
+                    return;
+                var callbackMethod = _screenCaptureStartingCallbackMethod
+                    ??= GetType().GetMethod(
+                        nameof(CoreWebView2_ScreenCaptureStarting),
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                if (callbackMethod == null)
+                    return;
+
+                var handler = Delegate.CreateDelegate(
+                    eventInfo.EventHandlerType,
+                    this,
+                    callbackMethod,
+                    false);
+                if (handler == null)
+                    return;
+
+                eventInfo.AddEventHandler(_webView.CoreWebView2, handler);
+                _screenCaptureStartingEvent = eventInfo;
+                _screenCaptureStartingHandler = handler;
+            }
+            catch
+            {
+            }
         }
 
-        private void CoreWebView2_NewWindowRequested(
-            CoreWebView2 sender,
-            CoreWebView2NewWindowRequestedEventArgs args)
+        private void CoreWebView2_ScreenCaptureStarting(object sender, object args)
         {
-            args.Handled = true;
+            if (args == null)
+                return;
+
+            try
+            {
+                var argsType = args.GetType();
+
+                var cancelProperty = argsType.GetProperty("Cancel");
+                if (cancelProperty?.CanWrite == true && cancelProperty.PropertyType == typeof(bool))
+                    cancelProperty.SetValue(args, false);
+
+                var handledProperty = argsType.GetProperty("Handled");
+                if (handledProperty?.CanWrite == true && handledProperty.PropertyType == typeof(bool))
+                    handledProperty.SetValue(args, false);
+            }
+            catch
+            {
+            }
         }
+        private void DetachScreenCaptureStartingHandler()
+        {
+            if (_webView.CoreWebView2 == null ||
+                _screenCaptureStartingEvent == null ||
+                _screenCaptureStartingHandler == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _screenCaptureStartingEvent.RemoveEventHandler(
+                    _webView.CoreWebView2,
+                    _screenCaptureStartingHandler);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _screenCaptureStartingEvent = null;
+                _screenCaptureStartingHandler = null;
+            }
+        }
+
+        private static void EnsureWebViewRuntimeFlagsConfigured()
+        {
+            if (Interlocked.Exchange(ref _runtimeFlagsConfigured, 1) != 0)
+                return;
+
+            const string additionalArgsName = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+            const string compatibilityArg = "--disable-features=AllowWgcScreenCapturer";
+
+            try
+            {
+                var existing = Environment.GetEnvironmentVariable(additionalArgsName);
+                if (string.IsNullOrWhiteSpace(existing))
+                {
+                    Environment.SetEnvironmentVariable(additionalArgsName, compatibilityArg);
+                    return;
+                }
+
+                if (existing.IndexOf("AllowWgcScreenCapturer", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return;
+
+                Environment.SetEnvironmentVariable(
+                    additionalArgsName,
+                    (existing + " " + compatibilityArg).Trim());
+            }
+            catch
+            {
+            }
+        }
+
 
         private void WebView_NavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
         {
@@ -261,12 +392,13 @@ namespace MeetSpace.Views.Temporary
                     _webView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
                     _webView.CoreWebView2.ProcessFailed -= CoreWebView2_ProcessFailed;
                     _webView.CoreWebView2.PermissionRequested -= CoreWebView2_PermissionRequested;
-                    _webView.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
                 }
             }
             catch
             {
             }
+
+            DetachScreenCaptureStartingHandler();
         }
     }
 }

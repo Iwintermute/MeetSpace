@@ -53,6 +53,22 @@ public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
         {
             await _gateway.SendAsync(new FeatureRequestEnvelope
             {
+                V = 2,
+                Kind = "request",
+                RequestId = requestId,
+                Meta = new Dictionary<string, object?>
+                {
+                    ["contract"] = "meetspace-universal-v2",
+                    ["sentAtUtc"] = DateTimeOffset.UtcNow.ToString("O")
+                },
+                Request = new FeatureRequestV2
+                {
+                    Id = requestId,
+                    Object = @object,
+                    Agent = agent,
+                    Action = action,
+                    Context = new Dictionary<string, object?>(ctx)
+                },
                 Object = @object,
                 Agent = agent,
                 Action = action,

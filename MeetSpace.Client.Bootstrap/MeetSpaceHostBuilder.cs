@@ -19,18 +19,96 @@ using MeetSpace.Client.Shared.Abstractions;
 using MeetSpace.Client.Shared.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Net;
 using System.Net.Http;
 
 namespace MeetSpace.Client.Bootstrap;
 
 public static class MeetSpaceHostBuilder
 {
+    private const string DefaultSupabaseUrl = "https://mtbbcaykjomycovrxdya.supabase.co";
+    private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10YmJjYXlram9teWNvdnJ4ZHlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDkyODUsImV4cCI6MjA5MDQ4NTI4NX0.AKhEpGPBoiLDfUqAu1-MUgvDDrYlw_M0N_wHdXS9Cx4";
+    private const string DefaultRealtimeEndpoint = "wss://31.177.83.146:9002";
+
+    private static string ReadConfigValue(params string[] envNames)
+    {
+        foreach (var envName in envNames)
+        {
+            if (string.IsNullOrWhiteSpace(envName))
+                continue;
+
+            var value = Environment.GetEnvironmentVariable(envName, EnvironmentVariableTarget.Process);
+            if (string.IsNullOrWhiteSpace(value))
+                value = Environment.GetEnvironmentVariable(envName, EnvironmentVariableTarget.User);
+            if (string.IsNullOrWhiteSpace(value))
+                value = Environment.GetEnvironmentVariable(envName, EnvironmentVariableTarget.Machine);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+
+        return string.Empty;
+    }
+
+    private static string NormalizeRealtimeEndpoint(string endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+            return string.Empty;
+
+        var normalized = endpoint.Trim();
+        if (normalized.IndexOf("://", StringComparison.Ordinal) < 0)
+            normalized = $"wss://{normalized}";
+
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri))
+            return endpoint.Trim();
+
+        if (string.Equals(uri.Scheme, "ws", StringComparison.OrdinalIgnoreCase) &&
+            !IsLoopbackHost(uri.Host))
+        {
+            var uriBuilder = new UriBuilder(uri)
+            {
+                Scheme = "wss",
+                Port = uri.IsDefaultPort ? -1 : uri.Port
+            };
+            normalized = uriBuilder.Uri.AbsoluteUri;
+        }
+
+        return normalized;
+    }
+
+    private static bool IsLoopbackHost(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            return false;
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var normalizedHost = host.Trim('[', ']');
+        if (IPAddress.TryParse(normalizedHost, out var address))
+            return IPAddress.IsLoopback(address);
+
+        return false;
+    }
     public static MeetSpaceAppHost Build(Action<IServiceCollection>? configureServices = null)
     {
+        var resolvedSupabaseUrl = ReadConfigValue("MEETSPACE_SUPABASE_URL", "SUPABASE_URL");
+        if (string.IsNullOrWhiteSpace(resolvedSupabaseUrl))
+            resolvedSupabaseUrl = DefaultSupabaseUrl;
+
+        var resolvedSupabaseAnonKey = ReadConfigValue("MEETSPACE_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY");
+        if (string.IsNullOrWhiteSpace(resolvedSupabaseAnonKey))
+            resolvedSupabaseAnonKey = DefaultSupabaseAnonKey;
+
+        var resolvedRealtimeEndpoint = ReadConfigValue(
+            "MEETSPACE_REALTIME_ENDPOINT",
+            "MEETSPACE_SIGNALING_ENDPOINT",
+            "EDUSPACE_REALTIME_ENDPOINT");
+        if (string.IsNullOrWhiteSpace(resolvedRealtimeEndpoint))
+            resolvedRealtimeEndpoint = DefaultRealtimeEndpoint;
+        resolvedRealtimeEndpoint = NormalizeRealtimeEndpoint(resolvedRealtimeEndpoint);
         var options = new ClientRuntimeOptions(
-            SupabaseUrl: "https://mtbbcaykjomycovrxdya.supabase.co",
-            SupabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10YmJjYXlram9teWNvdnJ4ZHlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDkyODUsImV4cCI6MjA5MDQ4NTI4NX0.AKhEpGPBoiLDfUqAu1-MUgvDDrYlw_M0N_wHdXS9Cx4",
-            DefaultRealtimeEndpoint: "ws://127.0.0.1:9002",
+            SupabaseUrl: resolvedSupabaseUrl,
+            SupabaseAnonKey: resolvedSupabaseAnonKey,
+            DefaultRealtimeEndpoint: resolvedRealtimeEndpoint,
             DefaultDeviceId: "uwp-desktop",
             CallRuntime: new CallRuntimeOptions(
                 ServerPhaseTimeoutSeconds: 15,

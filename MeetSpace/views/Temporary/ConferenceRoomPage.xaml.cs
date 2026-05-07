@@ -20,6 +20,10 @@ public sealed partial class ConferenceRoomPage : Page
     private WebView2? _mediaHostView;
     private bool _audioBridgeReady;
     private bool _scrollRequestPending;
+    private bool _microphoneCommandInFlight;
+    private bool _cameraCommandInFlight;
+    private bool _screenShareCommandInFlight;
+    private readonly SemaphoreSlim _audioBridgeInitSync = new SemaphoreSlim(1, 1);
 
     public ConferenceRoomPageViewModel ViewModel { get; }
 
@@ -43,6 +47,9 @@ public sealed partial class ConferenceRoomPage : Page
         base.OnNavigatedTo(e);
         _conferenceId = e.Parameter as string ?? string.Empty;
         _audioBridgeReady = false;
+        _microphoneCommandInFlight = false;
+        _cameraCommandInFlight = false;
+        _screenShareCommandInFlight = false;
     }
 
     private async void ConferenceRoomPage_Loaded(object sender, RoutedEventArgs e)
@@ -62,6 +69,20 @@ public sealed partial class ConferenceRoomPage : Page
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex) when (IsDisposedBridgeError(ex))
+        {
+            try
+            {
+                var token = _pageLifetimeCts?.Token ?? CancellationToken.None;
+                _audioBridgeReady = false;
+                await EnsureAudioBridgeReadyAsync(token);
+                await ViewModel.EnsureConferenceAudioStartedAsync(token);
+            }
+            catch (Exception retryEx)
+            {
+                ViewModel.SetStatusMessage("audio bridge init failed: " + retryEx.Message);
+            }
         }
         catch (Exception ex)
         {
@@ -199,26 +220,60 @@ public sealed partial class ConferenceRoomPage : Page
 
     private async Task EnsureAudioBridgeReadyAsync(CancellationToken cancellationToken)
     {
-        if (_audioBridgeReady)
-            return;
-
-        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, EnsureMediaHostViewCreated);
-
-        if (_mediaHostView == null)
-            throw new InvalidOperationException("MediaHostView was not created.");
-
+        await _audioBridgeInitSync.WaitAsync(cancellationToken);
         try
         {
-            _audioBridgeHost?.Dispose();
+            if (_audioBridgeReady && _audioBridgeHost != null && !_audioBridgeHost.IsDisposed)
+                return;
+
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, EnsureMediaHostViewCreated);
+
+            if (_mediaHostView == null)
+                throw new InvalidOperationException("MediaHostView was not created.");
+
+            try
+            {
+                _audioBridgeHost?.Dispose();
+            }
+            catch
+            {
+            }
+
+            _audioBridgeHost = new UwpWebViewAudioBridgeHost(_mediaHostView);
+            await ViewModel.AttachAudioHostAsync(_audioBridgeHost, cancellationToken);
+
+            _audioBridgeReady = true;
         }
-        catch
+        finally
         {
+            _audioBridgeInitSync.Release();
         }
+    }
 
-        _audioBridgeHost = new UwpWebViewAudioBridgeHost(_mediaHostView);
-        await ViewModel.AttachAudioHostAsync(_audioBridgeHost, cancellationToken);
 
-        _audioBridgeReady = true;
+    private async Task FocusMediaHostForCaptureAsync()
+    {
+        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+        {
+            try
+            {
+                if (_mediaHostView == null)
+                    return;
+
+                _ = _mediaHostView.Focus(FocusState.Programmatic);
+                try
+                {
+                    _ = _mediaHostView.CoreWebView2?.ExecuteScriptAsync(
+                        "try{window.focus();true;}catch(_){false;}");
+                }
+                catch
+                {
+                }
+            }
+            catch
+            {
+            }
+        });
     }
 
     private void OpenChatButton_Click(object sender, RoutedEventArgs e)
@@ -240,11 +295,15 @@ public sealed partial class ConferenceRoomPage : Page
 
     private async void MicrophoneButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_microphoneCommandInFlight)
+            return;
+
+        _microphoneCommandInFlight = true;
         var token = _pageLifetimeCts != null ? _pageLifetimeCts.Token : CancellationToken.None;
 
         try
         {
-            if (!_audioBridgeReady)
+            if (!_audioBridgeReady || _audioBridgeHost == null || _audioBridgeHost.IsDisposed)
                 await EnsureAudioBridgeReadyAsync(token);
 
             await ViewModel.HandleMicrophoneAsync(token);
@@ -252,19 +311,40 @@ public sealed partial class ConferenceRoomPage : Page
         catch (OperationCanceledException)
         {
         }
+        catch (Exception ex) when (IsDisposedBridgeError(ex))
+        {
+            try
+            {
+                _audioBridgeReady = false;
+                await EnsureAudioBridgeReadyAsync(token);
+                await ViewModel.HandleMicrophoneAsync(token);
+            }
+            catch (Exception retryEx)
+            {
+                ViewModel.SetStatusMessage("audio bridge init failed: " + retryEx.Message);
+            }
+        }
         catch (Exception ex)
         {
             ViewModel.SetStatusMessage("audio bridge init failed: " + ex.Message);
+        }
+        finally
+        {
+            _microphoneCommandInFlight = false;
         }
     }
 
     private async void CameraButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_cameraCommandInFlight)
+            return;
+
+        _cameraCommandInFlight = true;
         var token = _pageLifetimeCts != null ? _pageLifetimeCts.Token : CancellationToken.None;
 
         try
         {
-            if (!_audioBridgeReady)
+            if (!_audioBridgeReady || _audioBridgeHost == null || _audioBridgeHost.IsDisposed)
                 await EnsureAudioBridgeReadyAsync(token);
 
             await ViewModel.HandleCameraAsync(token);
@@ -272,29 +352,72 @@ public sealed partial class ConferenceRoomPage : Page
         catch (OperationCanceledException)
         {
         }
+        catch (Exception ex) when (IsDisposedBridgeError(ex))
+        {
+            try
+            {
+                _audioBridgeReady = false;
+                await EnsureAudioBridgeReadyAsync(token);
+                await ViewModel.HandleCameraAsync(token);
+            }
+            catch (Exception retryEx)
+            {
+                ViewModel.SetStatusMessage("camera bridge init failed: " + retryEx.Message);
+            }
+        }
         catch (Exception ex)
         {
             ViewModel.SetStatusMessage("camera bridge init failed: " + ex.Message);
+        }
+        finally
+        {
+            _cameraCommandInFlight = false;
         }
     }
 
     private async void ScreenShareButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_screenShareCommandInFlight)
+            return;
+
+        _screenShareCommandInFlight = true;
         var token = _pageLifetimeCts != null ? _pageLifetimeCts.Token : CancellationToken.None;
 
         try
         {
-            if (!_audioBridgeReady)
+            if (!_audioBridgeReady || _audioBridgeHost == null || _audioBridgeHost.IsDisposed)
                 await EnsureAudioBridgeReadyAsync(token);
+            await FocusMediaHostForCaptureAsync();
 
             await ViewModel.HandleScreenShareAsync(token);
         }
         catch (OperationCanceledException)
         {
         }
+        catch (Exception ex) when (IsScreenShareCancelledError(ex))
+        {
+            ViewModel.SetStatusMessage("Вы отменили выбор экрана.");
+        }
+        catch (Exception ex) when (IsDisposedBridgeError(ex))
+        {
+            try
+            {
+                _audioBridgeReady = false;
+                await EnsureAudioBridgeReadyAsync(token);
+                await ViewModel.HandleScreenShareAsync(token);
+            }
+            catch (Exception retryEx)
+            {
+                ViewModel.SetStatusMessage("screen bridge init failed: " + retryEx.Message);
+            }
+        }
         catch (Exception ex)
         {
             ViewModel.SetStatusMessage("screen bridge init failed: " + ex.Message);
+        }
+        finally
+        {
+            _screenShareCommandInFlight = false;
         }
     }
 
@@ -309,5 +432,48 @@ public sealed partial class ConferenceRoomPage : Page
         }
 
         await ViewModel.LeaveConferenceAsync();
+    }
+
+    private static bool IsDisposedBridgeError(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is ObjectDisposedException)
+                return true;
+
+            var message = current.Message;
+            if (string.IsNullOrWhiteSpace(message))
+                continue;
+
+            if (message.IndexOf("disposed", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("reinitialization", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("reinitialize", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsScreenShareCancelledError(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            var message = current.Message;
+            if (string.IsNullOrWhiteSpace(message))
+                continue;
+
+            if (message.IndexOf("screen sharing was cancelled", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("cancelled", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("canceled", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("permission denied for screen", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("notallowederror", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

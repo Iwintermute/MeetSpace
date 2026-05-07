@@ -10,6 +10,8 @@ public static class ProtocolMessageTypes
 
     public const string ConferenceUpdated = "conference_updated";
     public const string ConferenceMembersUpdated = "conference_members_updated";
+    public const string ConferenceMemberJoined = "conference_member_joined";
+    public const string ConferenceMemberLeft = "conference_member_left";
     public const string DirectCallInvite = "direct_call_invite";
     public const string DirectCallAccepted = "direct_call_accepted";
     public const string DirectCallDeclined = "direct_call_declined";

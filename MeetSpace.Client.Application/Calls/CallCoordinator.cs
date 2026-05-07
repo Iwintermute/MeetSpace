@@ -187,6 +187,8 @@ public sealed class CallCoordinator : IDisposable
         }
         catch (Exception ex)
         {
+            if (IsBridgeDisposedException(ex))
+                return Result.Failure(new Error("call.bridge_disposed", ex.Message));
             _callStore.SetStage(
                 CallConnectionStage.Faulted,
                 _conversationId,
@@ -244,6 +246,8 @@ public sealed class CallCoordinator : IDisposable
         }
         catch (Exception ex)
         {
+            if (IsBridgeDisposedException(ex))
+                return Result.Failure(new Error("call.bridge_disposed", ex.Message));
             _callStore.SetStage(
                 CallConnectionStage.Faulted,
                 _conversationId,
@@ -314,6 +318,8 @@ public sealed class CallCoordinator : IDisposable
         }
         catch (Exception ex)
         {
+            if (IsBridgeDisposedException(ex))
+                return Result.Failure(new Error("call.bridge_disposed", ex.Message));
             _callStore.SetStage(
                 CallConnectionStage.Faulted,
                 _conversationId,
@@ -376,7 +382,22 @@ public sealed class CallCoordinator : IDisposable
                 _kind == kind &&
                 string.Equals(_sessionId, sessionId, StringComparison.Ordinal))
             {
-                return Result.Success();
+                if (!string.IsNullOrWhiteSpace(_audioEngine.RecvRtpCapabilitiesJson))
+                    return Result.Success();
+
+                var rebootstrapResult = await EnsureBridgeSessionReadyAsync(kind, sessionId, cancellationToken).ConfigureAwait(false);
+                if (rebootstrapResult.IsFailure)
+                {
+                    _callStore.SetStage(
+                        CallConnectionStage.Faulted,
+                        _conversationId,
+                        _roomId,
+                        _sendTransportId,
+                        _sessionId,
+                        _kind);
+                }
+
+                return rebootstrapResult;
             }
 
             await ResetCurrentCallAsync().ConfigureAwait(false);
@@ -567,7 +588,151 @@ public sealed class CallCoordinator : IDisposable
         }
     }
 
-    private async Task<Result> StartTrackAsync(CallMediaTrackType trackType, CancellationToken cancellationToken)
+    private async Task<Result> EnsureBridgeSessionReadyAsync(
+        CallKind kind,
+        string sessionId,
+        CancellationToken cancellationToken,
+        bool forceRebootstrap = false)
+    {
+        if (!forceRebootstrap && !string.IsNullOrWhiteSpace(_audioEngine.RecvRtpCapabilitiesJson))
+            return Result.Success();
+
+        if (string.IsNullOrWhiteSpace(_sessionStore.Current.SelfPeerId))
+            return Result.Failure(new Error("call.self_peer_missing", "Self peer is not assigned yet."));
+
+        var selfPeerId = _sessionStore.Current.SelfPeerId!;
+        var recoveryId = Guid.NewGuid().ToString("N");
+        _sendTransportId = $"send-{selfPeerId}-{recoveryId}";
+        _recvTransportId = $"recv-{selfPeerId}-{recoveryId}";
+        _roomId = sessionId;
+
+        try
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Negotiating,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+
+            var sendTransport = await RunPhaseAsync(
+                "recover_open_send_transport",
+                _serverPhaseTimeout,
+                ct => OpenTransportAsync(kind, sessionId, _sendTransportId!, ct),
+                cancellationToken).ConfigureAwait(false);
+
+            if (sendTransport.IsFailure)
+                return Result.Failure(sendTransport.Error!);
+
+            var recvTransport = await RunPhaseAsync(
+                "recover_open_recv_transport",
+                _serverPhaseTimeout,
+                ct => OpenTransportAsync(kind, sessionId, _recvTransportId!, ct),
+                cancellationToken).ConfigureAwait(false);
+
+            if (recvTransport.IsFailure)
+                return Result.Failure(recvTransport.Error!);
+
+            _roomId = sendTransport.Value!.RoomId;
+
+            await RunPhaseAsync(
+                "recover_bridge_load_device",
+                _bridgePhaseTimeout,
+                ct => _audioEngine.LoadDeviceAsync(sendTransport.Value!.RouterRtpCapabilitiesJson, ct),
+                cancellationToken).ConfigureAwait(false);
+
+            await RunPhaseAsync(
+                "recover_bridge_create_send_transport",
+                _bridgePhaseTimeout,
+                ct => _audioEngine.CreateSendTransportAsync(sendTransport.Value!, ct),
+                cancellationToken).ConfigureAwait(false);
+
+            await RunPhaseAsync(
+                "recover_bridge_create_recv_transport",
+                _bridgePhaseTimeout,
+                ct => _audioEngine.CreateRecvTransportAsync(recvTransport.Value!, ct),
+                cancellationToken).ConfigureAwait(false);
+            var localMediaState = _callStore.Current.LocalMedia;
+            var restartMicrophone = localMediaState.MicrophoneEnabled;
+            var restartCamera = localMediaState.CameraEnabled;
+            var wasScreenShareEnabled = localMediaState.ScreenShareEnabled;
+
+            _localProducerIds.Clear();
+            _localProducerByTrackType.Clear();
+
+            _consumedProducerIds.Clear();
+            _consumerIdByProducerId.Clear();
+            _consumeInFlightProducerIds.Clear();
+            _consumeRetryAfterByProducerId.Clear();
+            _consumeFailureCountByProducerId.Clear();
+            _callStore.SetStage(
+                CallConnectionStage.Publishing,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+
+            if (restartMicrophone)
+            {
+                var restartMicrophoneResult = await StartTrackAsync(
+                    CallMediaTrackType.Audio,
+                    cancellationToken,
+                    allowBridgeRecovery: false).ConfigureAwait(false);
+                if (restartMicrophoneResult.IsFailure)
+                    return restartMicrophoneResult;
+            }
+            else
+            {
+                _callStore.SetMicrophoneEnabled(false);
+            }
+
+            if (restartCamera)
+            {
+                var restartCameraResult = await StartTrackAsync(
+                    CallMediaTrackType.Video,
+                    cancellationToken,
+                    allowBridgeRecovery: false).ConfigureAwait(false);
+                if (restartCameraResult.IsFailure)
+                    _callStore.SetCameraEnabled(false);
+            }
+            else
+            {
+                _callStore.SetCameraEnabled(false);
+            }
+
+            if (wasScreenShareEnabled)
+                _callStore.SetScreenShareEnabled(false);
+
+            _callStore.SetStage(
+                CallConnectionStage.Connected,
+                _conversationId,
+                _roomId,
+                _sendTransportId,
+                _sessionId,
+                _kind);
+                return Result.Success();
+            }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure(new Error("call.bridge_recover_canceled", $"Bridge recovery canceled at phase '{_joinPhase}'."));
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure(new Error("call.bridge_recover_failed", $"Bridge recovery failed at phase '{_joinPhase}': {ex.Message}"));
+        }
+    }
+
+    private Task<Result> StartTrackAsync(CallMediaTrackType trackType, CancellationToken cancellationToken)
+    {
+        return StartTrackAsync(trackType, cancellationToken, allowBridgeRecovery: true);
+    }
+
+    private async Task<Result> StartTrackAsync(
+        CallMediaTrackType trackType,
+        CancellationToken cancellationToken,
+        bool allowBridgeRecovery)
     {
         var selfPeerId = _sessionStore.Current.SelfPeerId;
         if (string.IsNullOrWhiteSpace(selfPeerId))
@@ -629,6 +794,25 @@ public sealed class CallCoordinator : IDisposable
         {
             _localProducerIds.Remove(producerId);
             _localProducerByTrackType.Remove(normalizedTrackType);
+
+            if (allowBridgeRecovery &&
+                IsBridgeDeviceNotLoadedException(ex) &&
+                _kind != CallKind.Unknown &&
+                !string.IsNullOrWhiteSpace(_sessionId))
+            {
+                var recoverResult = await EnsureBridgeSessionReadyAsync(
+                    _kind,
+                    _sessionId!,
+                    cancellationToken,
+                    forceRebootstrap: true).ConfigureAwait(false);
+                if (recoverResult.IsFailure)
+                    return recoverResult;
+
+                return await StartTrackAsync(
+                    trackType,
+                    cancellationToken,
+                    allowBridgeRecovery: false).ConfigureAwait(false);
+            }
             return Result.Failure(new Error("call.start_track_failed", ex.Message));
         }
     }
@@ -1332,6 +1516,46 @@ public sealed class CallCoordinator : IDisposable
     {
         return !string.IsNullOrWhiteSpace(value) &&
                value.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsBridgeDisposedException(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is ObjectDisposedException)
+                return true;
+
+            var message = current.Message;
+            if (string.IsNullOrWhiteSpace(message))
+                continue;
+
+            if (message.IndexOf("disposed", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("reinitialization", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("reinitialize", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsBridgeDeviceNotLoadedException(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (IsBridgeDeviceNotLoadedError(current.Message))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsBridgeDeviceNotLoadedError(string? message)
+    {
+        return ContainsIgnoreCase(message, "mediasoup device is not loaded") ||
+               ContainsIgnoreCase(message, "mediasoup is not loaded") ||
+               ContainsIgnoreCase(message, "device is not loaded");
     }
 
     private static string? ResolveMemberUserLabel(ConferenceMember member, string? fallback)

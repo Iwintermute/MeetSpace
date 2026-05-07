@@ -11,125 +11,185 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MeetSpace Media Host</title>
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background: transparent;
+            width: 100%; height: 100%;
+            background: #1a1a2e;
             overflow: hidden;
+            font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: #e0e0e0;
+            -webkit-font-smoothing: antialiased;
         }
 
         #media-grid {
             position: relative;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            padding: 8px;
-            display: block;
+            width: 100%; height: 100%;
+            padding: 6px;
+            display: grid;
+            gap: 6px;
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
         }
 
-        #media-grid:fullscreen {
-            padding: 12px;
-            background: #000;
-        }
+        /* Adaptive grid: 2 tiles = 2 cols, 3-4 = 2x2, 5-9 = 3 cols, 10+ = 4 cols */
+        #media-grid[data-tile-count='2'] { grid-template-columns: 1fr 1fr; }
+        #media-grid[data-tile-count='3'],
+        #media-grid[data-tile-count='4'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        #media-grid[data-tile-count='5'],
+        #media-grid[data-tile-count='6'],
+        #media-grid[data-tile-count='7'],
+        #media-grid[data-tile-count='8'],
+        #media-grid[data-tile-count='9'] { grid-template-columns: repeat(3, 1fr); }
 
+        #media-grid:fullscreen { padding: 10px; gap: 8px; background: #0d0d1a; }
+
+        /* Stage/strip for focused (speaker) view */
         .media-stage {
             display: none;
             position: absolute;
-            inset: 8px;
-            border-radius: 8px;
+            inset: 6px;
+            border-radius: 12px;
             overflow: hidden;
-            background: #020406;
+            background: #0d0d1a;
+            z-index: 1;
         }
 
         .media-strip {
-            position: absolute;
-            inset: 8px;
-            display: grid;
-            gap: 8px;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            grid-auto-rows: minmax(160px, 1fr);
-            align-content: stretch;
+            display: contents;
         }
+        .media-strip:empty { display: none; }
 
-        .media-strip:empty {
-            display: none;
+        #media-grid[data-has-focus='true'] {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr auto;
         }
-
         #media-grid[data-has-focus='true'] .media-stage {
-            display: block;
+            display: flex;
+            position: relative;
+            inset: unset;
+            min-height: 0;
         }
-
         #media-grid[data-has-focus='true'] .media-strip {
-            inset: auto 16px 16px 16px;
-            max-height: 28%;
-            padding: 8px;
+            display: flex;
+            gap: 6px;
+            max-height: 160px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 4px;
             border-radius: 10px;
-            background: rgba(2, 6, 12, 0.72);
-            backdrop-filter: blur(4px);
-            overflow-y: auto;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            grid-auto-rows: minmax(120px, 1fr);
+            background: rgba(13, 13, 26, 0.85);
+            backdrop-filter: blur(12px);
         }
-
-        #media-grid:fullscreen[data-has-focus='true'] .media-strip {
-            inset: auto 20px 20px 20px;
-            max-height: 24%;
+        #media-grid[data-has-focus='true'] .media-strip .media-tile {
+            min-width: 200px;
+            max-width: 280px;
+            flex-shrink: 0;
         }
 
         .media-stage .media-tile {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             border-radius: 0;
             border: none;
         }
 
+        /* Tile */
         .media-tile {
             position: relative;
             overflow: hidden;
-            border-radius: 8px;
-            background: #06090f;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            background: #16162d;
+            border: 2px solid transparent;
             cursor: pointer;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease, opacity 0.3s ease;
+            animation: tileEnter 0.3s ease-out;
+        }
+        @keyframes tileEnter {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
         }
 
+        .media-tile:hover {
+            border-color: rgba(88, 166, 255, 0.3);
+        }
         .media-tile--focused {
-            border-color: rgba(88, 166, 255, 0.65);
-            box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.35);
+            border-color: rgba(88, 166, 255, 0.7);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.25), 0 4px 24px rgba(0,0,0,0.4);
+        }
+        .media-tile--speaking {
+            border-color: #4ade80;
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3), 0 0 16px rgba(74, 222, 128, 0.15);
         }
 
+        /* Video */
         .media-video {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             object-fit: cover;
-            background: #000;
+            background: #0d0d1a;
+            display: block;
         }
-        .media-stage .media-video {
-            object-fit: contain;
-            background: #000;
-        }
+        .media-stage .media-video { object-fit: contain; }
+        .media-tile[data-track-type='screen'] .media-video { object-fit: contain; }
+        .media-tile[data-scope='local'] .media-video { transform: scaleX(-1); }
+        .media-tile[data-track-type='screen'][data-scope='local'] .media-video { transform: none; }
 
-        .media-tile[data-track-type='screen'] .media-video {
-            object-fit: contain;
-        }
-
+        /* Label */
         .media-tile-label {
             position: absolute;
-            left: 8px;
-            bottom: 8px;
+            left: 8px; bottom: 8px;
             max-width: calc(100% - 16px);
-            box-sizing: border-box;
-            padding: 3px 8px;
-            border-radius: 999px;
-            color: #ffffff;
-            background: rgba(0, 0, 0, 0.55);
-            font-family: 'Segoe UI', sans-serif;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
             font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            z-index: 2;
         }
+
+        /* Connection quality indicator */
+        .media-tile-quality {
+            position: absolute;
+            top: 8px; right: 8px;
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            z-index: 2;
+        }
+        .media-tile-quality .bar {
+            width: 3px;
+            border-radius: 1px;
+            background: rgba(255,255,255,0.25);
+            transition: height 0.3s ease, background 0.3s ease;
+        }
+        .media-tile-quality .bar.active { background: #4ade80; }
+        .media-tile-quality .bar.warn { background: #facc15; }
+        .media-tile-quality .bar.poor { background: #f87171; }
+        .media-tile-quality .bar:nth-child(1) { height: 4px; }
+        .media-tile-quality .bar:nth-child(2) { height: 7px; }
+        .media-tile-quality .bar:nth-child(3) { height: 10px; }
+        .media-tile-quality .bar:nth-child(4) { height: 13px; }
+
+        /* No participants placeholder */
+        #media-grid:empty::after {
+            content: 'Ожидание участников…';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255,255,255,0.35);
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
     </style>
 </head>
 <body>

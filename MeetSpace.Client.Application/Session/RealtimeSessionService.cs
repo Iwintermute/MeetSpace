@@ -12,6 +12,7 @@ namespace MeetSpace.Client.App.Session;
 
 public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposable
 {
+    private static readonly TimeSpan RealtimeConnectTimeout = TimeSpan.FromSeconds(20);
     private readonly IRealtimeGateway _gateway;
     private readonly IRealtimeRpcClient _rpcClient;
     private readonly AuthSessionStore _authStore;
@@ -42,6 +43,9 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
     {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
             return Result.Failure(new Error("endpoint.invalid", "Endpoint URI is invalid."));
+        var endpointValidation = ValidateRealtimeEndpoint(uri);
+        if (endpointValidation.IsFailure)
+            return endpointValidation;
 
         await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -52,7 +56,16 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
 
                 try
                 {
-                    await _gateway.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
+                    using var connectTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    connectTimeoutCts.CancelAfter(RealtimeConnectTimeout);
+                    await _gateway.ConnectAsync(uri, connectTimeoutCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    _sessionStore.SetConnectionState(ConnectionState.Faulted);
+                    return Result.Failure(new Error(
+                        "realtime.connect_timeout",
+                        $"Timed out connecting to realtime endpoint after {(int)RealtimeConnectTimeout.TotalSeconds}s."));
                 }
                 catch (Exception ex)
                 {
@@ -110,6 +123,8 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
         }
     }
 
+    public event EventHandler? ReconnectedAfterDrop;
+
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         _boundAccessToken = null;
@@ -118,6 +133,31 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
             await _gateway.DisconnectAsync(cancellationToken).ConfigureAwait(false);
 
         _sessionStore.Reset();
+    }
+
+    public async Task TryAutoReconnectAsync(string endpoint, CancellationToken cancellationToken = default)
+    {
+        var delays = new[] { 2000, 4000, 8000 };
+        for (var attempt = 0; attempt < delays.Length; attempt++)
+        {
+            try
+            {
+                await Task.Delay(delays[attempt], cancellationToken).ConfigureAwait(false);
+                var result = await EnsureConnectedAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                if (result.IsSuccess)
+                {
+                    ReconnectedAfterDrop?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch
+            {
+            }
+        }
     }
 
     private void ApplyBindResponse(FeatureResponseEnvelope envelope, string? fallbackUserId)
@@ -155,6 +195,34 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
         }
 
         return normalized;
+    }
+
+    private static Result ValidateRealtimeEndpoint(Uri endpoint)
+    {
+        if (endpoint == null || !endpoint.IsAbsoluteUri)
+            return Result.Failure(new Error("endpoint.invalid", "Endpoint URI must be absolute."));
+        if (string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
+            return Result.Success();
+        if (string.Equals(endpoint.Scheme, "ws", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Uri.CheckHostName(endpoint.Host) == UriHostNameType.IPv4 &&
+                endpoint.Host == "127.0.0.1")
+            {
+                return Result.Success();
+            }
+            if (Uri.CheckHostName(endpoint.Host) == UriHostNameType.IPv6 &&
+                (endpoint.Host == "::1" || endpoint.Host == "[::1]"))
+            {
+                return Result.Success();
+            }
+            if (string.Equals(endpoint.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return Result.Success();
+            }
+
+            return Result.Failure(new Error("endpoint.insecure_ws_remote", "Remote realtime endpoint must use wss://."));
+        }
+        return Result.Failure(new Error("endpoint.unsupported_scheme", "Realtime endpoint must use wss:// (or ws:// for localhost only)."));
     }
 
     public void Dispose()

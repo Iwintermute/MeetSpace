@@ -534,6 +534,17 @@ namespace MeetSpace.Temporary
 
                     return await responseTcs.Task.ConfigureAwait(false);
                 }
+                catch (ObjectDisposedException ex)
+                {
+                    _pendingResponses.TryRemove(requestId, out _);
+
+                    if (ReferenceEquals(_host, host) || ReferenceEquals(_subscribedHost, host))
+                        DetachCurrentHost();
+
+                    throw new InvalidOperationException(
+                        "Audio bridge host was disposed and needs reinitialization.",
+                        ex);
+                }
                 catch
                 {
                     _pendingResponses.TryRemove(requestId, out _);

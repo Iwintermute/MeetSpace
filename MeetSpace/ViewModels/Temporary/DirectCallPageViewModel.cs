@@ -224,12 +224,50 @@ public sealed class DirectCallPageViewModel : ObservableObject
         Result result;
 
         if (_incomingCallMode)
+        {
             result = await _callCoordinator.AcceptAndJoinDirectCallAsync(_callId, cancellationToken).ConfigureAwait(false);
+        }
         else
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                CallStatusText = "Вызов…";
+                StatusDetailsText = "Ожидание ответа собеседника…";
+            }).ConfigureAwait(false);
+
+            var accepted = await WaitForCallAcceptedAsync(cancellationToken).ConfigureAwait(false);
+            if (!accepted)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    CallStatusText = "Нет ответа";
+                    StatusDetailsText = "Собеседник не принял звонок.";
+                }).ConfigureAwait(false);
+
+                _ = Task.Delay(2000, CancellationToken.None).ContinueWith(_ =>
+                {
+                    _ = RunOnUiThreadAsync(() =>
+                    {
+                        if (!_hasNavigatedBackAfterEnd)
+                        {
+                            _hasNavigatedBackAfterEnd = true;
+                            NavigateBackRequested?.Invoke(this, EventArgs.Empty);
+                        }
+                    });
+                }, TaskScheduler.Default);
+                return;
+            }
+
             result = await _callCoordinator.JoinDirectCallMediaAsync(_callId, cancellationToken).ConfigureAwait(false);
+        }
 
         if (result.IsFailure)
         {
+            if (IsBridgeDisposedFailure(result.Error))
+            {
+                _startAttempted = false;
+                throw new InvalidOperationException(result.Error?.Message ?? "Audio bridge host was disposed.");
+            }
             await RunOnUiThreadAsync(() =>
             {
                 StatusDetailsText = result.Error?.Message ?? "Не удалось подключиться к звонку.";
@@ -243,8 +281,13 @@ public sealed class DirectCallPageViewModel : ObservableObject
         if (_autoEnableCamera)
         {
             var toggleCameraResult = await _callCoordinator.ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
-            if (toggleCameraResult.IsFailure && !cancellationToken.IsCancellationRequested)
+            if (toggleCameraResult.IsFailure)
             {
+                if (IsBridgeDisposedFailure(toggleCameraResult.Error))
+                    throw new InvalidOperationException(toggleCameraResult.Error?.Message ?? "Audio bridge host was disposed.");
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
                 await RunOnUiThreadAsync(() =>
                 {
                     StatusDetailsText = toggleCameraResult.Error?.Message ?? "Не удалось включить камеру.";
@@ -253,11 +296,74 @@ public sealed class DirectCallPageViewModel : ObservableObject
         }
     }
 
+    private async Task<bool> WaitForCallAcceptedAsync(CancellationToken cancellationToken)
+    {
+        var acceptTimeout = TimeSpan.FromSeconds(60);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(acceptTimeout);
+
+        try
+        {
+            while (!timeoutCts.Token.IsCancellationRequested)
+            {
+                var state = _callStore.Current;
+
+                if (state.Stage == CallConnectionStage.Idle)
+                    return false;
+
+                if (state.Stage == CallConnectionStage.Connected ||
+                    state.Stage == CallConnectionStage.Negotiating ||
+                    state.Stage == CallConnectionStage.TransportOpening ||
+                    state.Stage == CallConnectionStage.Publishing)
+                {
+                    return true;
+                }
+
+                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                void OnStateChanged(object s, CallSessionState st)
+                {
+                    tcs.TrySetResult(true);
+                }
+
+                _callStore.StateChanged += OnStateChanged;
+                try
+                {
+                    using (timeoutCts.Token.Register(() => tcs.TrySetCanceled()))
+                    {
+                        await tcs.Task.ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    return false;
+                }
+                finally
+                {
+                    _callStore.StateChanged -= OnStateChanged;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        return false;
+    }
+
     public async Task ToggleMicrophoneAsync(CancellationToken cancellationToken = default)
     {
+        var connected = await EnsureDirectCallMediaConnectedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
+            return;
         var result = await _callCoordinator.ToggleMicrophoneAsync(cancellationToken).ConfigureAwait(false);
-        if (result.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (result.IsFailure)
         {
+            if (IsBridgeDisposedFailure(result.Error))
+                throw new InvalidOperationException(result.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 StatusDetailsText = result.Error?.Message ?? "Не удалось переключить микрофон.";
@@ -267,9 +373,17 @@ public sealed class DirectCallPageViewModel : ObservableObject
 
     public async Task ToggleCameraAsync(CancellationToken cancellationToken = default)
     {
+        var connected = await EnsureDirectCallMediaConnectedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
+            return;
         var result = await _callCoordinator.ToggleCameraAsync(cancellationToken).ConfigureAwait(false);
-        if (result.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (result.IsFailure)
         {
+            if (IsBridgeDisposedFailure(result.Error))
+                throw new InvalidOperationException(result.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 StatusDetailsText = result.Error?.Message ?? "Не удалось переключить камеру.";
@@ -279,14 +393,32 @@ public sealed class DirectCallPageViewModel : ObservableObject
 
     public async Task ToggleScreenShareAsync(CancellationToken cancellationToken = default)
     {
+        var connected = await EnsureDirectCallMediaConnectedAsync(cancellationToken).ConfigureAwait(false);
+        if (!connected)
+            return;
         var result = await _callCoordinator.ToggleScreenShareAsync(cancellationToken).ConfigureAwait(false);
-        if (result.IsFailure && !cancellationToken.IsCancellationRequested)
+        if (result.IsFailure)
         {
+            if (IsBridgeDisposedFailure(result.Error))
+                throw new InvalidOperationException(result.Error?.Message ?? "Audio bridge host was disposed.");
+            if (IsScreenShareCancelledFailure(result.Error))
+                throw new InvalidOperationException(result.Error?.Message ?? "Screen sharing was cancelled.");
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
             await RunOnUiThreadAsync(() =>
             {
                 StatusDetailsText = result.Error?.Message ?? "Не удалось переключить демонстрацию экрана.";
             }).ConfigureAwait(false);
         }
+    }
+
+    public void SetStatusMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        StatusDetailsText = message.Trim();
     }
 
     public async Task EndCallAsync(CancellationToken cancellationToken = default)
@@ -410,10 +542,11 @@ public sealed class DirectCallPageViewModel : ObservableObject
         }
         else
         {
-            IsMicrophoneButtonEnabled = false;
-            IsCameraButtonEnabled = false;
-            IsScreenShareButtonEnabled = false;
-            IsEndCallEnabled = false;
+            var canRecover = _startAttempted && !_isEndingCall && !string.IsNullOrWhiteSpace(_callId);
+            IsMicrophoneButtonEnabled = canRecover;
+            IsCameraButtonEnabled = canRecover;
+            IsScreenShareButtonEnabled = canRecover;
+            IsEndCallEnabled = canRecover;
 
             MicrophoneButtonContent = "Микрофон";
             CameraButtonContent = "Камера";
@@ -476,6 +609,42 @@ public sealed class DirectCallPageViewModel : ObservableObject
         return "Собеседник";
     }
 
+    private async Task<bool> EnsureDirectCallMediaConnectedAsync(CancellationToken cancellationToken)
+    {
+        var stage = _callStore.Current.Stage;
+
+        if (stage == CallConnectionStage.JoiningRoom ||
+            stage == CallConnectionStage.TransportOpening ||
+            stage == CallConnectionStage.Negotiating ||
+            stage == CallConnectionStage.Publishing)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_callId))
+            return false;
+
+        var joinResult = await _callCoordinator.JoinDirectCallMediaAsync(_callId, cancellationToken).ConfigureAwait(false);
+        if (joinResult.IsFailure)
+        {
+            if (IsBridgeDisposedFailure(joinResult.Error))
+                throw new InvalidOperationException(joinResult.Error?.Message ?? "Audio bridge host was disposed.");
+
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    StatusDetailsText = joinResult.Error?.Message ?? "Не удалось подключиться к звонку.";
+                }).ConfigureAwait(false);
+            }
+
+            return false;
+        }
+
+        _callJoinSucceeded = true;
+        return true;
+    }
+
     private async Task<bool> EnsureAuthorizedAsync()
     {
         var auth = _authStore.Current;
@@ -511,6 +680,37 @@ public sealed class DirectCallPageViewModel : ObservableObject
     private void RaiseNavigateToLogin()
     {
         NavigateToLoginRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool IsBridgeDisposedFailure(Error? error)
+    {
+        if (error == null)
+            return false;
+
+        if (string.Equals(error.Code, "call.bridge_disposed", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return ContainsIgnoreCase(error.Message, "disposed") ||
+               ContainsIgnoreCase(error.Message, "reinitialization") ||
+               ContainsIgnoreCase(error.Message, "reinitialize");
+    }
+
+    private static bool IsScreenShareCancelledFailure(Error? error)
+    {
+        if (error == null)
+            return false;
+        return ContainsIgnoreCase(error.Message, "screen sharing was cancelled") ||
+               ContainsIgnoreCase(error.Message, "cancelled") ||
+               ContainsIgnoreCase(error.Message, "canceled") ||
+               ContainsIgnoreCase(error.Message, "permission denied for screen") ||
+               ContainsIgnoreCase(error.Message, "notallowederror") ||
+               ContainsIgnoreCase(error.Message, "aborterror");
+    }
+
+    private static bool ContainsIgnoreCase(string? value, string fragment)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private Task RunOnUiThreadAsync(Action action)

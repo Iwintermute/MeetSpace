@@ -1,5 +1,9 @@
 ﻿using System.IO;
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using MeetSpace.Client.Realtime.Abstractions;
 
@@ -7,6 +11,7 @@ namespace MeetSpace.Client.Realtime.Connection;
 
 public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 {
+    private static readonly TimeSpan CertificateBootstrapStepTimeout = TimeSpan.FromSeconds(6);
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     private ClientWebSocket? _socket;
@@ -15,6 +20,7 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
     private bool _disposed;
     private int _disconnectRaised;
+    private string? _pinnedCertThumbprint;
 
     public bool IsConnected => _socket?.State == WebSocketState.Open;
 
@@ -37,6 +43,12 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         _disconnectRaised = 0;
         _socket = new ClientWebSocket();
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
+        if (string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
+        {
+            _pinnedCertThumbprint = await TryBootstrapAndGetThumbprintAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            ApplyPinnedCertValidation();
+        }
 
         await _socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
@@ -206,6 +218,176 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 
         _receiveLoopTask = null;
         return Task.CompletedTask;
+    }
+
+    private static async Task<string?> TryBootstrapAndGetThumbprintAsync(
+        Uri endpoint,
+        CancellationToken cancellationToken)
+    {
+        if (endpoint == null || !endpoint.IsAbsoluteUri)
+            return null;
+        if (!string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (string.IsNullOrWhiteSpace(endpoint.Host))
+            return null;
+
+        var remotePort = endpoint.IsDefaultPort ? 443 : endpoint.Port;
+        X509Certificate2 remoteCertificate = null;
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var tcpClient = new TcpClient();
+            var connectTask = tcpClient.ConnectAsync(endpoint.Host, remotePort);
+            await WaitWithTimeoutAsync(
+                connectTask,
+                CertificateBootstrapStepTimeout,
+                cancellationToken,
+                "tcp_connect").ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var tlsStream = new SslStream(
+                tcpClient.GetStream(),
+                false,
+                (sender, certificate, chain, errors) =>
+                {
+                    if (certificate == null)
+                        return false;
+
+                    try
+                    {
+                        remoteCertificate = new X509Certificate2(certificate);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+
+            var authenticateTask = tlsStream.AuthenticateAsClientAsync(endpoint.Host);
+            await WaitWithTimeoutAsync(
+                authenticateTask,
+                CertificateBootstrapStepTimeout,
+                cancellationToken,
+                "tls_handshake").ConfigureAwait(false);
+        }
+        catch
+        {
+            remoteCertificate?.Dispose();
+            return null;
+        }
+
+        if (remoteCertificate == null)
+            return null;
+
+        string thumbprint;
+        try
+        {
+            thumbprint = remoteCertificate.Thumbprint;
+
+            if (IsCertificateAlreadyTrusted(remoteCertificate))
+                return thumbprint;
+
+            TryAddCertificateToStore(remoteCertificate, StoreName.Root, StoreLocation.CurrentUser);
+            TryAddCertificateToStore(remoteCertificate, StoreName.TrustedPeople, StoreLocation.CurrentUser);
+        }
+        finally
+        {
+            remoteCertificate.Dispose();
+        }
+
+        return thumbprint;
+    }
+
+    private void ApplyPinnedCertValidation()
+    {
+        if (string.IsNullOrWhiteSpace(_pinnedCertThumbprint))
+            return;
+
+        try
+        {
+            var pinnedThumbprint = _pinnedCertThumbprint;
+            ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+            {
+                if (sslPolicyErrors == SslPolicyErrors.None)
+                    return true;
+
+                if (certificate != null)
+                {
+                    try
+                    {
+                        using var wrappedCert = new X509Certificate2(certificate);
+                        if (string.Equals(wrappedCert.Thumbprint, pinnedThumbprint, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return false;
+            };
+        }
+        catch
+        {
+        }
+    }
+
+    private static bool IsCertificateAlreadyTrusted(X509Certificate2 certificate)
+    {
+        try
+        {
+            using var chain = new X509Chain();
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            return chain.Build(certificate);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void TryAddCertificateToStore(
+        X509Certificate2 certificate,
+        StoreName storeName,
+        StoreLocation storeLocation)
+    {
+        if (certificate == null)
+            return;
+
+        try
+        {
+            using var store = new X509Store(storeName, storeLocation);
+            store.Open(OpenFlags.ReadWrite);
+            var existingCertificates = store.Certificates.Find(
+                X509FindType.FindByThumbprint,
+                certificate.Thumbprint,
+                false);
+            if (existingCertificates == null || existingCertificates.Count == 0)
+                store.Add(certificate);
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task WaitWithTimeoutAsync(
+        Task operationTask,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        string operationName)
+    {
+        var timeoutTask = Task.Delay(timeout, cancellationToken);
+        var completedTask = await Task.WhenAny(operationTask, timeoutTask).ConfigureAwait(false);
+        if (!ReferenceEquals(completedTask, operationTask))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new TimeoutException($"Certificate bootstrap step timed out: {operationName}.");
+        }
+
+        await operationTask.ConfigureAwait(false);
     }
 
     private void ThrowIfDisposed()

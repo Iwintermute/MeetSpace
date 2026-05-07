@@ -6,49 +6,59 @@
   <Folder Name="/src/" />
   <Folder Name="/src/MeetSpace.Core/">
     <Project Path="MeetSpace.Client.Application/MeetSpace.Client.App.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
     <Project Path="MeetSpace.Client.Contracts/MeetSpace.Client.Contracts.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
       <Build Solution="Debug|x64" Project="false" />
     </Project>
     <Project Path="MeetSpace.Client.Domain/MeetSpace.Client.Domain.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
       <Build Solution="Debug|x64" Project="false" />
     </Project>
     <Project Path="MeetSpace.Client.Shared/MeetSpace.Client.Shared.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
   </Folder>
   <Folder Name="/src/MeetSpace.Platform/">
     <Project Path="MeetSpace.Client.Bootstrap/MeetSpace.Client.Bootstrap.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
     <Project Path="MeetSpace.Client.Infrastructure/MeetSpace.Client.Infrastructure.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
     <Project Path="MeetSpace.Client.Media/MeetSpace.Client.Media.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
     <Project Path="MeetSpace.Client.Realtime/MeetSpace.Client.Realtime.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
     </Project>
     <Project Path="MeetSpace.Client.Security/MeetSpace.Client.Security.csproj">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
       <Build Solution="Debug|x64" Project="false" />
     </Project>
   </Folder>
   <Folder Name="/src/MeetSpace.UI/">
     <Project Path="MeetSpace.UI/MeetSpace.UI.csproj" Id="21312839-fc65-4b49-b91d-1c562b30edea">
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="Debug|Any CPU" Project="x64" />
     </Project>
     <Project Path="MeetSpace/MeetSpace.csproj" Id="98f19f9c-7ee0-48e3-a2e1-08bbfeaf1f2e">
       <BuildDependency Project="MeetSpace.Client.Bootstrap/MeetSpace.Client.Bootstrap.csproj" />
       <BuildDependency Project="MeetSpace.UI/MeetSpace.UI.csproj" />
+      <BuildType Solution="Debug|x64" Project="Release" />
       <Platform Project="x64" />
-      <Deploy Solution="*|Any CPU" />
-      <Deploy Solution="Debug|x64" />
+      <Deploy />
     </Project>
   </Folder>
 </Solution>

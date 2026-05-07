@@ -3,7 +3,7 @@
 public sealed record CallRuntimeOptions(
     int ServerPhaseTimeoutSeconds = 15,
     int BridgePhaseTimeoutSeconds = 12,
-    int BackgroundSyncIntervalSeconds = 4,
+    int BackgroundSyncIntervalSeconds = 8,
     int ConferenceMembersRefreshIntervalSeconds = 15);
 
 public sealed record ClientRuntimeOptions(
