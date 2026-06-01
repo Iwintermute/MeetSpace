@@ -1,4 +1,7 @@
-﻿namespace MeetSpace.Client.App.Calls;
+﻿using System;
+using System.Collections.Generic;
+
+namespace MeetSpace.Client.App.Calls;
 
 public sealed record TransportProduceRequest(
     string PendingId,
@@ -24,7 +27,8 @@ public sealed record WebRtcTransportInfo(
     string IceParametersJson,
     string IceCandidatesJson,
     string DtlsParametersJson,
-    string RouterRtpCapabilitiesJson);
+    string RouterRtpCapabilitiesJson,
+    string IceServersJson = "[]");
 
 public sealed record ConsumerInfo(
     string ConsumerId,
@@ -40,4 +44,25 @@ public sealed record RemoteProducerDescriptor(
     string ProducerId,
     string Kind,
     string? TrackType = null,
-    bool Paused = false);
+    bool Paused = false,
+    double PacketLossPercent = 0,
+    double BitrateKbps = 0,
+    double Jitter = 0,
+    double RoundTripTime = 0);
+
+public sealed record CallQualityTrackSample(
+    string Direction,
+    string Kind,
+    double BitrateKbps,
+    double PacketLossPercent,
+    double Jitter,
+    double RoundTripTime);
+
+public sealed record CallQualitySnapshot(
+    DateTimeOffset Timestamp,
+    IReadOnlyList<CallQualityTrackSample> Tracks);
+
+public sealed record IceConnectionStateChanged(
+    string Direction,
+    string State,
+    DateTimeOffset Timestamp);

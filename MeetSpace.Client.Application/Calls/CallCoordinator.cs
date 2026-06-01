@@ -1,4 +1,5 @@
-﻿using MeetSpace.Client.App.Conference;
+using MeetSpace.Client.App.Conference;
+using MeetSpace.Client.App.Diagnostics;
 using MeetSpace.Client.App.Session;
 using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Domain.Conference;
@@ -22,6 +23,14 @@ public sealed class CallCoordinator : IDisposable
     private readonly TimeSpan _bridgePhaseTimeout;
     private readonly TimeSpan _backgroundSyncInterval;
     private readonly TimeSpan _conferenceMembersRefreshInterval;
+    private readonly TimeSpan _adaptiveQualityCheckInterval;
+    private readonly int _lowBandwidthThresholdKbps;
+    private readonly int _criticalBandwidthThresholdKbps;
+    private readonly CallQualityTracker _qualityTracker = new();
+    private readonly TimeSpan _fastRejoinCooldown = TimeSpan.FromSeconds(8);
+    private bool _isDegradedMode;
+    private DateTimeOffset _lastFastRejoinAttemptAt = DateTimeOffset.MinValue;
+    private int _fastRejoinInFlight;
 
     private readonly SemaphoreSlim _sync = new(1, 1);
     private readonly SemaphoreSlim _remoteSync = new(1, 1);
@@ -66,11 +75,19 @@ public sealed class CallCoordinator : IDisposable
         _bridgePhaseTimeout = TimeSpan.FromSeconds(ClampSeconds(callRuntime.BridgePhaseTimeoutSeconds, 5, 120));
         _backgroundSyncInterval = TimeSpan.FromSeconds(ClampSeconds(callRuntime.BackgroundSyncIntervalSeconds, 1, 30));
         _conferenceMembersRefreshInterval = TimeSpan.FromSeconds(ClampSeconds(callRuntime.ConferenceMembersRefreshIntervalSeconds, 3, 120));
+        _adaptiveQualityCheckInterval = TimeSpan.FromSeconds(ClampSeconds(callRuntime.AdaptiveQualityCheckIntervalSeconds, 2, 60));
+        _lowBandwidthThresholdKbps = callRuntime.LowBandwidthThresholdKbps;
+        _criticalBandwidthThresholdKbps = callRuntime.CriticalBandwidthThresholdKbps;
 
         _conferenceStore.StateChanged += ConferenceStore_StateChanged;
         _audioEngine.TransportConnectRequired += AudioEngine_TransportConnectRequired;
         _audioEngine.TransportProduceRequired += AudioEngine_TransportProduceRequired;
+        _audioEngine.CallQualityUpdated += AudioEngine_CallQualityUpdated;
+        _audioEngine.IceConnectionStateChanged += AudioEngine_IceConnectionStateChanged;
     }
+
+    public CallQualityTracker QualityTracker => _qualityTracker;
+    public bool IsDegradedMode => _isDegradedMode;
 
     public Task AttachHostAsync(IAudioBridgeHost host, CancellationToken cancellationToken = default)
         => _audioEngine.AttachAsync(host, cancellationToken);
@@ -872,6 +889,10 @@ public sealed class CallCoordinator : IDisposable
         _consumeInFlightProducerIds.Clear();
         _consumeRetryAfterByProducerId.Clear();
         _consumeFailureCountByProducerId.Clear();
+        _qualityTracker.Reset();
+        _isDegradedMode = false;
+        _lastFastRejoinAttemptAt = DateTimeOffset.MinValue;
+        Interlocked.Exchange(ref _fastRejoinInFlight, 0);
 
         _callStore.Reset();
     }
@@ -926,6 +947,7 @@ public sealed class CallCoordinator : IDisposable
 
         var token = _backgroundLoopCts.Token;
         var nextMembersRefreshAt = DateTimeOffset.MinValue;
+        var nextQualityCheckAt = DateTimeOffset.MinValue;
 
         _ = Task.Run(async () =>
         {
@@ -942,6 +964,11 @@ public sealed class CallCoordinator : IDisposable
                     }
 
                     await SyncRemoteConsumersAsync(token).ConfigureAwait(false);
+                    if (DateTimeOffset.UtcNow >= nextQualityCheckAt)
+                    {
+                        await RunAdaptiveQualityCheckAsync(token).ConfigureAwait(false);
+                        nextQualityCheckAt = DateTimeOffset.UtcNow.Add(_adaptiveQualityCheckInterval);
+                    }
                 }
                 catch
                 {
@@ -958,6 +985,140 @@ public sealed class CallCoordinator : IDisposable
         }, token);
     }
 
+    private async Task RunAdaptiveQualityCheckAsync(CancellationToken cancellationToken)
+    {
+        if (_callStore.Current.Stage != CallConnectionStage.Connected)
+            return;
+        if (string.IsNullOrWhiteSpace(_sessionId))
+            return;
+
+        try
+        {
+            var statsResult = await GetMediaStatsAsync(_kind, _sessionId!, cancellationToken).ConfigureAwait(false);
+            if (statsResult.IsFailure)
+                return;
+
+            var report = _qualityTracker.Update(statsResult.Value!, _sessionId);
+            if (report == null)
+                return;
+            await EvaluateAndApplyDegradedModeAsync(report, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task EvaluateAndApplyDegradedModeAsync(CallQualityReport report, CancellationToken cancellationToken)
+    {
+        if (report == null || report.Tracks == null || report.Tracks.Count == 0)
+            return;
+
+        var maxBitrate = report.Tracks.Max(t => t.BitrateKbps);
+        var maxPacketLoss = report.Tracks.Max(t => t.PacketLossPercent);
+        var shouldEnterDegraded = (maxBitrate > 0 && maxBitrate < _criticalBandwidthThresholdKbps) || maxPacketLoss >= 12;
+        var shouldExitDegraded = _isDegradedMode &&
+                                 (maxBitrate > _lowBandwidthThresholdKbps || maxBitrate <= 0) &&
+                                 maxPacketLoss < 5;
+
+        if (shouldEnterDegraded)
+        {
+            await EnterDegradedModeAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        if (shouldExitDegraded)
+            ExitDegradedMode();
+    }
+
+    private async Task EnterDegradedModeAsync(CancellationToken cancellationToken)
+    {
+        if (_isDegradedMode)
+            return;
+
+        _isDegradedMode = true;
+        _callStore.SetDegradedMode(true);
+        if (string.IsNullOrWhiteSpace(_sessionId))
+            return;
+
+        if (_localProducerByTrackType.TryGetValue("camera", out var cameraProducerId))
+        {
+            try
+            {
+                await PauseTrackAsync(_kind, _sessionId!, cameraProducerId, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+        try
+        {
+            await _audioEngine.SetCameraEnabledAsync(false, cancellationToken).ConfigureAwait(false);
+            _callStore.SetCameraEnabled(false);
+        }
+        catch
+        {
+        }
+    }
+
+    private void ExitDegradedMode()
+    {
+        if (!_isDegradedMode)
+            return;
+        _isDegradedMode = false;
+        _callStore.SetDegradedMode(false);
+    }
+
+    public async Task<Result> FastRejoinAsync(CancellationToken cancellationToken = default)
+    {
+        if (_kind == CallKind.Unknown || string.IsNullOrWhiteSpace(_sessionId))
+            return Result.Failure(new Error("call.no_session", "No active session to rejoin."));
+
+        var savedKind = _kind;
+        var savedSessionId = _sessionId!;
+        var savedConversationId = _conversationId ?? savedSessionId;
+        var wasMicEnabled = _callStore.Current.LocalMedia.MicrophoneEnabled;
+        var wasCameraEnabled = _callStore.Current.LocalMedia.CameraEnabled;
+
+        _callStore.SetStage(
+            CallConnectionStage.Reconnecting,
+            _conversationId, _roomId, _sendTransportId, _sessionId, _kind);
+
+        try
+        {
+            var result = await EnsureBridgeSessionReadyAsync(
+                savedKind, savedSessionId, cancellationToken, forceRebootstrap: true).ConfigureAwait(false);
+
+            if (result.IsFailure)
+                return result;
+
+            if (wasMicEnabled)
+            {
+                var micResult = await StartTrackAsync(CallMediaTrackType.Audio, cancellationToken, allowBridgeRecovery: false).ConfigureAwait(false);
+                if (micResult.IsFailure)
+                    _callStore.SetMicrophoneEnabled(false);
+            }
+
+            if (wasCameraEnabled)
+            {
+                var camResult = await StartTrackAsync(CallMediaTrackType.Video, cancellationToken, allowBridgeRecovery: false).ConfigureAwait(false);
+                if (camResult.IsFailure)
+                    _callStore.SetCameraEnabled(false);
+            }
+
+            _callStore.SetStage(
+                CallConnectionStage.Connected,
+                _conversationId, _roomId, _sendTransportId, _sessionId, _kind);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _callStore.SetStage(
+                CallConnectionStage.Faulted,
+                _conversationId, _roomId, _sendTransportId, _sessionId, _kind);
+            return Result.Failure(new Error("call.fast_rejoin_failed", ex.Message));
+        }
+    }
+
     private static int ClampSeconds(int value, int min, int max)
     {
         if (value < min)
@@ -965,6 +1126,70 @@ public sealed class CallCoordinator : IDisposable
         if (value > max)
             return max;
         return value;
+    }
+
+    private void AudioEngine_CallQualityUpdated(object? sender, CallQualitySnapshot snapshot)
+    {
+        if (snapshot == null || snapshot.Tracks == null || snapshot.Tracks.Count == 0)
+            return;
+        if (_callStore.Current.Stage != CallConnectionStage.Connected &&
+            _callStore.Current.Stage != CallConnectionStage.Reconnecting)
+        {
+            return;
+        }
+
+        var report = _qualityTracker.UpdateFromBridge(snapshot, _sessionId, _roomId);
+        if (report == null)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await EvaluateAndApplyDegradedModeAsync(report, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        });
+    }
+
+    private void AudioEngine_IceConnectionStateChanged(object? sender, IceConnectionStateChanged state)
+    {
+        if (state == null)
+            return;
+        if (_callStore.Current.Stage != CallConnectionStage.Connected &&
+            _callStore.Current.Stage != CallConnectionStage.Reconnecting)
+        {
+            return;
+        }
+        if (!string.Equals(state.State, "failed", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(state.State, "disconnected", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastFastRejoinAttemptAt < _fastRejoinCooldown)
+            return;
+        _lastFastRejoinAttemptAt = now;
+
+        _ = Task.Run(async () =>
+        {
+            if (Interlocked.CompareExchange(ref _fastRejoinInFlight, 1, 0) != 0)
+                return;
+            try
+            {
+                await FastRejoinAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _fastRejoinInFlight, 0);
+            }
+        });
     }
 
     private async Task AudioEngine_TransportConnectRequired(TransportConnectRequest request)
@@ -1580,6 +1805,8 @@ public sealed class CallCoordinator : IDisposable
         _conferenceStore.StateChanged -= ConferenceStore_StateChanged;
         _audioEngine.TransportConnectRequired -= AudioEngine_TransportConnectRequired;
         _audioEngine.TransportProduceRequired -= AudioEngine_TransportProduceRequired;
+        _audioEngine.CallQualityUpdated -= AudioEngine_CallQualityUpdated;
+        _audioEngine.IceConnectionStateChanged -= AudioEngine_IceConnectionStateChanged;
         _sync.Dispose();
         _remoteSync.Dispose();
     }

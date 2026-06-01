@@ -12,6 +12,8 @@ namespace MeetSpace.Client.Realtime.Connection;
 public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 {
     private static readonly TimeSpan CertificateBootstrapStepTimeout = TimeSpan.FromSeconds(6);
+    [ThreadStatic] private static Random? t_random;
+    private static Random ThreadRandom => t_random ??= new Random(Environment.TickCount ^ Thread.CurrentThread.ManagedThreadId);
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     private ClientWebSocket? _socket;
@@ -21,12 +23,43 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
     private bool _disposed;
     private int _disconnectRaised;
     private string? _pinnedCertThumbprint;
+    private Uri? _lastEndpoint;
+    private bool _autoReconnectEnabled;
+    private CancellationTokenSource? _reconnectCts;
+    private Task? _reconnectTask;
+    private int _reconnectAttempt;
+
+    // Reconnect policy defaults (overridable via SetReconnectPolicy)
+    private int _reconnectInitialDelayMs = 1000;
+    private int _reconnectMaxDelayMs = 16000;
+    private double _reconnectBackoffMultiplier = 2.0;
+    private double _reconnectJitterFactor = 0.2;
+    private int _reconnectMaxAttempts = 10;
 
     public bool IsConnected => _socket?.State == WebSocketState.Open;
+    public int ReconnectAttempt => _reconnectAttempt;
 
     public event EventHandler? Connected;
     public event EventHandler? Disconnected;
     public event EventHandler<string>? MessageReceived;
+    public event EventHandler<int>? Reconnecting;
+    public event EventHandler? ReconnectFailed;
+
+    public void SetReconnectPolicy(int initialDelayMs, int maxDelayMs, double backoffMultiplier, double jitterFactor, int maxAttempts)
+    {
+        _reconnectInitialDelayMs = Math.Max(100, Math.Min(30000, initialDelayMs));
+        _reconnectMaxDelayMs = Math.Max(_reconnectInitialDelayMs, Math.Min(120000, maxDelayMs));
+        _reconnectBackoffMultiplier = Math.Max(1.0, Math.Min(5.0, backoffMultiplier));
+        _reconnectJitterFactor = Math.Max(0.0, Math.Min(1.0, jitterFactor));
+        _reconnectMaxAttempts = Math.Max(0, Math.Min(100, maxAttempts));
+    }
+
+    public void EnableAutoReconnect(bool enabled = true)
+    {
+        _autoReconnectEnabled = enabled;
+        if (!enabled)
+            StopReconnectLoop();
+    }
 
     public async Task ConnectAsync(Uri endpoint, CancellationToken cancellationToken = default)
     {
@@ -38,8 +71,11 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         if (IsConnected)
             return;
 
+        StopReconnectLoop();
         await DisposeSocketAsync().ConfigureAwait(false);
 
+        _lastEndpoint = endpoint;
+        _reconnectAttempt = 0;
         _disconnectRaised = 0;
         _socket = new ClientWebSocket();
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
@@ -174,7 +210,60 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
     private void RaiseDisconnectedOnce()
     {
         if (Interlocked.Exchange(ref _disconnectRaised, 1) == 0)
+        {
             Disconnected?.Invoke(this, EventArgs.Empty);
+            if (_autoReconnectEnabled && !_disposed && _lastEndpoint != null)
+                StartReconnectLoop();
+        }
+    }
+
+    private void StartReconnectLoop()
+    {
+        if (_reconnectTask != null) return;
+        _reconnectCts = new CancellationTokenSource();
+        var token = _reconnectCts.Token;
+        var endpoint = _lastEndpoint!;
+        _reconnectTask = Task.Run(async () =>
+        {
+            var delayMs = _reconnectInitialDelayMs;
+            for (var attempt = 1; attempt <= _reconnectMaxAttempts && !token.IsCancellationRequested; attempt++)
+            {
+                _reconnectAttempt = attempt;
+                Reconnecting?.Invoke(this, attempt);
+                var jitter = (int)(delayMs * _reconnectJitterFactor * (ThreadRandom.NextDouble() - 0.5));
+                var waitMs = Math.Max(100, delayMs + jitter);
+                try { await Task.Delay(waitMs, token).ConfigureAwait(false); } catch { return; }
+                try
+                {
+                    await DisposeSocketAsync().ConfigureAwait(false);
+                    _disconnectRaised = 0;
+                    _socket = new ClientWebSocket();
+                    _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                    if (string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _pinnedCertThumbprint = await TryBootstrapAndGetThumbprintAsync(endpoint, token).ConfigureAwait(false);
+                        ApplyPinnedCertValidation();
+                    }
+                    await _socket.ConnectAsync(endpoint, token).ConfigureAwait(false);
+                    _receiveCts = new CancellationTokenSource();
+                    _receiveLoopTask = Task.Run(() => ReceiveLoopAsync(_receiveCts.Token), CancellationToken.None);
+                    _reconnectAttempt = 0;
+                    Connected?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+                catch { }
+                delayMs = (int)Math.Min(_reconnectMaxDelayMs, delayMs * _reconnectBackoffMultiplier);
+            }
+            ReconnectFailed?.Invoke(this, EventArgs.Empty);
+        }, token);
+    }
+
+    private void StopReconnectLoop()
+    {
+        try { _reconnectCts?.Cancel(); } catch { }
+        try { _reconnectCts?.Dispose(); } catch { }
+        _reconnectCts = null;
+        _reconnectTask = null;
     }
 
     private Task DisposeSocketAsync()

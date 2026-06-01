@@ -13,6 +13,7 @@
 		<Compile Include="Abstractions\**\*.cs" />
 		<Compile Include="Auth\**\*.cs" />
 		<Compile Include="Calls\**\*.cs" />
+		<Compile Include="Diagnostics\**\*.cs" />
 		<Compile Include="Chat\**\*.cs" />
 		<Compile Include="Conference\**\*.cs" />
 		<Compile Include="Session\**\*.cs" />

@@ -43,7 +43,8 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
     {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
             return Result.Failure(new Error("endpoint.invalid", "Endpoint URI is invalid."));
-        var endpointValidation = ValidateRealtimeEndpoint(uri);
+        var connectUri = BuildConnectUri(uri);
+        var endpointValidation = ValidateRealtimeEndpoint(connectUri);
         if (endpointValidation.IsFailure)
             return endpointValidation;
 
@@ -58,7 +59,7 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
                 {
                     using var connectTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     connectTimeoutCts.CancelAfter(RealtimeConnectTimeout);
-                    await _gateway.ConnectAsync(uri, connectTimeoutCts.Token).ConfigureAwait(false);
+                    await _gateway.ConnectAsync(connectUri, connectTimeoutCts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
@@ -195,6 +196,46 @@ public sealed class RealtimeSessionService : IRealtimeSessionService, IDisposabl
         }
 
         return normalized;
+    }
+
+    private Uri BuildConnectUri(Uri endpoint)
+    {
+        var mediaAuthToken = NormalizeAuthValue(_options.MediaAuthToken);
+        if (string.IsNullOrWhiteSpace(mediaAuthToken))
+            return endpoint;
+        if (HasQueryParameter(endpoint.Query, "auth"))
+            return endpoint;
+
+        var builder = new UriBuilder(endpoint);
+        var existingQuery = builder.Query;
+        if (!string.IsNullOrEmpty(existingQuery) && existingQuery.StartsWith("?", StringComparison.Ordinal))
+            existingQuery = existingQuery.Substring(1);
+
+        var escapedToken = Uri.EscapeDataString(mediaAuthToken);
+        builder.Query = string.IsNullOrWhiteSpace(existingQuery)
+            ? $"auth={escapedToken}"
+            : $"{existingQuery}&auth={escapedToken}";
+        return builder.Uri;
+    }
+
+    private static bool HasQueryParameter(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(key))
+            return false;
+
+        var normalizedQuery = query.StartsWith("?", StringComparison.Ordinal)
+            ? query.Substring(1)
+            : query;
+        var pairs = normalizedQuery.Split(new[] { '&' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var pair in pairs)
+        {
+            var separatorIndex = pair.IndexOf('=');
+            var currentKey = separatorIndex >= 0 ? pair.Substring(0, separatorIndex) : pair;
+            if (string.Equals(currentKey, key, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     private static Result ValidateRealtimeEndpoint(Uri endpoint)

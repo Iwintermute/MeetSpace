@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,8 @@ namespace MeetSpace.Temporary
 
         public event Func<TransportConnectRequest, Task>? TransportConnectRequired;
         public event Func<TransportProduceRequest, Task>? TransportProduceRequired;
+        public event EventHandler<CallQualitySnapshot>? CallQualityUpdated;
+        public event EventHandler<IceConnectionStateChanged>? IceConnectionStateChanged;
 
         public string? RecvRtpCapabilitiesJson { get; private set; }
 
@@ -139,6 +142,7 @@ namespace MeetSpace.Temporary
                 ["iceCandidates"] = JsonSerializer.Deserialize<JsonElement>(info.IceCandidatesJson),
                 ["dtlsParameters"] = JsonSerializer.Deserialize<JsonElement>(info.DtlsParametersJson)
             };
+            TryAppendIceServers(info, payload);
 
             return SendVoidRequestAsync("create_send_transport", payload, cancellationToken);
         }
@@ -152,6 +156,7 @@ namespace MeetSpace.Temporary
                 ["iceCandidates"] = JsonSerializer.Deserialize<JsonElement>(info.IceCandidatesJson),
                 ["dtlsParameters"] = JsonSerializer.Deserialize<JsonElement>(info.DtlsParametersJson)
             };
+            TryAppendIceServers(info, payload);
 
             return SendVoidRequestAsync("create_recv_transport", payload, cancellationToken);
         }
@@ -356,6 +361,18 @@ namespace MeetSpace.Temporary
             if (string.Equals(message.Kind, "bridge_diag", StringComparison.Ordinal))
                 return;
 
+            if (string.Equals(message.Kind, "call_quality", StringComparison.Ordinal))
+            {
+                HandleCallQuality(message);
+                return;
+            }
+
+            if (string.Equals(message.Kind, "ice_state", StringComparison.Ordinal))
+            {
+                HandleIceState(message);
+                return;
+            }
+
             if (string.Equals(message.Kind, "bridge_error", StringComparison.Ordinal))
             {
                 var errorText =
@@ -440,6 +457,140 @@ namespace MeetSpace.Temporary
                 dtlsParametersJson);
 
             await handler.Invoke(request).ConfigureAwait(false);
+        }
+
+        private static void TryAppendIceServers(WebRtcTransportInfo info, IDictionary<string, object?> payload)
+        {
+            if (string.IsNullOrWhiteSpace(info.IceServersJson))
+                return;
+
+            try
+            {
+                var iceServers = JsonSerializer.Deserialize<JsonElement>(info.IceServersJson);
+                if (iceServers.ValueKind == JsonValueKind.Array && iceServers.GetArrayLength() > 0)
+                    payload["iceServers"] = iceServers;
+            }
+            catch
+            {
+            }
+        }
+
+        private void HandleCallQuality(BridgeMessage message)
+        {
+            if (message.Payload.ValueKind != JsonValueKind.Object)
+                return;
+
+            var timestamp = DateTimeOffset.UtcNow;
+            if (message.Payload.TryGetProperty("timestamp", out var timestampNode) &&
+                timestampNode.ValueKind == JsonValueKind.Number &&
+                timestampNode.TryGetInt64(out var timestampMs))
+            {
+                try
+                {
+                    timestamp = DateTimeOffset.FromUnixTimeMilliseconds(timestampMs);
+                }
+                catch
+                {
+                }
+            }
+
+            var tracks = new List<CallQualityTrackSample>();
+            if (message.Payload.TryGetProperty("tracks", out var tracksNode) &&
+                tracksNode.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in tracksNode.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var direction = GetString(item, "direction") ?? "unknown";
+                    var kind = GetString(item, "kind") ?? "unknown";
+                    var bitrateKbps = ReadDouble(item, "bitrateKbps");
+                    var packetLossPercent = ReadDouble(item, "packetLossPercent");
+                    if (packetLossPercent <= 0)
+                    {
+                        var packetsLost = ReadDouble(item, "packetsLost");
+                        var packetsSent = ReadDouble(item, "packetsSent");
+                        var packetsReceived = ReadDouble(item, "packetsReceived");
+                        var denominator = packetsLost + packetsSent + packetsReceived;
+                        if (denominator > 0)
+                            packetLossPercent = packetsLost * 100.0 / denominator;
+                    }
+
+                    tracks.Add(new CallQualityTrackSample(
+                        direction,
+                        kind,
+                        NormalizeNonNegative(bitrateKbps),
+                        NormalizeNonNegative(packetLossPercent),
+                        NormalizeNonNegative(ReadDouble(item, "jitter")),
+                        NormalizeNonNegative(ReadDouble(item, "roundTripTime"))));
+                }
+            }
+
+            CallQualityUpdated?.Invoke(this, new CallQualitySnapshot(timestamp, tracks));
+        }
+
+        private void HandleIceState(BridgeMessage message)
+        {
+            if (message.Payload.ValueKind != JsonValueKind.Object)
+                return;
+
+            var timestamp = DateTimeOffset.UtcNow;
+            if (message.Payload.TryGetProperty("timestamp", out var timestampNode) &&
+                timestampNode.ValueKind == JsonValueKind.Number &&
+                timestampNode.TryGetInt64(out var timestampMs))
+            {
+                try
+                {
+                    timestamp = DateTimeOffset.FromUnixTimeMilliseconds(timestampMs);
+                }
+                catch
+                {
+                }
+            }
+
+            var direction = GetString(message.Payload, "direction") ?? "unknown";
+            var state = GetString(message.Payload, "state") ?? "unknown";
+            IceConnectionStateChanged?.Invoke(this, new IceConnectionStateChanged(direction, state, timestamp));
+        }
+
+        private static string? GetString(JsonElement node, string name)
+        {
+            if (!node.TryGetProperty(name, out var value))
+                return null;
+
+            if (value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+            if (value.ValueKind == JsonValueKind.Number)
+                return value.GetRawText();
+            if (value.ValueKind == JsonValueKind.True)
+                return bool.TrueString;
+            if (value.ValueKind == JsonValueKind.False)
+                return bool.FalseString;
+            return null;
+        }
+
+        private static double ReadDouble(JsonElement node, string name)
+        {
+            if (!node.TryGetProperty(name, out var value))
+                return 0;
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number))
+                return number;
+            if (value.ValueKind == JsonValueKind.String &&
+                double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+
+            return 0;
+        }
+
+        private static double NormalizeNonNegative(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0)
+                return 0;
+            return value;
         }
 
         private async Task HandleTransportProduceAsync(BridgeMessage message)

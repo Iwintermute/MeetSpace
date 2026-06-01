@@ -102,6 +102,9 @@ public static class MeetSpaceHostBuilder
             "MEETSPACE_REALTIME_ENDPOINT",
             "MEETSPACE_SIGNALING_ENDPOINT",
             "EDUSPACE_REALTIME_ENDPOINT");
+        var resolvedMediaAuthToken = ReadConfigValue(
+            "MEETSPACE_MEDIA_AUTH_TOKEN",
+            "MEDIASOUP_AUTH_TOKEN");
         if (string.IsNullOrWhiteSpace(resolvedRealtimeEndpoint))
             resolvedRealtimeEndpoint = DefaultRealtimeEndpoint;
         resolvedRealtimeEndpoint = NormalizeRealtimeEndpoint(resolvedRealtimeEndpoint);
@@ -110,6 +113,8 @@ public static class MeetSpaceHostBuilder
             SupabaseAnonKey: resolvedSupabaseAnonKey,
             DefaultRealtimeEndpoint: resolvedRealtimeEndpoint,
             DefaultDeviceId: "uwp-desktop",
+            MediaAuthToken: string.IsNullOrWhiteSpace(resolvedMediaAuthToken) ? null : resolvedMediaAuthToken,
+            Reconnect: new ReconnectPolicy(),
             CallRuntime: new CallRuntimeOptions(
                 ServerPhaseTimeoutSeconds: 15,
                 BridgePhaseTimeoutSeconds: 12,
@@ -163,7 +168,19 @@ public static class MeetSpaceHostBuilder
                 options.SupabaseUrl,
                 options.SupabaseAnonKey));
 
-        services.AddSingleton<IRealtimeConnection, ClientWebSocketConnection>();
+        services.AddSingleton<IRealtimeConnection>(sp =>
+        {
+            var connection = new ClientWebSocketConnection();
+            var reconnect = options.Reconnect ?? new ReconnectPolicy();
+            connection.SetReconnectPolicy(
+                reconnect.InitialDelayMs,
+                reconnect.MaxDelayMs,
+                reconnect.BackoffMultiplier,
+                reconnect.JitterFactor,
+                reconnect.MaxAttempts);
+            connection.EnableAutoReconnect(true);
+            return connection;
+        });
         services.AddSingleton<ProtocolJsonSerializer>();
         services.AddSingleton<IRealtimeGateway, RealtimeGateway>();
         services.AddSingleton<IRealtimeRpcClient, RealtimeRpcClient>();

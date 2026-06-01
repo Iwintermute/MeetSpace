@@ -8,7 +8,8 @@ public enum CallConnectionStage
     Publishing = 3,
     Negotiating = 4,
     Connected = 5,
-    Faulted = 6
+    Faulted = 6,
+    Reconnecting = 7
 }
 public enum CallKind
 {
@@ -50,7 +51,8 @@ public sealed record CallSessionState(
     string? LastSdp = null,
     string? LastCandidate = null,
     string? SessionId = null,
-    CallKind Kind = CallKind.Unknown)
+    CallKind Kind = CallKind.Unknown,
+    bool IsDegradedMode = false)
 {
     public static CallSessionState Empty { get; } = new(
         null,
@@ -62,5 +64,6 @@ public sealed record CallSessionState(
         null,
         null,
         null,
-        CallKind.Unknown);
+        CallKind.Unknown,
+        false);
 }

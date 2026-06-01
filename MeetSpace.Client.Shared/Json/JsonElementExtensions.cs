@@ -43,6 +43,26 @@ public static class JsonElementExtensions
         };
     }
 
+    public static double? GetDouble(this JsonElement element, params string[] names)
+    {
+        if (!element.TryGetAnyProperty(out var value, names))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number))
+            return number;
+
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            var raw = value.GetString();
+            if (double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var invariantParsed))
+                return invariantParsed;
+            if (double.TryParse(raw, out var parsed))
+                return parsed;
+        }
+
+        return null;
+    }
+
     public static long? GetInt64(this JsonElement element, params string[] names)
     {
         if (!element.TryGetAnyProperty(out var value, names))

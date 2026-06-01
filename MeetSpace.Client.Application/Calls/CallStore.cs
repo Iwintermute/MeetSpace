@@ -85,4 +85,12 @@ public sealed class CallStore : StoreBase<CallSessionState>
             LastCandidate = candidate ?? state.LastCandidate
         });
     }
+
+    public void SetDegradedMode(bool degraded)
+    {
+        Update(state => state with
+        {
+            IsDegradedMode = degraded
+        });
+    }
 }

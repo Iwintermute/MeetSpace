@@ -1,9 +1,13 @@
-﻿namespace MeetSpace.Client.App.Calls;
+﻿using System;
+
+namespace MeetSpace.Client.App.Calls;
 
 public sealed class NullAudioCallEngine : IAudioCallEngine
 {
     public event Func<TransportConnectRequest, Task>? TransportConnectRequired;
     public event Func<TransportProduceRequest, Task>? TransportProduceRequired;
+    public event EventHandler<CallQualitySnapshot>? CallQualityUpdated;
+    public event EventHandler<IceConnectionStateChanged>? IceConnectionStateChanged;
 
     public string? RecvRtpCapabilitiesJson { get; private set; } = "{}";
 

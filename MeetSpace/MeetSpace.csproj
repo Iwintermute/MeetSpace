@@ -18,7 +18,7 @@
     <LangVersion>10.0</LangVersion>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
@@ -29,7 +29,7 @@
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <EnableTypeInfoReflection>false</EnableTypeInfoReflection>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <PackageCertificateThumbprint>CBCC37D2DD0A97D59BE0F216E5AECF1445088CC1</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>935D2E7BFC8F4F25F89F1E8083BB53347E7690CC</PackageCertificateThumbprint>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
@@ -342,19 +342,5 @@
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
-  <Target Name="EnsurePackageLayoutEntrypointExe" BeforeTargets="_CreateMainPackage">
-    <PropertyGroup>
-      <_PackageLayoutDir>$(IntermediateOutputPath)PackageLayout</_PackageLayoutDir>
-      <_PackageLayoutMainExe>$(_PackageLayoutDir)\MeetSpace.exe</_PackageLayoutMainExe>
-      <_PackageLayoutEntrypointDir>$(_PackageLayoutDir)\entrypoint</_PackageLayoutEntrypointDir>
-      <_PackageLayoutEntrypointExe>$(_PackageLayoutEntrypointDir)\MeetSpace.exe</_PackageLayoutEntrypointExe>
-    </PropertyGroup>
-    <MakeDir Directories="$(_PackageLayoutEntrypointDir)" Condition="Exists('$(_PackageLayoutMainExe)')" />
-    <Copy SourceFiles="$(_PackageLayoutMainExe)"
-          DestinationFiles="$(_PackageLayoutEntrypointExe)"
-          OverwriteReadOnlyFiles="true"
-          SkipUnchangedFiles="false"
-          Condition="Exists('$(_PackageLayoutMainExe)')" />
-  </Target>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 </Project>

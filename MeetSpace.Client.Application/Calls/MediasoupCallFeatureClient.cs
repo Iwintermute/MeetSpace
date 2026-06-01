@@ -96,7 +96,10 @@ public sealed class MediasoupCallFeatureClient : IMediasoupFeatureClient
                 root.TryGetAnyProperty(out var dtlsParameters, "dtlsParameters", "dtls_parameters")
                     ? dtlsParameters.GetRawText()
                     : "{}",
-                routerCaps);
+                routerCaps,
+                root.TryGetAnyProperty(out var iceServers, "iceServers", "ice_servers")
+                    ? iceServers.GetRawText()
+                    : "[]");
 
             return Result<WebRtcTransportInfo>.Success(info);
         }

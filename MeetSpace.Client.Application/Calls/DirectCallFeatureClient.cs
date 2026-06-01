@@ -139,7 +139,10 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
                     : "{}",
                 root.TryGetAnyProperty(out var routerCaps, "routerRtpCapabilities", "router_rtp_capabilities")
                     ? routerCaps.GetRawText()
-                    : "{}");
+                    : "{}",
+                root.TryGetAnyProperty(out var iceServers, "iceServers", "ice_servers")
+                    ? iceServers.GetRawText()
+                    : "[]");
 
             return Result<WebRtcTransportInfo>.Success(info);
         }
@@ -644,12 +647,32 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
             if (string.IsNullOrWhiteSpace(producerId))
                 continue;
 
+            var totalPackets = item.GetInt64("totalPackets", "total_packets") ?? 0;
+            var totalPacketsLost = item.GetInt64("totalPacketsLost", "total_packets_lost", "packetsLost", "packets_lost") ?? 0;
+            var denominator = totalPackets + totalPacketsLost;
+            var packetLossPercent = denominator > 0
+                ? NormalizeNonNegative(totalPacketsLost * 100.0 / denominator)
+                : 0;
+            var bitrateKbps = item.GetDouble("bitrateKbps", "bitrate_kbps") ?? 0;
+            if (bitrateKbps <= 0)
+            {
+                var rawBitrate = item.GetDouble("bitrate");
+                if (rawBitrate.HasValue && rawBitrate.Value > 0)
+                    bitrateKbps = rawBitrate.Value >= 1000.0 ? rawBitrate.Value / 1000.0 : rawBitrate.Value;
+            }
+            var jitter = item.GetDouble("avgJitter", "avg_jitter", "jitter") ?? 0;
+            var roundTripTime = item.GetDouble("avgRoundTripTime", "avg_round_trip_time", "roundTripTime", "round_trip_time") ?? 0;
+
             result.Add(new RemoteProducerDescriptor(
                 item.GetString("peerId", "peer_id", "producerPeerId", "producer_peer_id") ?? string.Empty,
                 producerId,
                 item.GetString("kind") ?? "audio",
                 item.GetString("trackType", "track_type"),
-                item.GetBoolean("paused") ?? false));
+                item.GetBoolean("paused") ?? false,
+                packetLossPercent,
+                NormalizeNonNegative(bitrateKbps),
+                NormalizeNonNegative(jitter),
+                NormalizeNonNegative(roundTripTime)));
         }
 
         return result;
@@ -716,6 +739,13 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
             return int.MaxValue;
 
         return (int)value.Value;
+    }
+
+    private static double NormalizeNonNegative(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value < 0)
+            return 0;
+        return value;
     }
 
     private static string ResolveConsumerKind(string? rawKind, string? trackType)
