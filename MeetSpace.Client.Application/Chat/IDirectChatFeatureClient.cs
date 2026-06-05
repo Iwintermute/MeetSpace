@@ -11,6 +11,14 @@ public interface IDirectChatFeatureClient
         string? clientRequestId = null,
         CancellationToken cancellationToken = default);
 
+    Task<Result<ChatSendAck>> SendFileMessageAsync(
+        string targetUserId,
+        string fileName,
+        byte[] fileContent,
+        string? mimeType = null,
+        string? clientRequestId = null,
+        CancellationToken cancellationToken = default);
+
     Task<Result<IReadOnlyList<ChatDialogItem>>> ListDialogsAsync(
         string selfPeerId,
         CancellationToken cancellationToken = default);

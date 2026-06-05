@@ -121,7 +121,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                     current.TargetId,
                     current.SenderUserId,
                     current.SenderDisplayName,
-                    current.SenderEmail);
+                    current.SenderEmail,
+                    current.BodyType,
+                    current.FileAttachment);
             }
 
             var dialogs = state.Dialogs
@@ -211,7 +213,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                             current.TargetId,
                             current.SenderUserId,
                             current.SenderDisplayName,
-                            current.SenderEmail);
+                            current.SenderEmail,
+                            current.BodyType,
+                            current.FileAttachment);
                     }
 
                     existingDialogByPeer.ConversationId = newConversationId;
@@ -338,7 +342,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                     current.TargetId,
                     current.SenderUserId,
                     current.SenderDisplayName,
-                    current.SenderEmail);
+                    current.SenderEmail,
+                    current.BodyType,
+                    current.FileAttachment);
             }
 
             if (!string.IsNullOrWhiteSpace(oldConversationId) &&
@@ -365,7 +371,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                         current.TargetId,
                         current.SenderUserId,
                         current.SenderDisplayName,
-                        current.SenderEmail);
+                        current.SenderEmail,
+                        current.BodyType,
+                        current.FileAttachment);
                 }
 
                 var oldDialog = dialogs.FirstOrDefault(x => x.ConversationId == oldConversationId);
@@ -441,7 +449,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
                         x.TargetId,
                         x.SenderUserId,
                         x.SenderDisplayName,
-                        x.SenderEmail);
+                        x.SenderEmail,
+                        x.BodyType,
+                        x.FileAttachment);
                 })
                 .ToList();
 
@@ -532,7 +542,9 @@ public sealed class ChatStore : StoreBase<ChatViewState>
             source.TargetId,
             source.SenderUserId,
             source.SenderDisplayName,
-            source.SenderEmail);
+            source.SenderEmail,
+            source.BodyType,
+            source.FileAttachment);
 
     private static ChatDialogItem CloneDialog(ChatDialogItem source)
         => new()

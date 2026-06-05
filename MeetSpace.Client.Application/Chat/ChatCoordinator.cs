@@ -198,6 +198,73 @@ public sealed class ChatCoordinator
         return Result.Success();
     }
 
+    public async Task<Result> SendDirectFileAsync(
+        string peerId,
+        string fileName,
+        byte[] fileContent,
+        string? mimeType = null,
+        CancellationToken cancellationToken = default)
+    {
+        peerId = Guard.NotNullOrWhiteSpace(peerId, nameof(peerId));
+        fileName = Guard.NotNullOrWhiteSpace(fileName, nameof(fileName));
+        if (fileContent == null || fileContent.Length == 0)
+            return Result.Failure(new Error("chat.file.empty", "File content is empty."));
+
+        var session = _sessionStore.Current;
+        if (session.ConnectionState != ConnectionState.Connected)
+            return Result.Failure(new Error("chat.not_connected", "Realtime connection is not established."));
+
+        if (string.IsNullOrWhiteSpace(session.SelfPeerId))
+            return Result.Failure(new Error("chat.self_peer_missing", "Self peer is not assigned."));
+
+        var clientRequestId = Guid.NewGuid().ToString("N");
+        var provisionalConversationId = ConversationKeys.BuildDirectDialogId(session.SelfPeerId!, peerId);
+        var contentBase64 = Convert.ToBase64String(fileContent);
+
+        var localMessage = new ChatMessageItem(
+            localId: clientRequestId,
+            messageId: null,
+            conversationId: provisionalConversationId,
+            senderPeerId: session.SelfPeerId!,
+            text: fileName,
+            sentAtUtc: _clock.UtcNow,
+            isOwn: true,
+            status: ChatDeliveryState.Pending,
+            clientRequestId: clientRequestId,
+            isDirect: true,
+            targetId: peerId,
+            bodyType: "file",
+            fileAttachment: new ChatFileAttachment(fileName, mimeType, fileContent.LongLength, contentBase64));
+
+        _store.UpsertMessage(localMessage);
+        _store.SetActiveConversation(provisionalConversationId);
+
+        var result = await _directChatClient.SendFileMessageAsync(
+            peerId,
+            fileName,
+            fileContent,
+            mimeType,
+            clientRequestId,
+            cancellationToken).ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            _store.MarkLocalFailed(clientRequestId, result.Error!.Message);
+            return Result.Failure(result.Error!);
+        }
+
+        _store.MarkLocalDelivered(
+            clientRequestId,
+            result.Value!.MessageId,
+            result.Value.SentAtUtc,
+            result.Value.ConversationId);
+
+        if (!string.IsNullOrWhiteSpace(result.Value.ConversationId))
+            _store.SetActiveConversation(result.Value.ConversationId!);
+
+        return Result.Success();
+    }
+
     public async Task<Result> SendConferenceMessageAsync(
         string conferenceId,
         string text,

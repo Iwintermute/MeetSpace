@@ -163,7 +163,12 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1" Background="{ThemeResource MicaDarkerBrush}">
+        <Grid
+            Grid.Column="1"
+            Background="{ThemeResource MicaDarkerBrush}"
+            AllowDrop="True"
+            DragOver="ChatDropArea_DragOver"
+            Drop="ChatDropArea_Drop">
             <Grid.RowDefinitions>
                 <RowDefinition Height="72" />
                 <RowDefinition Height="Auto" />
@@ -302,18 +307,25 @@
                 Visibility="{x:Bind ViewModel.ComposerVisibility, Mode=OneWay}">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <Button
+                        VerticalAlignment="Bottom"
+                        Click="AttachFileButton_Click">
+                        <SymbolIcon Symbol="Attach" />
+                    </Button>
                     <TextBox
                         x:Name="MessageTextBox"
+                        Grid.Column="1"
                         MinHeight="44"
                         MaxHeight="120"
                         AcceptsReturn="True"
                         TextWrapping="Wrap"
                         PlaceholderText="Сообщение..." />
                     <Button
-                        Grid.Column="1"
+                        Grid.Column="2"
                         VerticalAlignment="Bottom"
                         Click="SendButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">

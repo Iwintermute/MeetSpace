@@ -41,6 +41,45 @@ public sealed class CallStore : StoreBase<CallSessionState>
         });
     }
 
+    public void UpsertFileTransfer(CallFileTransferItem item)
+    {
+        if (item is null)
+            throw new ArgumentNullException(nameof(item));
+
+        Update(state =>
+        {
+            var snapshot = (state.FileTransfers ?? Array.Empty<CallFileTransferItem>())
+                .Where(x => !string.Equals(x.TransferId, item.TransferId, StringComparison.Ordinal))
+                .ToList();
+
+            snapshot.Add(item);
+            snapshot.Sort((left, right) => right.UpdatedAtUtc.CompareTo(left.UpdatedAtUtc));
+
+            return state with
+            {
+                FileTransfers = snapshot
+            };
+        });
+    }
+
+    public void RemoveFileTransfer(string transferId)
+    {
+        if (string.IsNullOrWhiteSpace(transferId))
+            return;
+
+        Update(state =>
+        {
+            var snapshot = (state.FileTransfers ?? Array.Empty<CallFileTransferItem>())
+                .Where(x => !string.Equals(x.TransferId, transferId, StringComparison.Ordinal))
+                .ToList();
+
+            return state with
+            {
+                FileTransfers = snapshot
+            };
+        });
+    }
+
     public void SetMicrophoneEnabled(bool enabled, string? activeMicrophoneId = null)
     {
         Update(state => state with

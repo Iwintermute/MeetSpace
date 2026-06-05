@@ -337,5 +337,6 @@
     <Content Include="Materials\Bloom.html" />
     <Content Include="Materials\Windows11Danger.html" />
   </ItemGroup>
+  <Target Name="Pack" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 </Project>

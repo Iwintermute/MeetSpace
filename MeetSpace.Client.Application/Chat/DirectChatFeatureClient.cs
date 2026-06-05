@@ -51,6 +51,52 @@ public sealed class DirectChatFeatureClient : IDirectChatFeatureClient
         return Result<ChatSendAck>.Success(ChatPayloadParser.ParseAck(response.Value!, requestId));
     }
 
+    public async Task<Result<ChatSendAck>> SendFileMessageAsync(
+        string targetUserId,
+        string fileName,
+        byte[] fileContent,
+        string? mimeType = null,
+        string? clientRequestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        targetUserId = Guard.NotNullOrWhiteSpace(targetUserId, nameof(targetUserId));
+        fileName = Guard.NotNullOrWhiteSpace(fileName, nameof(fileName));
+        if (fileContent == null || fileContent.Length == 0)
+            return Result<ChatSendAck>.Failure(new Error("direct_chat.file.empty", "File content is empty."));
+
+        var requestId = string.IsNullOrWhiteSpace(clientRequestId)
+            ? Guid.NewGuid().ToString("N")
+            : clientRequestId;
+        var normalizedMimeType = string.IsNullOrWhiteSpace(mimeType)
+            ? "application/octet-stream"
+            : mimeType;
+        var contentBase64 = Convert.ToBase64String(fileContent);
+
+        var response = await _rpcClient.DispatchFirstAsync(
+            DirectChatProtocol.Object,
+            DirectChatProtocol.Agents.Messaging,
+            DirectChatProtocol.SendMessageActions,
+            new Dictionary<string, object?>
+            {
+                ["targetUserId"] = targetUserId,
+                ["targetPeerId"] = targetUserId,
+                ["clientRequestId"] = requestId,
+                ["bodyType"] = "file",
+                ["text"] = fileName,
+                ["fileName"] = fileName,
+                ["mimeType"] = normalizedMimeType,
+                ["fileSizeBytes"] = fileContent.LongLength,
+                ["fileContentBase64"] = contentBase64
+            },
+            TimeSpan.FromSeconds(30),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.IsFailure)
+            return Result<ChatSendAck>.Failure(response.Error!);
+
+        return Result<ChatSendAck>.Success(ChatPayloadParser.ParseAck(response.Value!, requestId));
+    }
+
     public async Task<Result<IReadOnlyList<ChatDialogItem>>> ListDialogsAsync(
         string selfPeerId,
         CancellationToken cancellationToken = default)

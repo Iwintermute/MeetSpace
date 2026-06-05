@@ -14,6 +14,7 @@ public sealed class CallCoordinator : IDisposable
 
     private readonly IConferenceMediaFeatureClient _conferenceMediaClient;
     private readonly IDirectCallFeatureClient _directCallClient;
+    private readonly ICallFileTransferService _fileTransferService;
     private readonly IConferenceFeatureClient _conferenceClient;
     private readonly IAudioCallEngine _audioEngine;
     private readonly CallStore _callStore;
@@ -56,6 +57,7 @@ public sealed class CallCoordinator : IDisposable
     public CallCoordinator(
         IConferenceMediaFeatureClient conferenceMediaClient,
         IDirectCallFeatureClient directCallClient,
+        ICallFileTransferService fileTransferService,
         IConferenceFeatureClient conferenceClient,
         IAudioCallEngine audioEngine,
         CallStore callStore,
@@ -65,6 +67,7 @@ public sealed class CallCoordinator : IDisposable
     {
         _conferenceMediaClient = conferenceMediaClient;
         _directCallClient = directCallClient;
+        _fileTransferService = fileTransferService;
         _conferenceClient = conferenceClient;
         _audioEngine = audioEngine;
         _callStore = callStore;
@@ -143,6 +146,32 @@ public sealed class CallCoordinator : IDisposable
             return await LeaveAudioAsync(cancellationToken).ConfigureAwait(false);
 
         return Result.Success();
+    }
+
+    public Task<Result<string>> SendFileInActiveDirectCallAsync(
+        string filePath,
+        string? mimeType = null,
+        CancellationToken cancellationToken = default)
+    {
+        var callId = _sessionId ?? _callStore.Current.SessionId;
+        if ((_kind != CallKind.Direct && _callStore.Current.Kind != CallKind.Direct) ||
+            string.IsNullOrWhiteSpace(callId))
+        {
+            return Task.FromResult(Result<string>.Failure(
+                new Error("call.file_transfer.not_in_direct_call", "Direct call is not active.")));
+        }
+
+        return _fileTransferService.SendFileFromPathAsync(callId!, filePath, mimeType, null, cancellationToken);
+    }
+
+    public Task<Result<string>> SendFileInDirectCallAsync(
+        string callId,
+        string fileName,
+        byte[] content,
+        string? mimeType = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _fileTransferService.SendFileAsync(callId, fileName, content, mimeType, null, cancellationToken);
     }
 
     private async Task<Result> DeclineDirectCallCoreAsync(

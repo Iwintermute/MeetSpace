@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="MeetSpace.Mobile.Pages.ConferenceRoomPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:MeetSpace.Mobile.ViewModels"
+    x:DataType="vm:ConferenceRoomPageViewModel"
+    Title="Конференция"
+    BackgroundColor="{DynamicResource MicaDarkerBrush}">
+    <Grid
+        Padding="12"
+        RowDefinitions="*,Auto"
+        RowSpacing="12">
+        <Grid
+            Grid.Row="0"
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="12">
+            <Grid
+                Grid.Column="0"
+                RowDefinitions="Auto,*,Auto,Auto"
+                RowSpacing="10">
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <VerticalStackLayout Spacing="2">
+                        <Label
+                            Style="{StaticResource PageTitleLabelStyle}"
+                            Text="{Binding AuthorizedUserText}" />
+                        <Label
+                            Style="{StaticResource CaptionLabelStyle}"
+                            Text="{Binding AuthorizedUserMetaText}" />
+                        <Label
+                            Style="{StaticResource CaptionLabelStyle}"
+                            Text="{Binding CallStatusText}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border
+                    Grid.Row="1"
+                    Style="{StaticResource CardBorderStyle}"
+                    Padding="0">
+                    <WebView
+                        x:Name="MediaHostView"
+                        HorizontalOptions="Fill"
+                        VerticalOptions="Fill" />
+                </Border>
+
+                <Border
+                    Grid.Row="2"
+                    Style="{StaticResource SurfaceAltBorderStyle}">
+                    <Label
+                        Style="{StaticResource CaptionLabelStyle}"
+                        Text="{Binding ParticipantsSummaryText}" />
+                </Border>
+
+                <Border
+                    Grid.Row="3"
+                    Style="{StaticResource CardBorderStyle}">
+                    <CollectionView
+                        HeightRequest="110"
+                        ItemsSource="{Binding Participants}"
+                        SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ConferenceParticipantTileViewItem">
+                                <Grid
+                                    Padding="0,4"
+                                    ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding Title}" />
+                                    <Label
+                                        Grid.Column="1"
+                                        Style="{StaticResource CaptionLabelStyle}"
+                                        Text="{Binding MediaSummary}" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Border>
+            </Grid>
+
+            <Border
+                Grid.Column="1"
+                WidthRequest="{Binding ChatPanelWidth}"
+                IsVisible="{Binding IsChatPanelVisible}"
+                Style="{StaticResource PaneBorderStyle}">
+                <Grid
+                    Padding="12"
+                    RowDefinitions="Auto,*,Auto"
+                    RowSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label
+                            Style="{StaticResource PageTitleLabelStyle}"
+                            Text="Чат встречи" />
+                        <Button
+                            Grid.Column="1"
+                            Style="{StaticResource ToolbarButton}"
+                            Text="✕"
+                            WidthRequest="40"
+                            Clicked="CloseChatButton_Clicked" />
+                    </Grid>
+
+                    <CollectionView
+                        x:Name="MessagesList"
+                        Grid.Row="1"
+                        ItemsSource="{Binding Messages}"
+                        SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ConferenceChatMessageViewItem">
+                                <VerticalStackLayout
+                                    Margin="0,0,0,10"
+                                    Spacing="2">
+                                    <Label
+                                        Style="{StaticResource SectionTitleLabelStyle}"
+                                        Text="{Binding SenderDisplayName}" />
+                                    <Border
+                                        Style="{StaticResource SurfaceAltBorderStyle}"
+                                        Padding="10">
+                                        <VerticalStackLayout Spacing="6">
+                                            <Label Text="{Binding Text}" />
+                                            <Label
+                                                Style="{StaticResource CaptionLabelStyle}"
+                                                Text="{Binding DisplayTime}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Grid
+                        Grid.Row="2"
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="8">
+                        <Border
+                            Grid.Column="0"
+                            Style="{StaticResource SurfaceAltBorderStyle}">
+                            <Editor
+                                x:Name="MessageEditor"
+                                Style="{StaticResource GlowEditorTextBox}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="Transparent"
+                                MaxLength="1500"
+                                Placeholder="Отправьте сообщение" />
+                        </Border>
+                        <Button
+                            Grid.Column="1"
+                            Style="{StaticResource ToolbarButton}"
+                            Text="➤"
+                            WidthRequest="48"
+                            Clicked="SendMessageButton_Clicked" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ScrollView
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Never"
+            Orientation="Horizontal">
+            <HorizontalStackLayout
+                HorizontalOptions="Center"
+                Spacing="8">
+                <Button
+                    IsEnabled="{Binding IsMicrophoneButtonEnabled}"
+                    Style="{StaticResource ToolbarButton}"
+                    Text="{Binding MicrophoneButtonContent}"
+                    Clicked="MicrophoneButton_Clicked" />
+                <Button
+                    IsEnabled="{Binding IsCameraButtonEnabled}"
+                    Style="{StaticResource ToolbarButton}"
+                    Text="{Binding CameraButtonContent}"
+                    Clicked="CameraButton_Clicked" />
+                <Button
+                    IsEnabled="{Binding IsScreenShareButtonEnabled}"
+                    Style="{StaticResource ToolbarButton}"
+                    Text="{Binding ScreenShareButtonContent}"
+                    Clicked="ScreenShareButton_Clicked" />
+                <Button
+                    Style="{StaticResource ToolbarButton}"
+                    Text="Чат"
+                    Clicked="OpenChatButton_Clicked" />
+                <Button
+                    Style="{StaticResource DangerButtonStyle}"
+                    Text="Завершить"
+                    Clicked="LeaveConferenceButton_Clicked" />
+            </HorizontalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

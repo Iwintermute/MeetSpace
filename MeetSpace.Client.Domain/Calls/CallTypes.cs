@@ -52,7 +52,8 @@ public sealed record CallSessionState(
     string? LastCandidate = null,
     string? SessionId = null,
     CallKind Kind = CallKind.Unknown,
-    bool IsDegradedMode = false)
+    bool IsDegradedMode = false,
+    IReadOnlyList<CallFileTransferItem>? FileTransfers = null)
 {
     public static CallSessionState Empty { get; } = new(
         null,
@@ -65,5 +66,6 @@ public sealed record CallSessionState(
         null,
         null,
         CallKind.Unknown,
-        false);
+        false,
+        Array.Empty<CallFileTransferItem>());
 }

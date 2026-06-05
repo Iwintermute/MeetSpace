@@ -23,6 +23,9 @@ using System.Net;
 using System.Net.Http;
 
 namespace MeetSpace.Client.Bootstrap;
+/// <summary>
+/// Builds the client dependency injection container and runtime host with resolved configuration defaults.
+/// </summary>
 
 public static class MeetSpaceHostBuilder
 {
@@ -30,6 +33,11 @@ public static class MeetSpaceHostBuilder
     private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10YmJjYXlram9teWNvdnJ4ZHlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDkyODUsImV4cCI6MjA5MDQ4NTI4NX0.AKhEpGPBoiLDfUqAu1-MUgvDDrYlw_M0N_wHdXS9Cx4";
     private const string DefaultRealtimeEndpoint = "wss://31.177.83.146:9002";
 
+    /// <summary>
+    /// Resolves the first non-empty configuration value from process, user, and machine environment scopes.
+    /// </summary>
+    /// <param name="envNames">Candidate environment variable names in priority order.</param>
+    /// <returns>First resolved non-empty value or empty string when nothing is found.</returns>
     private static string ReadConfigValue(params string[] envNames)
     {
         foreach (var envName in envNames)
@@ -49,6 +57,11 @@ public static class MeetSpaceHostBuilder
         return string.Empty;
     }
 
+    /// <summary>
+    /// Normalizes realtime endpoint format and upgrades remote <c>ws</c> endpoints to <c>wss</c>.
+    /// </summary>
+    /// <param name="endpoint">Raw endpoint value from configuration.</param>
+    /// <returns>Normalized endpoint string suitable for runtime usage.</returns>
     private static string NormalizeRealtimeEndpoint(string endpoint)
     {
         if (string.IsNullOrWhiteSpace(endpoint))
@@ -75,6 +88,11 @@ public static class MeetSpaceHostBuilder
         return normalized;
     }
 
+    /// <summary>
+    /// Determines whether provided host name resolves to local loopback.
+    /// </summary>
+    /// <param name="host">Host name or IP literal.</param>
+    /// <returns><c>true</c> when host is loopback; otherwise <c>false</c>.</returns>
     private static bool IsLoopbackHost(string host)
     {
         if (string.IsNullOrWhiteSpace(host))
@@ -88,6 +106,11 @@ public static class MeetSpaceHostBuilder
 
         return false;
     }
+    /// <summary>
+    /// Builds a host using environment-driven configuration with secure defaults.
+    /// </summary>
+    /// <param name="configureServices">Optional callback for extending service registrations.</param>
+    /// <returns>Initialized app host containing DI service provider and runtime configuration.</returns>
     public static MeetSpaceAppHost Build(Action<IServiceCollection>? configureServices = null)
     {
         var resolvedSupabaseUrl = ReadConfigValue("MEETSPACE_SUPABASE_URL", "SUPABASE_URL");
@@ -124,6 +147,12 @@ public static class MeetSpaceHostBuilder
         return Build(options, configureServices);
     }
 
+    /// <summary>
+    /// Builds a host using explicit runtime options and registers all core client services.
+    /// </summary>
+    /// <param name="options">Resolved runtime options used by auth/realtime/media subsystems.</param>
+    /// <param name="configureServices">Optional callback for additional service registrations.</param>
+    /// <returns>Initialized app host containing DI service provider.</returns>
     public static MeetSpaceAppHost Build(
         ClientRuntimeOptions options,
         Action<IServiceCollection>? configureServices = null)
@@ -210,6 +239,7 @@ public static class MeetSpaceHostBuilder
         services.AddSingleton<ChatCoordinator>();
         services.AddSingleton<IConferenceMediaFeatureClient, ConferenceMediaFeatureClient>();
         services.AddSingleton<IDirectCallFeatureClient, DirectCallFeatureClient>();
+        services.AddSingleton<ICallFileTransferService, CallFileTransferService>();
 
         services.AddSingleton<IMediasoupFeatureClient, MediasoupCallFeatureClient>();
         services.AddSingleton<IAudioCallEngine, NullAudioCallEngine>();

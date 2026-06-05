@@ -64,6 +64,8 @@ public sealed class ChatMessageItem
     public string? SenderUserId { get; }
     public string? SenderDisplayName { get; }
     public string? SenderEmail { get; }
+    public string BodyType { get; }
+    public ChatFileAttachment? FileAttachment { get; }
     public string Text { get; }
     public DateTimeOffset SentAtUtc { get; }
     public bool IsOwn { get; }
@@ -74,6 +76,9 @@ public sealed class ChatMessageItem
 
     public string ConferenceId => ConversationId;
     public string? TargetPeerId => IsDirect ? TargetId : null;
+    public bool IsFileAttachment =>
+        string.Equals(BodyType, "file", StringComparison.OrdinalIgnoreCase) &&
+        FileAttachment != null;
 
     public ChatMessageItem(
         string localId,
@@ -89,7 +94,9 @@ public sealed class ChatMessageItem
         string? targetId = null,
         string? senderUserId = null,
         string? senderDisplayName = null,
-        string? senderEmail = null)
+        string? senderEmail = null,
+        string? bodyType = null,
+        ChatFileAttachment? fileAttachment = null)
     {
         if (string.IsNullOrWhiteSpace(localId))
             throw new ArgumentException("LocalId must not be empty.", nameof(localId));
@@ -110,6 +117,8 @@ public sealed class ChatMessageItem
         SenderUserId = senderUserId;
         SenderDisplayName = senderDisplayName;
         SenderEmail = senderEmail;
+        BodyType = string.IsNullOrWhiteSpace(bodyType) ? "text" : bodyType!;
+        FileAttachment = fileAttachment;
         Text = text;
         SentAtUtc = sentAtUtc;
         IsOwn = isOwn;
@@ -135,4 +144,23 @@ public sealed class ChatMessageItem
     }
 
     public string DisplayTime => SentAtUtc == default ? string.Empty : SentAtUtc.ToLocalTime().ToString("HH:mm");
+}
+public sealed class ChatFileAttachment
+{
+    public ChatFileAttachment(
+        string fileName,
+        string? mimeType,
+        long? fileSizeBytes,
+        string? contentBase64)
+    {
+        FileName = string.IsNullOrWhiteSpace(fileName) ? "file.bin" : fileName;
+        MimeType = mimeType;
+        FileSizeBytes = fileSizeBytes;
+        ContentBase64 = contentBase64;
+    }
+
+    public string FileName { get; }
+    public string? MimeType { get; }
+    public long? FileSizeBytes { get; }
+    public string? ContentBase64 { get; }
 }

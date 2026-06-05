@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="MeetSpace.Mobile.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="MeetSpace"
+    BackgroundColor="{DynamicResource MicaDarkerBrush}">
+    <Grid Padding="16">
+        <ScrollView>
+            <VerticalStackLayout
+                HorizontalOptions="Center"
+                MaximumWidthRequest="680"
+                Spacing="14">
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label
+                            Style="{StaticResource AppTitleLabelStyle}"
+                            Text="MeetSpace" />
+                        <Label
+                            Style="{StaticResource BodyMutedLabelStyle}"
+                            Text="Войдите в аккаунт, чтобы открыть встречи, чаты и звонки." />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label
+                                Style="{StaticResource SectionTitleLabelStyle}"
+                                Text="Email" />
+                            <Border Style="{StaticResource SurfaceAltBorderStyle}">
+                                <Entry
+                                    x:Name="EmailEntry"
+                                    Style="{StaticResource GlowTextBox}"
+                                    Keyboard="Email"
+                                    Placeholder="example@meetspace.dev" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label
+                                Style="{StaticResource SectionTitleLabelStyle}"
+                                Text="Пароль" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Border Style="{StaticResource SurfaceAltBorderStyle}">
+                                    <Entry
+                                        x:Name="PasswordEntry"
+                                        Style="{StaticResource GlowTextBox}"
+                                        IsPassword="True"
+                                        Placeholder="Введите пароль" />
+                                </Border>
+                                <Button
+                                    x:Name="RevealPasswordButton"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ToolbarButton}"
+                                    Text="👁"
+                                    Clicked="RevealPasswordButton_Clicked" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <HorizontalStackLayout Spacing="8">
+                            <Button
+                                x:Name="SignInButton"
+                                Style="{StaticResource ToolbarButton}"
+                                Text="Login"
+                                Clicked="SignInButton_Clicked" />
+                            <Button
+                                x:Name="SignUpButton"
+                                Style="{StaticResource ToolbarButton}"
+                                Text="Создать аккаунт"
+                                Clicked="SignUpButton_Clicked" />
+                        </HorizontalStackLayout>
+
+                        <ActivityIndicator
+                            x:Name="BusyIndicator"
+                            IsRunning="False"
+                            IsVisible="{Binding IsRunning, Source={x:Reference BusyIndicator}}" />
+
+                        <Label
+                            x:Name="StatusLabel"
+                            Style="{StaticResource CaptionLabelStyle}"
+                            Text="Введите данные для входа." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource SurfaceAltBorderStyle}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label
+                            Style="{StaticResource SectionTitleLabelStyle}"
+                            Text="Beta quality" />
+                        <Label
+                            Style="{StaticResource BodyMutedLabelStyle}"
+                            Text="Если что-то работает нестабильно, сообщите об этом в репозиторий — это поможет быстрее выровнять MAUI и UWP." />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

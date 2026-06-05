@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MeetSpace.Mobile.Controls.MeetingInviteOverlay"
+             IsVisible="False">
+    <Grid BackgroundColor="{DynamicResource OverlayBackdropColor}"
+          Padding="20">
+        <Border HorizontalOptions="Center"
+                VerticalOptions="Center"
+                MaximumWidthRequest="420"
+                Padding="24"
+                BackgroundColor="{DynamicResource MicaDarkerBrush}"
+                Stroke="{StaticResource MicaBorderStrokeBrush}"
+                StrokeShape="RoundRectangle 16"
+                StrokeThickness="1">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                  RowSpacing="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Данные для подключения к встрече"
+                           Style="{StaticResource PageTitleLabelStyle}"
+                           LineBreakMode="WordWrap" />
+                    <Button Grid.Column="1"
+                            Style="{StaticResource ToolbarButton}"
+                            Text="✕"
+                            Clicked="CloseButton_Clicked" />
+                </Grid>
+                <Label Grid.Row="1"
+                       Style="{StaticResource BodyMutedLabelStyle}"
+                       Text="Отправьте эту информацию тем, кого хотите пригласить. Сохраните ее, если планируете встречу позже."
+                       LineBreakMode="WordWrap" />
+                <Grid Grid.Row="2"
+                      ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <Border BackgroundColor="{DynamicResource SurfaceAltBackgroundColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 8"
+                            Padding="12">
+                        <Label x:Name="LinkLabel"
+                               Style="{StaticResource CaptionLabelStyle}"
+                               LineBreakMode="WordWrap" />
+                    </Border>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource ToolbarButton}"
+                            Text="Копировать"
+                            Clicked="CopyButton_Clicked" />
+                </Grid>
+                <HorizontalStackLayout Grid.Row="3"
+                                       HorizontalOptions="End"
+                                       Spacing="12">
+                    <Button Text="Закрыть"
+                            Style="{StaticResource ToolbarButton}"
+                            Clicked="CloseButton_Clicked" />
+                    <Button Text="Открыть встречу"
+                            Style="{StaticResource ToolbarButton}"
+                            Clicked="OpenMeetingButton_Clicked" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentView>

@@ -18,6 +18,11 @@ public static class DirectCallProtocol
         public const string DeclineCall = "decline_call";
         public const string HangupCall = "hangup_call";
         public const string ListActiveCalls = "list_active_calls";
+        public const string FileOffer = "file_offer";
+        public const string FileAccept = "file_accept";
+        public const string FileChunk = "file_chunk";
+        public const string FileComplete = "file_complete";
+        public const string FileCancel = "file_cancel";
 
         public const string OpenTransport = "open_transport";
         public const string PublishTrack = "publish_track";
@@ -55,6 +60,30 @@ public static class DirectCallProtocol
     public static readonly string[] ListActiveCallsActions =
     {
         Actions.ListActiveCalls
+    };
+    public static readonly string[] FileOfferActions =
+    {
+        Actions.FileOffer
+    };
+
+    public static readonly string[] FileAcceptActions =
+    {
+        Actions.FileAccept
+    };
+
+    public static readonly string[] FileChunkActions =
+    {
+        Actions.FileChunk
+    };
+
+    public static readonly string[] FileCompleteActions =
+    {
+        Actions.FileComplete
+    };
+
+    public static readonly string[] FileCancelActions =
+    {
+        Actions.FileCancel
     };
 
     public static readonly string[] OpenTransportActions =

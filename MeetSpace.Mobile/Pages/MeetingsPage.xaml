@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="MeetSpace.Mobile.Pages.MeetingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:MeetSpace.Mobile.Controls"
+    Title="Встречи"
+    BackgroundColor="{DynamicResource MicaDarkerBrush}">
+    <Grid ColumnDefinitions="280,*">
+        <Border
+            Grid.Column="0"
+            Style="{StaticResource PaneBorderStyle}"
+            BackgroundColor="#14000000">
+            <VerticalStackLayout
+                Padding="16"
+                Spacing="12">
+                <Label
+                    Style="{StaticResource AppTitleLabelStyle}"
+                    Text="MeetSpace Meet" />
+
+                <Button
+                    Style="{StaticResource ToolbarToggleButton}"
+                    HorizontalOptions="Fill"
+                    Text="Встречи"
+                    Clicked="MeetingsTabButton_Clicked" />
+
+                <Button
+                    Style="{StaticResource ToolbarButton}"
+                    HorizontalOptions="Fill"
+                    Text="Личные сообщения"
+                    Clicked="CallsTabButton_Clicked" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Grid Grid.Column="1" Padding="24">
+            <ScrollView>
+                <VerticalStackLayout
+                    HorizontalOptions="Center"
+                    MaximumWidthRequest="760"
+                    VerticalOptions="Center"
+                    Spacing="22">
+                    <Label
+                        FontSize="42"
+                        FontAttributes="Bold"
+                        HorizontalTextAlignment="Center"
+                        Text="Видеозвонки и встречи для всех" />
+
+                    <Label
+                        Style="{StaticResource BodyMutedLabelStyle}"
+                        FontSize="20"
+                        HorizontalTextAlignment="Center"
+                        Text="MeetSpace обеспечивает видеосвязь для совместной работы и общения — где бы вы ни находились." />
+
+                    <HorizontalStackLayout
+                        HorizontalOptions="Center"
+                        Spacing="12">
+                        <Button
+                            Style="{StaticResource ToolbarButton}"
+                            Text="Создать встречу"
+                            Clicked="CreateMeetingButton_Clicked" />
+                        <Button
+                            Style="{StaticResource ToolbarButton}"
+                            Text="Мгновенная встреча"
+                            Clicked="InstantMeetingButton_Clicked" />
+                    </HorizontalStackLayout>
+
+                    <Grid
+                        HorizontalOptions="Center"
+                        ColumnDefinitions="320,Auto"
+                        ColumnSpacing="12">
+                        <Border
+                            Grid.Column="0"
+                            Style="{StaticResource SurfaceAltBorderStyle}">
+                            <Entry
+                                Style="{StaticResource GlowTextBox}"
+                                Placeholder="Введите код встречи или ссылку"
+                                Text="{Binding MeetingCode, Mode=TwoWay}" />
+                        </Border>
+                        <Button
+                            Grid.Column="1"
+                            Style="{StaticResource ToolbarButton}"
+                            Text="Присоединиться"
+                            Clicked="JoinMeetingButton_Clicked" />
+                    </Grid>
+
+                    <BoxView Margin="0,4,0,0" />
+
+                    <Label
+                        x:Name="StatusLabel"
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource CaptionLabelStyle}" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+        <controls:MeetingInviteOverlay
+            x:Name="InviteOverlay"
+            Grid.ColumnSpan="2"
+            IsVisible="False" />
+    </Grid>
+</ContentPage>

@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <!-- MeetSpace.UI compatible brush keys (names preserved) -->
+    <Color x:Key="MicaBrush">#FCFCFC</Color>
+    <Color x:Key="MicaDarkBrush">#E9E9E9</Color>
+    <Color x:Key="MicaDeepBackgroundBrush">#E9E9E9</Color>
+    <Color x:Key="MicaDarkerBrush">#EDEDED</Color>
+    <Color x:Key="MicaBorderBrush">#66757575</Color>
+
+    <Color x:Key="HvidSortBrush">#111111</Color>
+    <Color x:Key="SortHvidBrush">#FFFFFF</Color>
+    <Color x:Key="HvidSortColor">#111111</Color>
+    <Color x:Key="11Brush">#EEEEEE</Color>
+    <Color x:Key="12Brush">#EDEDED</Color>
+    <Color x:Key="1cBrush">#E3E3E3</Color>
+    <Color x:Key="24Brush">#DBDBDB</Color>
+    <Color x:Key="FABrush">#FAFAFA</Color>
+    <Color x:Key="F2Brush">#F2F2F2</Color>
+    <Color x:Key="SearchBrush">#FFFFFF</Color>
+    <Color x:Key="ResponsiveAccentBrush1">#2B5278</Color>
+    <Color x:Key="ResponsiveAccentBrush2">#3D74AA</Color>
+    <Color x:Key="ResponsiveAccentBrush3">#4C8DDA</Color>
+    <Color x:Key="BorderHighContrastBrush">Transparent</Color>
+    <Color x:Key="RedBrush">#E96E60</Color>
+
+    <!-- Legacy semantic keys kept for MAUI pages/view-models -->
+    <Color x:Key="Primary">#4C8DDA</Color>
+    <Color x:Key="PrimaryDark">#2B5278</Color>
+    <Color x:Key="PrimaryDarkText">#FFFFFF</Color>
+    <Color x:Key="Secondary">#1E2C3A</Color>
+    <Color x:Key="SecondaryDarkText">#C9D4E0</Color>
+    <Color x:Key="Tertiary">#7AA6E0</Color>
+
+    <Color x:Key="White">#FFFFFF</Color>
+    <Color x:Key="Black">#000000</Color>
+    <Color x:Key="Magenta">#E96E60</Color>
+    <Color x:Key="MidnightBlue">#0F1723</Color>
+    <Color x:Key="OffBlack">#121212</Color>
+
+    <Color x:Key="Gray100">#E1E1E1</Color>
+    <Color x:Key="Gray200">#C8C8C8</Color>
+    <Color x:Key="Gray300">#ACACAC</Color>
+    <Color x:Key="Gray400">#919191</Color>
+    <Color x:Key="Gray500">#6E6E6E</Color>
+    <Color x:Key="Gray600">#404040</Color>
+    <Color x:Key="Gray900">#212121</Color>
+    <Color x:Key="Gray950">#141414</Color>
+
+    <Color x:Key="PageBackgroundColor">#EDEDED</Color>
+    <Color x:Key="SurfaceBackgroundColor">#FCFCFC</Color>
+    <Color x:Key="SurfaceAltBackgroundColor">#FAFAFA</Color>
+    <Color x:Key="SurfaceBorderColor">#66757575</Color>
+    <Color x:Key="PrimaryTextColor">#111111</Color>
+    <Color x:Key="SecondaryTextColor">#4E5A66</Color>
+    <Color x:Key="MutedTextColor">#728090</Color>
+    <Color x:Key="InputBackgroundColor">#FFFFFF</Color>
+    <Color x:Key="InputBorderColor">#66757575</Color>
+    <Color x:Key="SecondaryButtonBackgroundColor">#EDEDED</Color>
+    <Color x:Key="SecondaryButtonTextColor">#111111</Color>
+    <Color x:Key="PrimaryButtonBackgroundColor">#4C8DDA</Color>
+    <Color x:Key="PrimaryButtonTextColor">#FFFFFF</Color>
+    <Color x:Key="DangerButtonBackgroundColor">#E96E60</Color>
+    <Color x:Key="DangerButtonTextColor">#FFFFFF</Color>
+    <Color x:Key="OverlayBackdropColor">#66000000</Color>
+    <Color x:Key="OwnBubbleColor">#E3E3E3</Color>
+    <Color x:Key="RemoteBubbleColor">#EEEEEE</Color>
+
+    <SolidColorBrush x:Key="MicaBorderStrokeBrush" Color="{StaticResource MicaBorderBrush}" />
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}" />
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}" />
+    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}" />
+    <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}" />
+    <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}" />
+
+    <SolidColorBrush x:Key="PageBackgroundBrush" Color="{DynamicResource PageBackgroundColor}" />
+    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="{DynamicResource SurfaceBackgroundColor}" />
+    <SolidColorBrush x:Key="SurfaceAltBackgroundBrush" Color="{DynamicResource SurfaceAltBackgroundColor}" />
+    <SolidColorBrush x:Key="SurfaceBorderBrush" Color="{DynamicResource SurfaceBorderColor}" />
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="{DynamicResource PrimaryTextColor}" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="{DynamicResource SecondaryTextColor}" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="{DynamicResource MutedTextColor}" />
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="{DynamicResource InputBackgroundColor}" />
+    <SolidColorBrush x:Key="InputBorderBrush" Color="{DynamicResource InputBorderColor}" />
+    <SolidColorBrush x:Key="OverlayBackdropBrush" Color="{DynamicResource OverlayBackdropColor}" />
+    <SolidColorBrush x:Key="OwnBubbleBrush" Color="{DynamicResource OwnBubbleColor}" />
+    <SolidColorBrush x:Key="RemoteBubbleBrush" Color="{DynamicResource RemoteBubbleColor}" />
+
+    <SolidColorBrush x:Key="Gray100Brush" Color="{StaticResource Gray100}" />
+    <SolidColorBrush x:Key="Gray200Brush" Color="{StaticResource Gray200}" />
+    <SolidColorBrush x:Key="Gray300Brush" Color="{StaticResource Gray300}" />
+    <SolidColorBrush x:Key="Gray400Brush" Color="{StaticResource Gray400}" />
+    <SolidColorBrush x:Key="Gray500Brush" Color="{StaticResource Gray500}" />
+    <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}" />
+    <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}" />
+    <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}" />
+</ResourceDictionary>

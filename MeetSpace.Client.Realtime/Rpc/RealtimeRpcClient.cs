@@ -5,11 +5,18 @@ using MeetSpace.Client.Shared.Results;
 
 namespace MeetSpace.Client.Realtime.Rpc;
 
+/// <summary>
+/// Implements correlated request/response RPC dispatch over realtime gateway envelopes.
+/// </summary>
 public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
 {
     private readonly IRealtimeGateway _gateway;
     private readonly ConcurrentDictionary<string, PendingRequest> _pending = new();
 
+    /// <summary>
+    /// Creates RPC client and subscribes to gateway response/disconnect events.
+    /// </summary>
+    /// <param name="gateway">Realtime gateway used for request transport and response events.</param>
     public RealtimeRpcClient(IRealtimeGateway gateway)
     {
         _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
@@ -17,6 +24,16 @@ public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
         _gateway.Disconnected += OnGatewayDisconnected;
     }
 
+    /// <summary>
+    /// Sends a dispatch request with generated correlation identifiers and awaits matching response envelope.
+    /// </summary>
+    /// <param name="object">Feature object namespace.</param>
+    /// <param name="agent">Feature agent namespace.</param>
+    /// <param name="action">Action name to execute.</param>
+    /// <param name="ctx">Request context payload dictionary.</param>
+    /// <param name="timeout">Maximum response wait duration.</param>
+    /// <param name="cancellationToken">Cancellation token for send/wait flow.</param>
+    /// <returns>Success with envelope, or failure with timeout/transport/protocol error.</returns>
     public async Task<Result<FeatureResponseEnvelope>> DispatchAsync(
         string @object,
         string agent,
@@ -130,6 +147,11 @@ public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
         }
     }
 
+    /// <summary>
+    /// Matches incoming dispatch_result envelope with pending request by request id.
+    /// </summary>
+    /// <param name="sender">Event source.</param>
+    /// <param name="envelope">Received response envelope.</param>
     private void OnEnvelopeReceived(object? sender, FeatureResponseEnvelope envelope)
     {
         if (!string.Equals(envelope.Type, ProtocolMessageTypes.DispatchResult, StringComparison.Ordinal))
@@ -143,6 +165,11 @@ public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
             pending.Completion.TrySetResult(envelope);
     }
 
+    /// <summary>
+    /// Fails all pending requests when gateway disconnects before correlated responses are received.
+    /// </summary>
+    /// <param name="sender">Event source.</param>
+    /// <param name="e">Event args.</param>
     private void OnGatewayDisconnected(object? sender, EventArgs e)
     {
         foreach (var pair in _pending)
@@ -156,6 +183,9 @@ public sealed class RealtimeRpcClient : IRealtimeRpcClient, IDisposable
         }
     }
 
+    /// <summary>
+    /// Unsubscribes gateway handlers and cancels all pending RPC completions.
+    /// </summary>
     public void Dispose()
     {
         _gateway.EnvelopeReceived -= OnEnvelopeReceived;

@@ -1,4 +1,5 @@
-﻿using MeetSpace.Client.Domain.Calls;
+﻿using MeetSpace.Client.Contracts.Calls;
+using MeetSpace.Client.Domain.Calls;
 using MeetSpace.Client.Shared.Results;
 
 namespace MeetSpace.Client.App.Calls;
@@ -28,5 +29,25 @@ public interface IDirectCallFeatureClient : ICallMediaFeatureClient
 
     Task<Result<IReadOnlyList<DirectCallSessionInfo>>> ListActiveCallsAsync(
         int limit = 100,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> OfferFileAsync(
+        DirectCallFileOfferRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> AcceptFileAsync(
+        DirectCallFileAcceptRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> SendFileChunkAsync(
+        DirectCallFileChunkRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> CompleteFileTransferAsync(
+        DirectCallFileCompleteRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> CancelFileTransferAsync(
+        DirectCallFileCancelRequest request,
         CancellationToken cancellationToken = default);
 }

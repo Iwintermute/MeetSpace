@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Windows Machine": {
+      "commandName": "Project",
+      "nativeDebugging": false,
+      "jsWebView2Debugging": true
+    },
+    "Профиль 1": {
+      "commandName": "Project",
+      "jsWebView2Debugging": true
+    }
+  }
+}

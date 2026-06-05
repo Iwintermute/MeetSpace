@@ -38,6 +38,10 @@ public sealed class ChatPageViewModel : ObservableObject
 
     private readonly Dictionary<string, ChatDialogItem> _dialogMap = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _knownUserLabels = new(StringComparer.Ordinal);
+    private IReadOnlyList<ChatDialogItem>? _lastDialogsSnapshot;
+    private IReadOnlyList<ChatMessageItem>? _lastMessagesSnapshot;
+    private string? _lastRenderedConversationId;
+    private string? _lastRenderedPeerId;
 
     private CoreDispatcher? _dispatcher;
     private bool _isActive;
@@ -336,6 +340,10 @@ public sealed class ChatPageViewModel : ObservableObject
         _authStore.StateChanged -= AuthStore_StateChanged;
         _callStore.StateChanged -= CallStore_StateChanged;
         _realtimeGateway.EnvelopeReceived -= Gateway_EnvelopeReceived;
+        _lastDialogsSnapshot = null;
+        _lastMessagesSnapshot = null;
+        _lastRenderedConversationId = null;
+        _lastRenderedPeerId = null;
 
         _dispatcher = null;
     }
@@ -473,6 +481,33 @@ public sealed class ChatPageViewModel : ObservableObject
             await RunOnUiThreadAsync(() =>
             {
                 ApplyError(result.Error?.Message ?? "Send failed.");
+            }).ConfigureAwait(false);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public async Task<bool> SendFileAsync(
+        string fileName,
+        byte[] fileContent,
+        string? mimeType = null)
+    {
+        if (SelectedDialog == null || string.IsNullOrWhiteSpace(SelectedDialog.PeerId))
+            return false;
+        if (string.IsNullOrWhiteSpace(fileName) || fileContent == null || fileContent.Length == 0)
+            return false;
+
+        var result = await _chatCoordinator
+            .SendDirectFileAsync(SelectedDialog.PeerId!, fileName, fileContent, mimeType)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ApplyError(result.Error?.Message ?? "Send file failed.");
             }).ConfigureAwait(false);
 
             return false;
@@ -875,8 +910,42 @@ public sealed class ChatPageViewModel : ObservableObject
     {
         var selectedConversationId = SelectedDialog?.ConversationId;
         var selectedPeerId = SelectedDialog?.PeerId;
+        var dialogsChanged = !ReferenceEquals(_lastDialogsSnapshot, state.Dialogs);
+        var messagesChanged = !ReferenceEquals(_lastMessagesSnapshot, state.Messages);
+        var selectedDialogChanged = false;
 
-        var directDialogs = state.Dialogs
+        if (dialogsChanged)
+        {
+            RefreshDialogMap(state.Dialogs);
+            if (SelectedDialog != null)
+                selectedDialogChanged = ResolveSelectedDialog(selectedConversationId, selectedPeerId);
+            RebuildDialogCollections();
+            _lastDialogsSnapshot = state.Dialogs;
+        }
+
+        var selectionContextChanged =
+            !string.Equals(_lastRenderedConversationId, SelectedDialog?.ConversationId, StringComparison.Ordinal) ||
+            !string.Equals(_lastRenderedPeerId, SelectedDialog?.PeerId, StringComparison.Ordinal);
+
+        if (dialogsChanged || selectedDialogChanged || selectionContextChanged)
+            UpdateSelectedDialogPresentation();
+
+        if (dialogsChanged || messagesChanged || selectedDialogChanged || selectionContextChanged)
+        {
+            RebuildMessages(state);
+            _lastMessagesSnapshot = state.Messages;
+            _lastRenderedConversationId = SelectedDialog?.ConversationId;
+            _lastRenderedPeerId = SelectedDialog?.PeerId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.LastError))
+            ErrorText = state.LastError;
+        UpdateCallActionAvailability();
+    }
+
+    private void RefreshDialogMap(IReadOnlyList<ChatDialogItem> dialogs)
+    {
+        var directDialogs = dialogs
             .Where(x => x.Kind == ChatDialogKind.Direct)
             .Select(CloneDialog)
             .ToList();
@@ -888,43 +957,41 @@ public sealed class ChatPageViewModel : ObservableObject
             _dialogMap[dialog.ConversationId] = dialog;
             RememberUserLabel(dialog.PeerId, dialog.Title, dialog.Subtitle);
         }
+    }
 
-        if (SelectedDialog != null)
+    private bool ResolveSelectedDialog(string? selectedConversationId, string? selectedPeerId)
+    {
+        ChatDialogItem? resolved = null;
+
+        if (!string.IsNullOrWhiteSpace(selectedConversationId) &&
+            _dialogMap.TryGetValue(selectedConversationId!, out var exact))
         {
-            ChatDialogItem? resolved = null;
-
-            if (!string.IsNullOrWhiteSpace(selectedConversationId) &&
-                _dialogMap.TryGetValue(selectedConversationId!, out var exact))
-            {
-                resolved = exact;
-            }
-
-            if (resolved == null && !string.IsNullOrWhiteSpace(selectedPeerId))
-            {
-                resolved = _dialogMap.Values.FirstOrDefault(x =>
-                    string.Equals(x.PeerId, selectedPeerId, StringComparison.Ordinal));
-            }
-
-            if (resolved != null)
-            {
-                SetSelectedDialog(resolved);
-            }
-            else if (!string.IsNullOrWhiteSpace(selectedPeerId))
-            {
-                var provisional = CreateProvisionalDialog(selectedPeerId!);
-                _dialogMap[provisional.ConversationId] = provisional;
-                SetSelectedDialog(provisional);
-            }
-            else
-            {
-                SetSelectedDialog(null);
-            }
+            resolved = exact;
         }
 
-        RebuildDialogCollections();
-        RebuildMessages(state);
-        UpdateSelectedDialogPresentation();
-        UpdateCallActionAvailability();
+        if (resolved == null && !string.IsNullOrWhiteSpace(selectedPeerId))
+        {
+            resolved = _dialogMap.Values.FirstOrDefault(x =>
+                string.Equals(x.PeerId, selectedPeerId, StringComparison.Ordinal));
+        }
+
+        if (resolved != null)
+        {
+            SetSelectedDialog(resolved);
+        }
+        else if (!string.IsNullOrWhiteSpace(selectedPeerId))
+        {
+            var provisional = CreateProvisionalDialog(selectedPeerId!);
+            _dialogMap[provisional.ConversationId] = provisional;
+            SetSelectedDialog(provisional);
+        }
+        else
+        {
+            SetSelectedDialog(null);
+        }
+
+        return !string.Equals(selectedConversationId, SelectedDialog?.ConversationId, StringComparison.Ordinal) ||
+               !string.Equals(selectedPeerId, SelectedDialog?.PeerId, StringComparison.Ordinal);
     }
 
     private void ApplyCallState(CallSessionState state)
@@ -1094,14 +1161,44 @@ public sealed class ChatPageViewModel : ObservableObject
         var senderTitle = ResolveMessageSenderTitle(item);
         var senderMeta = ResolveMessageSenderMeta(item, senderTitle);
         var statusText = item.IsOwn ? item.DisplayStatus : string.Empty;
+        var messageText = BuildMessageText(item);
 
         return new DirectChatMessageViewItem(
             senderTitle,
             senderMeta,
-            item.Text,
+            messageText,
             item.DisplayTime,
             statusText,
             item.IsOwn);
+    }
+
+    private static string BuildMessageText(ChatMessageItem item)
+    {
+        if (!item.IsFileAttachment || item.FileAttachment == null)
+            return item.Text;
+
+        var fileName = string.IsNullOrWhiteSpace(item.FileAttachment.FileName)
+            ? "Файл"
+            : item.FileAttachment.FileName;
+        var sizeText = FormatFileSize(item.FileAttachment.FileSizeBytes);
+        if (string.IsNullOrWhiteSpace(sizeText))
+            return "📎 " + fileName;
+
+        return "📎 " + fileName + " (" + sizeText + ")";
+    }
+
+    private static string? FormatFileSize(long? bytes)
+    {
+        if (!bytes.HasValue || bytes.Value <= 0)
+            return null;
+
+        const double kb = 1024d;
+        const double mb = kb * 1024d;
+        if (bytes.Value < kb)
+            return bytes.Value + " B";
+        if (bytes.Value < mb)
+            return (bytes.Value / kb).ToString("0.#") + " KB";
+        return (bytes.Value / mb).ToString("0.##") + " MB";
     }
 
     private string ResolveMessageSenderTitle(ChatMessageItem item)

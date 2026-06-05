@@ -126,6 +126,7 @@ const state = {
     pendingProduce: new Map(),
     pendingMediaStarts: new Map(),
     pendingMediaToggles: new Map(),
+    pendingScopedOperations: new Map(),
     qosPreviousByTrack: new Map()
 };
 
@@ -592,6 +593,7 @@ function syncTileLayout() {
     const hasFocus = !!(state.focusedTileKey && state.videoTiles.has(state.focusedTileKey));
 
     grid.dataset.hasFocus = hasFocus ? 'true' : 'false';
+    grid.dataset.tileCount = String(state.videoTiles.size);
 
     for (const [tileKey, tile] of state.videoTiles.entries()) {
         const shouldFocus = hasFocus && tileKey === state.focusedTileKey;
@@ -605,6 +607,56 @@ function syncTileLayout() {
     }
 }
 
+function getTileTrackType(tileKey) {
+    const tile = state.videoTiles.get(tileKey);
+    if (!tile || !tile.container || !tile.container.dataset)
+        return null;
+
+    return tile.container.dataset.trackType || null;
+}
+
+function findPreferredScreenTileKey(preferredTileKey = null) {
+    if (preferredTileKey && state.videoTiles.has(preferredTileKey) && getTileTrackType(preferredTileKey) === 'screen')
+        return preferredTileKey;
+
+    let fallbackLocalScreenTileKey = null;
+    for (const [tileKey, tile] of state.videoTiles.entries()) {
+        const trackType = tile && tile.container && tile.container.dataset
+            ? tile.container.dataset.trackType
+            : null;
+        if (trackType !== 'screen')
+            continue;
+
+        if (tileKey !== LOCAL_SCREEN_TILE_KEY)
+            return tileKey;
+
+        fallbackLocalScreenTileKey = tileKey;
+    }
+
+    return fallbackLocalScreenTileKey;
+}
+
+function refreshFocusedTile(options = {}) {
+    const requestFullscreenForScreen = !!options.requestFullscreenForScreen;
+    let focusedTileKey = state.focusedTileKey;
+    if (focusedTileKey && !state.videoTiles.has(focusedTileKey))
+        focusedTileKey = null;
+
+    const preferredScreenTileKey = findPreferredScreenTileKey(focusedTileKey);
+    if (preferredScreenTileKey)
+        focusedTileKey = preferredScreenTileKey;
+
+    state.focusedTileKey = focusedTileKey || null;
+    syncTileLayout();
+
+    if (preferredScreenTileKey && requestFullscreenForScreen) {
+        void requestGridFullscreen();
+        return;
+    }
+
+    if (!state.focusedTileKey && document.fullscreenElement)
+        void exitGridFullscreen();
+}
 function setFocusedTile(tileKey) {
     if (tileKey && !state.videoTiles.has(tileKey))
         state.focusedTileKey = null;
@@ -848,7 +900,6 @@ async function resetLocalScreenCaptureState() {
     stopProducer('screenProducer');
     stopStream('screenStream', 'screenTrack');
     removeVideoTile(LOCAL_SCREEN_TILE_KEY);
-    await delay(120);
 }
 async function attachVideoTile(tileKey, stream, trackType, isLocal) {
     const normalizedTrackType = normalizeVideoTrackType(trackType);
@@ -859,10 +910,9 @@ async function attachVideoTile(tileKey, stream, trackType, isLocal) {
     await playMediaElementSafe(tile.video);
 
     if (normalizedTrackType === 'screen') {
-        setFocusedTile(tileKey);
-        void requestGridFullscreen();
+        refreshFocusedTile({ requestFullscreenForScreen: true });
     } else {
-        syncTileLayout();
+        refreshFocusedTile();
     }
 }
 
@@ -886,14 +936,10 @@ function removeVideoTile(tileKey) {
     }
 
     state.videoTiles.delete(tileKey);
-    if (state.focusedTileKey === tileKey) {
+    if (state.focusedTileKey === tileKey)
         state.focusedTileKey = null;
-        if (document.fullscreenElement) {
-            void exitGridFullscreen();
-        }
-    }
 
-    syncTileLayout();
+    refreshFocusedTile();
 }
 
 function removeAllVideoTiles() {
@@ -940,7 +986,7 @@ function cleanupConsumer(consumerId) {
     state.videoTileKeysByConsumer.delete(consumerId);
 }
 
-function cleanupConsumerByProducerId(producerId) {
+function cleanupStaleConsumersByProducerId(producerId, keepConsumerId = null) {
     if (!producerId) {
         return;
     }
@@ -954,7 +1000,7 @@ function cleanupConsumerByProducerId(producerId) {
                 ? item.consumer.appData.producerId
                 : null;
 
-        if (currentProducerId === producerId) {
+        if (currentProducerId === producerId && consumerId !== keepConsumerId) {
             cleanupConsumer(consumerId);
         }
     }
@@ -985,6 +1031,8 @@ function bindMicrophoneTrackLifecycle(track) {
         return;
 
     track.onended = () => {
+        if (state.micTrack !== track)
+            return;
         stopStream('micStream', 'micTrack');
     };
 }
@@ -994,6 +1042,8 @@ function bindCameraTrackLifecycle(track) {
         return;
 
     track.onended = () => {
+        if (state.cameraTrack !== track)
+            return;
         stopStream('cameraStream', 'cameraTrack');
         removeVideoTile(LOCAL_CAMERA_TILE_KEY);
     };
@@ -1004,6 +1054,8 @@ function bindScreenTrackLifecycle(track) {
         return;
 
     track.onended = () => {
+        if (state.screenTrack !== track)
+            return;
         stopStream('screenStream', 'screenTrack');
         removeVideoTile(LOCAL_SCREEN_TILE_KEY);
 
@@ -1159,6 +1211,21 @@ async function runMediaStartGuard(operationKey, operation) {
     state.pendingMediaStarts.set(operationKey, guardedPromise);
     return await guardedPromise;
 }
+async function runScopedOperation(scopeKey, operation) {
+    const pending = state.pendingScopedOperations.get(scopeKey) || Promise.resolve();
+    const nextOperation = pending
+        .catch(() => {
+        })
+        .then(operation);
+
+    const trackedOperation = nextOperation.finally(() => {
+        if (state.pendingScopedOperations.get(scopeKey) === trackedOperation)
+            state.pendingScopedOperations.delete(scopeKey);
+    });
+
+    state.pendingScopedOperations.set(scopeKey, trackedOperation);
+    return await trackedOperation;
+}
 
 async function closeAll() {
     for (const consumerId of Array.from(state.consumers.keys())) {
@@ -1195,6 +1262,7 @@ async function closeAll() {
     state.pendingProduce.clear();
     state.pendingMediaStarts.clear();
     state.pendingMediaToggles.clear();
+    state.pendingScopedOperations.clear();
     state.qosPreviousByTrack.clear();
     stopQosCollection();
 }
@@ -1385,7 +1453,8 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('mediaDevices.getUserMedia is unavailable');
                 }
-                const started = await runMediaStartGuard('microphone', async () => {
+                const started = await runScopedOperation('media:microphone', async () =>
+                    await runMediaStartGuard('microphone', async () => {
                     stopProducer('micProducer');
                     stopStream('micStream', 'micTrack');
 
@@ -1420,7 +1489,7 @@ async function handleCommand(message) {
                         stopStream('micStream', 'micTrack');
                         throw normalizeMediaStartError('microphone', error);
                     }
-                });
+                    }));
 
                 sendDiag('start_microphone.ok', {
                     producerId: started.producerId
@@ -1441,7 +1510,8 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('mediaDevices.getUserMedia is unavailable');
                 }
-                const started = await runMediaStartGuard('camera', async () => {
+                const started = await runScopedOperation('media:camera', async () =>
+                    await runMediaStartGuard('camera', async () => {
                     stopProducer('cameraProducer');
                     stopStream('cameraStream', 'cameraTrack');
                     removeVideoTile(LOCAL_CAMERA_TILE_KEY);
@@ -1479,7 +1549,7 @@ async function handleCommand(message) {
                         removeVideoTile(LOCAL_CAMERA_TILE_KEY);
                         throw normalizeMediaStartError('camera', error);
                     }
-                });
+                    }));
 
                 sendDiag('start_camera.ok', {
                     producerId: started.producerId
@@ -1490,9 +1560,11 @@ async function handleCommand(message) {
             }
 
             case 'stop_camera': {
-                stopProducer('cameraProducer');
-                stopStream('cameraStream', 'cameraTrack');
-                removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+                await runScopedOperation('media:camera', async () => {
+                    stopProducer('cameraProducer');
+                    stopStream('cameraStream', 'cameraTrack');
+                    removeVideoTile(LOCAL_CAMERA_TILE_KEY);
+                });
                 sendResponse(requestId, true, {});
                 return;
             }
@@ -1510,7 +1582,8 @@ async function handleCommand(message) {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
                     throw new Error('mediaDevices.getDisplayMedia is unavailable');
                 }
-                const started = await runMediaStartGuard('screen', async () => {
+                const started = await runScopedOperation('media:screen', async () =>
+                    await runMediaStartGuard('screen', async () => {
                     await resetLocalScreenCaptureState();
 
                     try {
@@ -1544,7 +1617,7 @@ async function handleCommand(message) {
                         await resetLocalScreenCaptureState();
                         throw normalizeMediaStartError('screen', error);
                     }
-                });
+                    }));
 
                 sendDiag('start_screen.ok', {
                     producerId: started.producerId
@@ -1555,14 +1628,17 @@ async function handleCommand(message) {
             }
 
             case 'stop_screen': {
-                await resetLocalScreenCaptureState();
+                await runScopedOperation('media:screen', async () => {
+                    await resetLocalScreenCaptureState();
+                });
                 sendResponse(requestId, true, {});
                 return;
             }
 
             case 'set_microphone_enabled': {
                 const enabled = !!payload.enabled;
-                const responsePayload = await runMediaToggleGuard('microphone', async () => {
+                const responsePayload = await runScopedOperation('media:microphone', async () =>
+                    await runMediaToggleGuard('microphone', async () => {
                     if (enabled) {
                         if (!state.micProducer || state.micProducer.closed)
                             throw new Error('microphone producer is not active');
@@ -1584,7 +1660,7 @@ async function handleCommand(message) {
                         await state.micProducer.pause();
 
                     return { enabled: false };
-                });
+                    }));
 
                 sendResponse(requestId, true, responsePayload);
                 return;
@@ -1592,7 +1668,8 @@ async function handleCommand(message) {
 
             case 'set_camera_enabled': {
                 const enabled = !!payload.enabled;
-                const responsePayload = await runMediaToggleGuard('camera', async () => {
+                const responsePayload = await runScopedOperation('media:camera', async () =>
+                    await runMediaToggleGuard('camera', async () => {
                     if (enabled) {
                         if (!state.cameraProducer || state.cameraProducer.closed)
                             throw new Error('camera producer is not active');
@@ -1614,7 +1691,7 @@ async function handleCommand(message) {
                         await state.cameraProducer.pause();
 
                     return { enabled: false };
-                });
+                    }));
 
                 sendResponse(requestId, true, responsePayload);
                 return;
@@ -1622,7 +1699,8 @@ async function handleCommand(message) {
 
             case 'set_screen_enabled': {
                 const enabled = !!payload.enabled;
-                const responsePayload = await runMediaToggleGuard('screen', async () => {
+                const responsePayload = await runScopedOperation('media:screen', async () =>
+                    await runMediaToggleGuard('screen', async () => {
                     if (enabled) {
                         if (!state.screenProducer || state.screenProducer.closed)
                             throw new Error('screen producer is not active');
@@ -1644,7 +1722,7 @@ async function handleCommand(message) {
                         await state.screenProducer.pause();
 
                     return { enabled: false };
-                });
+                    }));
 
                 sendResponse(requestId, true, responsePayload);
                 return;
@@ -1662,7 +1740,6 @@ async function handleCommand(message) {
                 }
 
                 cleanupConsumer(payload.consumerId);
-                cleanupConsumerByProducerId(payload.producerId);
 
 
                 const consumer = await state.recvTransport.consume({
@@ -1696,6 +1773,7 @@ async function handleCommand(message) {
                     stream,
                     element: audio
                 });
+                cleanupStaleConsumersByProducerId(payload.producerId, consumer.id);
 
                 consumer.on('transportclose', () => cleanupConsumer(consumer.id));
                 consumer.on('trackended', () => cleanupConsumer(consumer.id));
@@ -1722,7 +1800,6 @@ async function handleCommand(message) {
                 }
 
                 cleanupConsumer(payload.consumerId);
-                cleanupConsumerByProducerId(payload.producerId);
                 const normalizedTrackType = normalizeVideoTrackType(payload.trackType || 'camera');
                 const consumeKind = resolveConsumeKind(payload.kind, normalizedTrackType);
 
@@ -1757,6 +1834,7 @@ async function handleCommand(message) {
                     stream,
                     element: video
                 });
+                cleanupStaleConsumersByProducerId(payload.producerId, consumer.id);
 
                 consumer.on('transportclose', () => cleanupConsumer(consumer.id));
                 consumer.on('trackended', () => cleanupConsumer(consumer.id));
@@ -1891,11 +1969,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement && state.focusedTileKey && !state.videoTiles.has(state.focusedTileKey)) {
-            state.focusedTileKey = null;
-        }
-
-        syncTileLayout();
+        refreshFocusedTile();
     });
 }
 

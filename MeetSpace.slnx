@@ -3,7 +3,9 @@
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
   </Configurations>
-  <Folder Name="/src/" />
+  <Folder Name="/src/">
+    <Project Path="MeetSpace.Mobile/MeetSpace.Mobile.csproj" />
+  </Folder>
   <Folder Name="/src/MeetSpace.Core/">
     <Project Path="MeetSpace.Client.Application/MeetSpace.Client.App.csproj">
       <BuildType Solution="Debug|x64" Project="Release" />

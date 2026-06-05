@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MeetSpace.Mobile.MainPage">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24,24,24,32" Spacing="12">
+            <Label Text="MeetSpace Mobile" Style="{StaticResource Headline}" />
+            <Label Text="Минимальный функциональный каркас: auth + realtime" Style="{StaticResource SubHeadline}" />
+            <Label x:Name="AuthStatusLabel" Text="Auth: not initialized" />
+            <Label x:Name="ConnectionStatusLabel" Text="Realtime: not initialized" />
+
+            <Entry x:Name="EmailEntry" Placeholder="Email" Keyboard="Email" />
+            <Entry x:Name="PasswordEntry" Placeholder="Password" IsPassword="True" />
+
+            <Button Text="Sign In" Clicked="OnSignInClicked" />
+            <Button Text="Sign Up" Clicked="OnSignUpClicked" />
+            <Button Text="Connect Realtime" Clicked="OnConnectClicked" />
+            <Button Text="Disconnect Realtime" Clicked="OnDisconnectClicked" />
+            <Button Text="Sign Out" Clicked="OnSignOutClicked" />
+            <Button Text="Refresh Status" Clicked="OnRefreshStatusClicked" />
+
+            <Editor x:Name="LogEditor"
+                    IsReadOnly="True"
+                    AutoSize="TextChanges"
+                    HeightRequest="220" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

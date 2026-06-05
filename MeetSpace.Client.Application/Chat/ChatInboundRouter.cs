@@ -96,6 +96,11 @@ public sealed class ChatInboundRouter : IDisposable
         string? senderEmail = envelope.GetString("senderEmail");
         string? targetUserId = envelope.GetString("targetUserId");
         string? targetPeerId = envelope.GetString("targetPeerId") ?? targetUserId;
+        string? bodyType = envelope.GetString("bodyType") ?? "text";
+        string? fileName = envelope.GetString("fileName");
+        string? mimeType = envelope.GetString("mimeType");
+        long? fileSizeBytes = envelope.GetInt64("fileSizeBytes");
+        string? fileContentBase64 = envelope.GetString("fileContentBase64");
         string? text = envelope.GetString("text");
         string? messageId = envelope.GetString("messageId");
         string? clientRequestId = envelope.GetString("clientRequestId");
@@ -129,6 +134,19 @@ public sealed class ChatInboundRouter : IDisposable
                 "target_peer_id",
                 "targetUserId",
                 "target_user_id");
+            bodyType = payload.GetString("bodyType", "body_type") ?? bodyType ?? "text";
+            fileName ??= payload.GetString("fileName", "file_name");
+            mimeType ??= payload.GetString("mimeType", "mime_type");
+            fileSizeBytes ??= payload.GetInt64("fileSizeBytes", "file_size_bytes");
+            fileContentBase64 ??= payload.GetString("fileContentBase64", "file_content_base64");
+            var metadata = payload.GetObject("metadata", "meta");
+            if (metadata.HasValue)
+            {
+                fileName ??= metadata.Value.GetString("fileName", "file_name");
+                mimeType ??= metadata.Value.GetString("mimeType", "mime_type");
+                fileSizeBytes ??= metadata.Value.GetInt64("fileSizeBytes", "file_size_bytes");
+                fileContentBase64 ??= metadata.Value.GetString("fileContentBase64", "file_content_base64");
+            }
 
             text ??= payload.GetString("text", "message", "body");
             messageId ??= payload.GetString("messageId", "message_id", "id");
@@ -144,6 +162,13 @@ public sealed class ChatInboundRouter : IDisposable
             sentAtRaw ??= payload.GetString("createdAt", "created_at", "sentAt", "sent_at");
         }
 
+        var fileAttachment = BuildFileAttachment(
+            fileName,
+            mimeType,
+            fileSizeBytes,
+            fileContentBase64,
+            string.Equals(bodyType, "file", StringComparison.OrdinalIgnoreCase) ? text : null);
+        text = BuildDisplayText(text, bodyType, fileAttachment);
         var senderIdentity = senderUserId ?? senderPeerId;
         if (string.IsNullOrWhiteSpace(senderIdentity) || string.IsNullOrWhiteSpace(text))
             return;
@@ -170,7 +195,9 @@ public sealed class ChatInboundRouter : IDisposable
             targetId: counterpartId,
             senderUserId: senderUserId,
             senderDisplayName: senderDisplayName,
-            senderEmail: senderEmail);
+            senderEmail: senderEmail,
+            bodyType: bodyType,
+            fileAttachment: fileAttachment);
 
         _store.UpsertMessage(message);
     }
@@ -258,6 +285,40 @@ public sealed class ChatInboundRouter : IDisposable
     public void Dispose()
     {
         _gateway.EnvelopeReceived -= OnEnvelopeReceived;
+    }
+
+    private static ChatFileAttachment? BuildFileAttachment(
+        string? fileName,
+        string? mimeType,
+        long? fileSizeBytes,
+        string? fileContentBase64,
+        string? fallbackFileName)
+    {
+        fileName ??= fallbackFileName;
+        if (string.IsNullOrWhiteSpace(fileName) &&
+            string.IsNullOrWhiteSpace(mimeType) &&
+            !fileSizeBytes.HasValue &&
+            string.IsNullOrWhiteSpace(fileContentBase64))
+        {
+            return null;
+        }
+
+        return new ChatFileAttachment(fileName ?? "file.bin", mimeType, fileSizeBytes, fileContentBase64);
+    }
+
+    private static string? BuildDisplayText(string? rawText, string? bodyType, ChatFileAttachment? fileAttachment)
+    {
+        if (string.Equals(bodyType, "file", StringComparison.OrdinalIgnoreCase))
+        {
+            var fileName = fileAttachment?.FileName;
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = rawText;
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = "Файл";
+            return "📎 " + fileName;
+        }
+
+        return rawText;
     }
 
     private DateTimeOffset ResolveTimestamp(long? unixMs, string? raw)

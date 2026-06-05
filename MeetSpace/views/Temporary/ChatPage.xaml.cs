@@ -4,9 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -16,6 +20,7 @@ namespace MeetSpace.Views.Temporary;
 
 public sealed partial class ChatPage : Page
 {
+    private const ulong MaxAttachmentSizeBytes = 20UL * 1024UL * 1024UL;
     private CancellationTokenSource? _pageLifetimeCts;
     private bool _isSynchronizingDialogsSelection;
     private bool _scrollRequestPending;
@@ -172,6 +177,51 @@ public sealed partial class ChatPage : Page
             MessageTextBox.Text = string.Empty;
     }
 
+    private async void AttachFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker
+        {
+            ViewMode = PickerViewMode.List,
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+        };
+        picker.FileTypeFilter.Add("*");
+        var file = await picker.PickSingleFileAsync();
+        if (file == null)
+            return;
+
+        await SendFileWithConfirmationAsync(file);
+    }
+
+    private void ChatDropArea_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "Отпустите файл для отправки";
+            e.DragUIOverride.IsCaptionVisible = true;
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+        }
+
+        e.DragUIOverride.IsGlyphVisible = true;
+        e.Handled = true;
+    }
+
+    private async void ChatDropArea_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+            return;
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        var file = items?.OfType<StorageFile>().FirstOrDefault();
+        if (file == null)
+            return;
+
+        await SendFileWithConfirmationAsync(file);
+    }
+
     private void DialogsSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         ViewModel.ApplyDialogsFilter(sender?.Text);
@@ -226,5 +276,75 @@ public sealed partial class ChatPage : Page
     private async void IncomingCallOverlay_DeclineRequested(object sender, EventArgs e)
     {
         await ViewModel.DeclineIncomingCallAsync(CurrentToken);
+    }
+
+    private async Task SendFileWithConfirmationAsync(StorageFile file)
+    {
+        if (ViewModel.SelectedDialog == null)
+        {
+            await ShowInfoDialogAsync("Сначала выберите диалог.");
+            return;
+        }
+
+        var properties = await file.GetBasicPropertiesAsync();
+        if (properties.Size == 0)
+        {
+            await ShowInfoDialogAsync("Файл пустой.");
+            return;
+        }
+
+        if (properties.Size > MaxAttachmentSizeBytes)
+        {
+            await ShowInfoDialogAsync(
+                "Файл слишком большой. Максимум: " + FormatFileSize(MaxAttachmentSizeBytes) + ".");
+            return;
+        }
+
+        var confirmed = await ShowSendConfirmationDialogAsync(file.Name, properties.Size);
+        if (!confirmed)
+            return;
+
+        var buffer = await FileIO.ReadBufferAsync(file);
+        var content = buffer.ToArray();
+        var sent = await ViewModel.SendFileAsync(file.Name, content, file.ContentType);
+        if (!sent)
+            await ShowInfoDialogAsync("Не удалось отправить файл.");
+    }
+
+    private async Task<bool> ShowSendConfirmationDialogAsync(string fileName, ulong sizeBytes)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Отправить файл?",
+            Content = fileName + "\n" + FormatFileSize(sizeBytes),
+            PrimaryButtonText = "Отправить",
+            CloseButtonText = "Отмена",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary;
+    }
+
+    private static string FormatFileSize(ulong sizeBytes)
+    {
+        const double kb = 1024d;
+        const double mb = kb * 1024d;
+        if (sizeBytes < 1024)
+            return sizeBytes + " B";
+        if (sizeBytes < 1024 * 1024)
+            return (sizeBytes / kb).ToString("0.#") + " KB";
+        return (sizeBytes / mb).ToString("0.##") + " MB";
+    }
+
+    private static async Task ShowInfoDialogAsync(string text)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Файлы",
+            Content = text,
+            CloseButtonText = "OK"
+        };
+        await dialog.ShowAsync();
     }
 }

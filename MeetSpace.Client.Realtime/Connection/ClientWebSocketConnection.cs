@@ -3,12 +3,16 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using MeetSpace.Client.Realtime.Abstractions;
 
 namespace MeetSpace.Client.Realtime.Connection;
 
+/// <summary>
+/// WebSocket transport implementation with optional certificate bootstrap and auto-reconnect policy.
+/// </summary>
 public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
 {
     private static readonly TimeSpan CertificateBootstrapStepTimeout = TimeSpan.FromSeconds(6);
@@ -36,15 +40,44 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
     private double _reconnectJitterFactor = 0.2;
     private int _reconnectMaxAttempts = 10;
 
+    /// <summary>
+    /// Gets whether websocket is currently open.
+    /// </summary>
     public bool IsConnected => _socket?.State == WebSocketState.Open;
+    /// <summary>
+    /// Gets current reconnect attempt index during active retry loop.
+    /// </summary>
     public int ReconnectAttempt => _reconnectAttempt;
 
+    /// <summary>
+    /// Raised when transport connection is established.
+    /// </summary>
     public event EventHandler? Connected;
+    /// <summary>
+    /// Raised when transport disconnects.
+    /// </summary>
     public event EventHandler? Disconnected;
+    /// <summary>
+    /// Raised when a text payload is received from websocket.
+    /// </summary>
     public event EventHandler<string>? MessageReceived;
+    /// <summary>
+    /// Raised before each reconnect attempt with attempt number.
+    /// </summary>
     public event EventHandler<int>? Reconnecting;
+    /// <summary>
+    /// Raised when reconnect loop finishes without successful reconnection.
+    /// </summary>
     public event EventHandler? ReconnectFailed;
 
+    /// <summary>
+    /// Configures reconnect backoff, jitter, and retry count limits.
+    /// </summary>
+    /// <param name="initialDelayMs">Initial reconnect delay in milliseconds.</param>
+    /// <param name="maxDelayMs">Maximum reconnect delay in milliseconds.</param>
+    /// <param name="backoffMultiplier">Delay multiplier applied after each failed attempt.</param>
+    /// <param name="jitterFactor">Random jitter factor applied to each delay.</param>
+    /// <param name="maxAttempts">Maximum number of reconnect attempts.</param>
     public void SetReconnectPolicy(int initialDelayMs, int maxDelayMs, double backoffMultiplier, double jitterFactor, int maxAttempts)
     {
         _reconnectInitialDelayMs = Math.Max(100, Math.Min(30000, initialDelayMs));
@@ -54,6 +87,10 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         _reconnectMaxAttempts = Math.Max(0, Math.Min(100, maxAttempts));
     }
 
+    /// <summary>
+    /// Enables or disables automatic reconnect loop on disconnect.
+    /// </summary>
+    /// <param name="enabled">Whether reconnect logic should run after disconnect events.</param>
     public void EnableAutoReconnect(bool enabled = true)
     {
         _autoReconnectEnabled = enabled;
@@ -61,6 +98,12 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
             StopReconnectLoop();
     }
 
+    /// <summary>
+    /// Opens websocket connection to endpoint and starts receive loop.
+    /// </summary>
+    /// <param name="endpoint">Absolute websocket endpoint URI.</param>
+    /// <param name="cancellationToken">Cancellation token for connect workflow.</param>
+    /// <returns>A task that completes when connection is open and receive loop is started.</returns>
     public async Task ConnectAsync(Uri endpoint, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -77,16 +120,16 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         _lastEndpoint = endpoint;
         _reconnectAttempt = 0;
         _disconnectRaised = 0;
-        _socket = new ClientWebSocket();
-        _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+        _pinnedCertThumbprint = null;
 
         if (string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
         {
             _pinnedCertThumbprint = await TryBootstrapAndGetThumbprintAsync(endpoint, cancellationToken).ConfigureAwait(false);
-            ApplyPinnedCertValidation();
         }
-
-        await _socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        _socket = await ConnectWithPinnedValidationFallbackAsync(
+            endpoint,
+            _pinnedCertThumbprint,
+            cancellationToken).ConfigureAwait(false);
 
         _receiveCts = new CancellationTokenSource();
         _receiveLoopTask = Task.Run(() => ReceiveLoopAsync(_receiveCts.Token), CancellationToken.None);
@@ -94,6 +137,11 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         Connected?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Gracefully closes websocket connection and stops receive/reconnect processing.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for close workflow.</param>
+    /// <returns>A task that completes after socket resources are disposed.</returns>
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         if (_socket is null)
@@ -132,6 +180,12 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends UTF-8 text payload over open websocket connection.
+    /// </summary>
+    /// <param name="payload">Text payload to send.</param>
+    /// <param name="cancellationToken">Cancellation token for send operation.</param>
+    /// <returns>A task that completes when frame is sent.</returns>
     public async Task SendAsync(string payload, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -237,14 +291,15 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
                 {
                     await DisposeSocketAsync().ConfigureAwait(false);
                     _disconnectRaised = 0;
-                    _socket = new ClientWebSocket();
-                    _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                    _pinnedCertThumbprint = null;
                     if (string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
                     {
                         _pinnedCertThumbprint = await TryBootstrapAndGetThumbprintAsync(endpoint, token).ConfigureAwait(false);
-                        ApplyPinnedCertValidation();
                     }
-                    await _socket.ConnectAsync(endpoint, token).ConfigureAwait(false);
+                    _socket = await ConnectWithPinnedValidationFallbackAsync(
+                        endpoint,
+                        _pinnedCertThumbprint,
+                        token).ConfigureAwait(false);
                     _receiveCts = new CancellationTokenSource();
                     _receiveLoopTask = Task.Run(() => ReceiveLoopAsync(_receiveCts.Token), CancellationToken.None);
                     _reconnectAttempt = 0;
@@ -309,6 +364,12 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Performs short TLS bootstrap handshake to capture server certificate thumbprint for pinning/fallback trust flow.
+    /// </summary>
+    /// <param name="endpoint">Target <c>wss</c> endpoint.</param>
+    /// <param name="cancellationToken">Cancellation token for bootstrap steps.</param>
+    /// <returns>Certificate thumbprint when obtained; otherwise <c>null</c>.</returns>
     private static async Task<string?> TryBootstrapAndGetThumbprintAsync(
         Uri endpoint,
         CancellationToken cancellationToken)
@@ -390,38 +451,176 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
         return thumbprint;
     }
 
-    private void ApplyPinnedCertValidation()
+    private static ClientWebSocket CreateConfiguredSocket(string? pinnedCertThumbprint)
     {
-        if (string.IsNullOrWhiteSpace(_pinnedCertThumbprint))
-            return;
+        var socket = new ClientWebSocket();
+        socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
+        if (!string.IsNullOrWhiteSpace(pinnedCertThumbprint))
+            ApplyPinnedCertValidation(socket, pinnedCertThumbprint);
+
+        return socket;
+    }
+
+    /// <summary>
+    /// Connects socket with pinned certificate callback and transparently falls back when runtime does not support callback APIs.
+    /// </summary>
+    /// <param name="endpoint">Target websocket endpoint.</param>
+    /// <param name="pinnedCertThumbprint">Optional pinned thumbprint from bootstrap step.</param>
+    /// <param name="cancellationToken">Cancellation token for connect operation.</param>
+    /// <returns>Connected websocket instance.</returns>
+    private async Task<ClientWebSocket> ConnectWithPinnedValidationFallbackAsync(
+        Uri endpoint,
+        string? pinnedCertThumbprint,
+        CancellationToken cancellationToken)
+    {
+        var socket = CreateConfiguredSocket(pinnedCertThumbprint);
 
         try
         {
-            var pinnedThumbprint = _pinnedCertThumbprint;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+            await socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            return socket;
+        }
+        catch (Exception ex) when (!string.IsNullOrWhiteSpace(pinnedCertThumbprint) &&
+                                   IsRemoteCertificateValidationCallbackNotSupported(ex))
+        {
+            try
             {
-                if (sslPolicyErrors == SslPolicyErrors.None)
-                    return true;
+                socket.Dispose();
+            }
+            catch
+            {
+            }
 
-                if (certificate != null)
-                {
-                    try
-                    {
-                        using var wrappedCert = new X509Certificate2(certificate);
-                        if (string.Equals(wrappedCert.Thumbprint, pinnedThumbprint, StringComparison.OrdinalIgnoreCase))
-                            return true;
-                    }
-                    catch
-                    {
-                    }
-                }
+            _pinnedCertThumbprint = null;
+            var fallbackSocket = CreateConfiguredSocket(null);
+            await fallbackSocket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            return fallbackSocket;
+        }
+    }
 
+    private static void ApplyPinnedCertValidation(ClientWebSocket socket, string pinnedThumbprint)
+    {
+        if (socket == null || string.IsNullOrWhiteSpace(pinnedThumbprint))
+            return;
+        if (IsPinnedCallbackUnsupportedRuntime())
+            return;
+
+        var callback = CreatePinnedCertValidationCallback(pinnedThumbprint);
+
+        if (TryApplySocketPinnedCertValidation(socket.Options, callback))
+            return;
+
+        TryApplyGlobalPinnedCertValidation(callback);
+    }
+
+    private static bool IsPinnedCallbackUnsupportedRuntime()
+    {
+        return IsRunningOnUwp();
+    }
+
+    private static bool IsRunningOnUwp()
+    {
+        try
+        {
+            return Type.GetType("Windows.ApplicationModel.Package, Windows, ContentType=WindowsRuntime") != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static RemoteCertificateValidationCallback CreatePinnedCertValidationCallback(string pinnedThumbprint)
+    {
+        return (sender, certificate, chain, sslPolicyErrors) =>
+        {
+            if (sslPolicyErrors == SslPolicyErrors.None)
+                return true;
+
+            if (certificate == null)
                 return false;
-            };
+
+            try
+            {
+                using var wrappedCert = new X509Certificate2(certificate);
+                return string.Equals(
+                    wrappedCert.Thumbprint,
+                    pinnedThumbprint,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        };
+    }
+
+    private static bool TryApplySocketPinnedCertValidation(
+        ClientWebSocketOptions options,
+        RemoteCertificateValidationCallback callback)
+    {
+        try
+        {
+            var callbackProperty = options
+                .GetType()
+                .GetProperty("RemoteCertificateValidationCallback", BindingFlags.Public | BindingFlags.Instance);
+
+            if (callbackProperty == null || !callbackProperty.CanWrite)
+                return false;
+
+            if (!callbackProperty.PropertyType.IsAssignableFrom(callback.GetType()))
+                return false;
+
+            callbackProperty.SetValue(options, callback);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void TryApplyGlobalPinnedCertValidation(RemoteCertificateValidationCallback callback)
+    {
+        try
+        {
+            ServicePointManager.ServerCertificateValidationCallback = callback;
         }
         catch
         {
         }
+    }
+
+    private static bool IsRemoteCertificateValidationCallbackNotSupported(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            var message = current.Message ?? string.Empty;
+            var mentionsRemoteCallback =
+                message.IndexOf("RemoteCertificateValidationCallback", StringComparison.OrdinalIgnoreCase) >= 0;
+            var mentionsCertificateCallback =
+                message.IndexOf("certificatevalidationcallback", StringComparison.OrdinalIgnoreCase) >= 0;
+            var indicatesUnsupported =
+                message.IndexOf("not supported", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("unsupported", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("не поддерж", StringComparison.OrdinalIgnoreCase) >= 0;
+            var notSupportedException =
+                current is PlatformNotSupportedException || current is NotSupportedException;
+
+            if ((mentionsRemoteCallback || mentionsCertificateCallback) &&
+                (notSupportedException || indicatesUnsupported))
+            {
+                return true;
+            }
+
+            if (notSupportedException && indicatesUnsupported)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsCertificateAlreadyTrusted(X509Certificate2 certificate)
@@ -485,6 +684,9 @@ public sealed class ClientWebSocketConnection : IRealtimeConnection, IDisposable
             throw new ObjectDisposedException(nameof(ClientWebSocketConnection));
     }
 
+    /// <summary>
+    /// Releases socket, cancellation tokens, and synchronization resources.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)

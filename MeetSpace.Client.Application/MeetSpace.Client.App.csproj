@@ -3,8 +3,6 @@
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<LangVersion>10.0</LangVersion>
 		<Nullable>disable</Nullable>
-		<Platforms>x64</Platforms>
-		<PlatformTarget>x64</PlatformTarget>
 		<OutputType>Library</OutputType>
 		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 	</PropertyGroup>
@@ -29,6 +27,7 @@
 	  <ProjectReference Include="..\MeetSpace.Client.Contracts\MeetSpace.Client.Contracts.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Media\MeetSpace.Client.Media.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Realtime\MeetSpace.Client.Realtime.csproj" />
+	  <ProjectReference Include="..\MeetSpace.Client.Security\MeetSpace.Client.Security.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Shared\MeetSpace.Client.Shared.csproj" />
 	  <ProjectReference Include="..\MeetSpace.Client.Domain\MeetSpace.Client.Domain.csproj" />
 	

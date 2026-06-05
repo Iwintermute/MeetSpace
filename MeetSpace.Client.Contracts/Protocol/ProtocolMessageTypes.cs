@@ -16,6 +16,11 @@ public static class ProtocolMessageTypes
     public const string DirectCallAccepted = "direct_call_accepted";
     public const string DirectCallDeclined = "direct_call_declined";
     public const string DirectCallEnded = "direct_call_ended";
+    public const string DirectCallFileOffer = "direct_call_file_offer";
+    public const string DirectCallFileAccept = "direct_call_file_accept";
+    public const string DirectCallFileChunk = "direct_call_file_chunk";
+    public const string DirectCallFileComplete = "direct_call_file_complete";
+    public const string DirectCallFileCancel = "direct_call_file_cancel";
 
     public const string RoomState = "room_state";
     public const string SessionStarted = "session_started";

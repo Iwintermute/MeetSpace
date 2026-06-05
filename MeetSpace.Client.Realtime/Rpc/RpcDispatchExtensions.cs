@@ -3,9 +3,23 @@ using MeetSpace.Client.Shared.Results;
 using System.Linq;
 
 namespace MeetSpace.Client.Realtime.Rpc;
+/// <summary>
+/// Provides helper extensions for fallback dispatch across multiple action candidates.
+/// </summary>
 
 public static class RpcDispatchExtensions
 {
+    /// <summary>
+    /// Tries candidate actions in order and returns first successful dispatch result.
+    /// </summary>
+    /// <param name="rpcClient">RPC client used for dispatching.</param>
+    /// <param name="objectName">Feature object namespace.</param>
+    /// <param name="agent">Feature agent namespace.</param>
+    /// <param name="actions">Ordered list of action candidates to try.</param>
+    /// <param name="ctx">Request context payload.</param>
+    /// <param name="timeout">Per-attempt dispatch timeout.</param>
+    /// <param name="cancellationToken">Cancellation token for dispatch attempts.</param>
+    /// <returns>First successful result, or the latest meaningful failure.</returns>
     public static async Task<Result<FeatureResponseEnvelope>> DispatchFirstAsync(
         this IRealtimeRpcClient rpcClient,
         string objectName,

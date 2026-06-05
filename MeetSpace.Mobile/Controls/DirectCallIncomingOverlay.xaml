@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="MeetSpace.Mobile.Controls.DirectCallIncomingOverlay"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root">
+    <Border
+        Style="{StaticResource CardBorderStyle}"
+        Padding="10">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <VerticalStackLayout Spacing="2">
+                <Label
+                    Style="{StaticResource SectionTitleLabelStyle}"
+                    Text="Входящий звонок" />
+                <Label
+                    Style="{StaticResource CaptionLabelStyle}"
+                    Text="{Binding IncomingCallText, Source={x:Reference Root}}" />
+            </VerticalStackLayout>
+            <HorizontalStackLayout
+                Grid.Column="1"
+                HorizontalOptions="End"
+                Spacing="8">
+                <Button
+                    Style="{StaticResource ToolbarButton}"
+                    Text="Аудио"
+                    Clicked="AcceptAudioButton_Clicked" />
+                <Button
+                    Style="{StaticResource ToolbarButton}"
+                    Text="Видео"
+                    Clicked="AcceptVideoButton_Clicked" />
+                <Button
+                    Style="{StaticResource DangerButtonStyle}"
+                    Text="Отклонить"
+                    Clicked="DeclineButton_Clicked" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Border>
+</ContentView>

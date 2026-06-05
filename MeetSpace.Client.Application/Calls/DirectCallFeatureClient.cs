@@ -106,6 +106,164 @@ public sealed class DirectCallFeatureClient : IDirectCallFeatureClient
         return ParseActiveCalls(response.Value!);
     }
 
+    public async Task<Result> OfferFileAsync(
+        DirectCallFileOfferRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(request, nameof(request));
+
+        var context = CreateCallContext(request.CallId, new Dictionary<string, object?>
+        {
+            ["transferId"] = Guard.NotNullOrWhiteSpace(request.TransferId, nameof(request.TransferId)),
+            ["fileName"] = Guard.NotNullOrWhiteSpace(request.FileName, nameof(request.FileName)),
+            ["mimeType"] = request.MimeType,
+            ["fileSizeBytes"] = request.FileSizeBytes,
+            ["chunkSizeBytes"] = request.ChunkSizeBytes,
+            ["chunkCount"] = request.ChunkCount,
+            ["encryptionAlgorithm"] = Guard.NotNullOrWhiteSpace(request.EncryptionAlgorithm, nameof(request.EncryptionAlgorithm))
+        });
+
+        if (!string.IsNullOrWhiteSpace(request.TargetPeerId))
+            context["targetPeerId"] = request.TargetPeerId;
+        if (!string.IsNullOrWhiteSpace(request.ClientRequestId))
+            context["clientRequestId"] = request.ClientRequestId;
+
+        var response = await DispatchAsync(
+            DirectCallProtocol.FileOfferActions,
+            context,
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> AcceptFileAsync(
+        DirectCallFileAcceptRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(request, nameof(request));
+
+        var context = CreateCallContext(request.CallId, new Dictionary<string, object?>
+        {
+            ["transferId"] = Guard.NotNullOrWhiteSpace(request.TransferId, nameof(request.TransferId)),
+            ["accepted"] = request.Accepted,
+            ["reason"] = request.Reason
+        });
+
+        if (!string.IsNullOrWhiteSpace(request.TargetPeerId))
+            context["targetPeerId"] = request.TargetPeerId;
+        if (!string.IsNullOrWhiteSpace(request.ClientRequestId))
+            context["clientRequestId"] = request.ClientRequestId;
+
+        var response = await DispatchAsync(
+            DirectCallProtocol.FileAcceptActions,
+            context,
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> SendFileChunkAsync(
+        DirectCallFileChunkRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(request, nameof(request));
+
+        JsonElement encryptedPayload;
+        try
+        {
+            encryptedPayload = JsonSerializer.Deserialize<JsonElement>(
+                Guard.NotNullOrWhiteSpace(request.EncryptedPayloadJson, nameof(request.EncryptedPayloadJson)));
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure(new Error("direct_call.file_chunk.invalid_payload", ex.Message));
+        }
+
+        var context = CreateCallContext(request.CallId, new Dictionary<string, object?>
+        {
+            ["transferId"] = Guard.NotNullOrWhiteSpace(request.TransferId, nameof(request.TransferId)),
+            ["chunkIndex"] = request.ChunkIndex,
+            ["chunkCount"] = request.ChunkCount,
+            ["encryptedPayload"] = encryptedPayload,
+            ["chunkSha256"] = request.ChunkSha256,
+            ["isLastChunk"] = request.IsLastChunk
+        });
+
+        if (!string.IsNullOrWhiteSpace(request.TargetPeerId))
+            context["targetPeerId"] = request.TargetPeerId;
+        if (!string.IsNullOrWhiteSpace(request.ClientRequestId))
+            context["clientRequestId"] = request.ClientRequestId;
+
+        var response = await DispatchAsync(
+            DirectCallProtocol.FileChunkActions,
+            context,
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> CompleteFileTransferAsync(
+        DirectCallFileCompleteRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(request, nameof(request));
+
+        var context = CreateCallContext(request.CallId, new Dictionary<string, object?>
+        {
+            ["transferId"] = Guard.NotNullOrWhiteSpace(request.TransferId, nameof(request.TransferId)),
+            ["fileSizeBytes"] = request.FileSizeBytes,
+            ["chunkCount"] = request.ChunkCount,
+            ["fileSha256"] = request.FileSha256
+        });
+
+        if (!string.IsNullOrWhiteSpace(request.TargetPeerId))
+            context["targetPeerId"] = request.TargetPeerId;
+        if (!string.IsNullOrWhiteSpace(request.ClientRequestId))
+            context["clientRequestId"] = request.ClientRequestId;
+
+        var response = await DispatchAsync(
+            DirectCallProtocol.FileCompleteActions,
+            context,
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
+    public async Task<Result> CancelFileTransferAsync(
+        DirectCallFileCancelRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.NotNull(request, nameof(request));
+
+        var context = CreateCallContext(request.CallId, new Dictionary<string, object?>
+        {
+            ["transferId"] = Guard.NotNullOrWhiteSpace(request.TransferId, nameof(request.TransferId)),
+            ["reason"] = request.Reason
+        });
+
+        if (!string.IsNullOrWhiteSpace(request.TargetPeerId))
+            context["targetPeerId"] = request.TargetPeerId;
+        if (!string.IsNullOrWhiteSpace(request.ClientRequestId))
+            context["clientRequestId"] = request.ClientRequestId;
+
+        var response = await DispatchAsync(
+            DirectCallProtocol.FileCancelActions,
+            context,
+            cancellationToken).ConfigureAwait(false);
+
+        return response.IsSuccess
+            ? Result.Success()
+            : Result.Failure(response.Error!);
+    }
+
     public async Task<Result<WebRtcTransportInfo>> OpenTransportAsync(
         string callId,
         string transportId,

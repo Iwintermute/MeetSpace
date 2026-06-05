@@ -14,15 +14,18 @@ public sealed class CallInboundRouter : IDisposable
     private readonly IRealtimeGateway _gateway;
     private readonly CallStore _callStore;
     private readonly SessionStore _sessionStore;
+    private readonly ICallFileTransferService _fileTransferService;
 
     public CallInboundRouter(
         IRealtimeGateway gateway,
         CallStore callStore,
-        SessionStore sessionStore)
+        SessionStore sessionStore,
+        ICallFileTransferService fileTransferService)
     {
         _gateway = gateway;
         _callStore = callStore;
         _sessionStore = sessionStore;
+        _fileTransferService = fileTransferService;
 
         _gateway.EnvelopeReceived += OnEnvelopeReceived;
     }
@@ -42,6 +45,12 @@ public sealed class CallInboundRouter : IDisposable
         if (IsDirectLifecycleEvent(envelope.Type))
         {
             HandleDirectLifecycleEvent(envelope, sessionId);
+            return;
+        }
+
+        if (DirectCallFileTransferPayloadParser.IsFileTransferType(envelope.Type))
+        {
+            _ = HandleFileTransferEnvelopeAsync(envelope);
             return;
         }
 
@@ -313,6 +322,23 @@ public sealed class CallInboundRouter : IDisposable
             "screen" => participant with { HasScreenShare = isPublished },
             _ => participant
         };
+    }
+
+    private async Task HandleFileTransferEnvelopeAsync(FeatureResponseEnvelope envelope)
+    {
+        try
+        {
+            if (!DirectCallFileTransferPayloadParser.TryParseEvent(envelope, out var transferEvent) ||
+                transferEvent == null)
+            {
+                return;
+            }
+
+            await _fileTransferService.HandleInboundEventAsync(transferEvent).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
     }
 
     public void Dispose()

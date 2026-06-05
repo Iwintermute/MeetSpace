@@ -109,8 +109,20 @@ internal static class ChatPayloadParser
                 ?? string.Empty;
 
             var lastMessage = item.GetObject("lastMessage", "last_message");
-            if (string.IsNullOrWhiteSpace(preview) && lastMessage.HasValue)
-                preview = lastMessage.Value.GetString("text", "body", "message") ?? string.Empty;
+            if (lastMessage.HasValue)
+            {
+                var previewBodyType = lastMessage.Value.GetString("bodyType", "body_type") ?? "text";
+                var previewFile = ParseFileAttachment(lastMessage.Value, fallbackFileName: null);
+                var computedPreview = BuildDisplayText(
+                    lastMessage.Value.GetString("text", "body", "message"),
+                    previewBodyType,
+                    previewFile);
+                if (string.IsNullOrWhiteSpace(preview) ||
+                    string.Equals(previewBodyType, "file", StringComparison.OrdinalIgnoreCase))
+                {
+                    preview = computedPreview ?? string.Empty;
+                }
+            }
 
             var unread = item.GetInt64("unreadCount", "unread_count") ?? 0;
 
@@ -221,7 +233,17 @@ internal static class ChatPayloadParser
             if (string.IsNullOrWhiteSpace(senderIdentity))
                 continue;
 
-            var text = item.GetString("text", "message", "body");
+            var bodyType = item.GetString("bodyType", "body_type") ?? "text";
+            var rawText = item.GetString("text", "message", "body");
+            var fileAttachment = ParseFileAttachment(
+                item,
+                fallbackFileName: string.Equals(bodyType, "file", StringComparison.OrdinalIgnoreCase)
+                    ? rawText
+                    : null);
+            var text = BuildDisplayText(
+                rawText,
+                bodyType,
+                fileAttachment);
             if (text is null)
                 continue;
 
@@ -293,7 +315,9 @@ internal static class ChatPayloadParser
                 targetId: targetId,
                 senderUserId: senderUserId,
                 senderDisplayName: senderDisplayName,
-                senderEmail: senderEmail));
+                senderEmail: senderEmail,
+                bodyType: bodyType,
+                fileAttachment: fileAttachment));
         }
 
         return result
@@ -367,5 +391,49 @@ internal static class ChatPayloadParser
             return DateTimeOffset.FromUnixTimeMilliseconds(rawUnix);
 
         return fallback;
+    }
+
+    private static ChatFileAttachment? ParseFileAttachment(JsonElement element, string? fallbackFileName)
+    {
+        var fileName = element.GetString("fileName", "file_name");
+        var mimeType = element.GetString("mimeType", "mime_type");
+        var fileSizeBytes = element.GetInt64("fileSizeBytes", "file_size_bytes");
+        var contentBase64 = element.GetString("fileContentBase64", "file_content_base64");
+
+        var metadata = element.GetObject("metadata", "meta");
+        if (metadata.HasValue)
+        {
+            var metadataNode = metadata.Value;
+            fileName ??= metadataNode.GetString("fileName", "file_name");
+            mimeType ??= metadataNode.GetString("mimeType", "mime_type");
+            fileSizeBytes ??= metadataNode.GetInt64("fileSizeBytes", "file_size_bytes");
+            contentBase64 ??= metadataNode.GetString("fileContentBase64", "file_content_base64");
+        }
+
+        fileName ??= fallbackFileName;
+        if (string.IsNullOrWhiteSpace(fileName) &&
+            string.IsNullOrWhiteSpace(contentBase64) &&
+            !fileSizeBytes.HasValue &&
+            string.IsNullOrWhiteSpace(mimeType))
+        {
+            return null;
+        }
+
+        return new ChatFileAttachment(fileName ?? "file.bin", mimeType, fileSizeBytes, contentBase64);
+    }
+
+    private static string? BuildDisplayText(string? rawText, string bodyType, ChatFileAttachment? fileAttachment)
+    {
+        if (string.Equals(bodyType, "file", StringComparison.OrdinalIgnoreCase))
+        {
+            var fileName = fileAttachment?.FileName;
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = rawText;
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = "Файл";
+            return "📎 " + fileName;
+        }
+
+        return rawText;
     }
 }
